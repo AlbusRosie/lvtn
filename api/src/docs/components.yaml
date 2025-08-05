@@ -1,0 +1,467 @@
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for authentication
+  schemas:
+    User:
+      type: object
+      required:
+        - username
+        - password
+        - role_id
+        - email
+        - name
+      properties:
+        id:
+          type: integer
+          description: The unique identifier of the user
+          readOnly: true
+        username:
+          type: string
+          description: The username of the user
+        password:
+          type: string
+          format: password
+          description: The password of the user
+        role_id:
+          type: integer
+          default: 2
+          description: The role id of the user (1=Admin, 2=Customer, 3=Staff)
+        name:
+          type: string
+          description: The full name of the user
+        email:
+          type: string
+          format: email
+          description: The email address of the user
+        address:
+          type: string
+          description: The address of the user
+        phone:
+          type: string
+          description: The phone number of the user
+        favorite:
+          type: integer
+          description: The favorite status of the user
+          enum: [0, 1]
+          default: 0
+        avatar:
+          type: string
+          readOnly: true
+          description: The file path avatar of the user
+        avatarFile:
+          type: string
+          format: binary
+          writeOnly: true
+          description: The file avatar of the user
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The creation timestamp
+
+    Product:
+      type: object
+      required:
+        - category_id
+        - name
+        - price
+        - stock
+      properties:
+        id:
+          type: integer
+          description: The unique identifier of the product
+          readOnly: true
+        category_id:
+          type: integer
+          description: The ID of the category
+        name:
+          type: string
+          description: The name of the product
+        price:
+          type: number
+          format: decimal
+          minimum: 0
+          description: The price of the product
+        stock:
+          type: integer
+          minimum: 0
+          default: 0
+          description: The stock quantity of the product
+        description:
+          type: string
+          description: The description of the product
+        image:
+          type: string
+          readOnly: true
+          description: The file path image of the product
+        imageFile:
+          type: string
+          format: binary
+          writeOnly: true
+          description: The file image of the product
+        is_available:
+          type: boolean
+          default: true
+          description: The availability status of the product
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The creation timestamp
+        category_name:
+          type: string
+          readOnly: true
+          description: The name of the category
+
+    Category:
+      type: object
+      required:
+        - name
+      properties:
+        id:
+          type: integer
+          description: The unique identifier of the category
+          readOnly: true
+        name:
+          type: string
+          description: The name of the category
+        description:
+          type: string
+          description: The description of the category
+        image:
+          type: string
+          description: The image path of the category
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The creation timestamp
+
+    Branch:
+      type: object
+      required:
+        - name
+        - address
+        - phone
+      properties:
+        id:
+          type: integer
+          description: The unique identifier of the branch
+          readOnly: true
+        name:
+          type: string
+          description: The name of the branch
+        address:
+          type: string
+          description: The address of the branch
+        phone:
+          type: string
+          description: The phone number of the branch
+        email:
+          type: string
+          format: email
+          description: The email address of the branch
+        manager_id:
+          type: integer
+          nullable: true
+          description: The ID of the branch manager
+        status:
+          type: string
+          enum: [active, inactive, maintenance]
+          default: active
+          description: The status of the branch
+        opening_hours:
+          type: string
+          description: The opening hours of the branch
+        description:
+          type: string
+          description: The description of the branch
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The creation timestamp
+
+    Floor:
+      type: object
+      required:
+        - branch_id
+        - floor_number
+        - name
+      properties:
+        id:
+          type: integer
+          description: The unique identifier of the floor
+          readOnly: true
+        branch_id:
+          type: integer
+          description: The ID of the branch this floor belongs to
+        floor_number:
+          type: integer
+          minimum: 1
+          description: The floor number
+        name:
+          type: string
+          description: The name of the floor
+        description:
+          type: string
+          description: The description of the floor
+        capacity:
+          type: integer
+          minimum: 0
+          default: 0
+          description: The capacity of the floor
+        status:
+          type: string
+          enum: [active, inactive, maintenance]
+          default: active
+          description: The status of the floor
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The creation timestamp
+
+    Table:
+      type: object
+      required:
+        - branch_id
+        - floor_id
+        - table_number
+        - capacity
+      properties:
+        id:
+          type: integer
+          description: The unique identifier of the table
+          readOnly: true
+        branch_id:
+          type: integer
+          description: The ID of the branch this table belongs to
+        floor_id:
+          type: integer
+          description: The ID of the floor this table belongs to
+        table_number:
+          type: string
+          maxLength: 10
+          description: The table number (e.g., T01, T02)
+        capacity:
+          type: integer
+          minimum: 1
+          description: The capacity of the table
+        status:
+          type: string
+          enum: [available, occupied, reserved, maintenance]
+          default: available
+          description: The current status of the table
+        location:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: The location description of the table
+        position_x:
+          type: integer
+          nullable: true
+          description: The X coordinate position of the table
+        position_y:
+          type: integer
+          nullable: true
+          description: The Y coordinate position of the table
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: The creation timestamp
+        branch_name:
+          type: string
+          readOnly: true
+          description: The name of the branch
+        floor_name:
+          type: string
+          readOnly: true
+          description: The name of the floor
+        floor_number:
+          type: integer
+          readOnly: true
+          description: The floor number
+
+    TableCreateRequest:
+      type: object
+      required:
+        - branch_id
+        - floor_id
+        - table_number
+        - capacity
+      properties:
+        branch_id:
+          type: integer
+          description: The ID of the branch
+        floor_id:
+          type: integer
+          description: The ID of the floor
+        table_number:
+          type: string
+          maxLength: 10
+          description: The table number
+        capacity:
+          type: integer
+          minimum: 1
+          description: The capacity of the table
+        location:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: The location description
+
+    TableUpdateRequest:
+      type: object
+      properties:
+        branch_id:
+          type: integer
+          description: The ID of the branch
+        floor_id:
+          type: integer
+          description: The ID of the floor
+        table_number:
+          type: string
+          maxLength: 10
+          description: The table number
+        capacity:
+          type: integer
+          minimum: 1
+          description: The capacity of the table
+        status:
+          type: string
+          enum: [available, occupied, reserved, maintenance]
+          description: The status of the table
+        location:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: The location description
+
+    TableStatusUpdateRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [available, occupied, reserved, maintenance]
+          description: The new status of the table
+
+    TableStatistics:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of tables
+        available:
+          type: integer
+          description: Number of available tables
+        occupied:
+          type: integer
+          description: Number of occupied tables
+        reserved:
+          type: integer
+          description: Number of reserved tables
+        maintenance:
+          type: integer
+          description: Number of tables under maintenance
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [fail, error]
+          description: The status of the response
+        message:
+          type: string
+          description: The error message
+        data:
+          type: object
+          nullable: true
+          description: Additional error data
+
+    responses:
+      '200NoData':
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [success]
+                data:
+                  type: object
+                  nullable: true
+                  default: null
+                  description: The data of the response
+    PaginationMetadata:
+      type: object
+      properties:
+        totalRecords:
+          type: integer
+          description: The total number of records
+        firstPage:
+          type: integer
+          default: 1
+          description: The first page of the records
+        lastPage:
+          type: integer
+          default: 1
+          description: The last page of the records
+        limit:
+          type: integer
+          default: 5
+          description: The limit of the records
+          
+  parameters:
+    userIdParam:
+      name: id
+      in: path
+      required: true
+      description: The ID of the user
+      schema:
+        type: integer
+
+    productIdParam:
+      name: id
+      in: path
+      required: true
+      description: The ID of the product
+      schema:
+        type: integer
+
+    categoryIdParam:
+      name: id
+      in: path
+      required: true
+      description: The ID of the category
+      schema:
+        type: integer
+
+    limitParam:
+      name: limit
+      in: query
+      description: The limit of the records
+      schema:
+        type: integer
+        default: 5
+        minimum: 1
+        maximum: 100
+      required: false
+    pageParam:
+      name: page
+      in: query
+      description: The page of the records
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+      required: false
