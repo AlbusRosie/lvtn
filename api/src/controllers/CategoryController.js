@@ -5,7 +5,8 @@ const { success } = require('../jsend');
 class CategoryController {
   constructor() {
     this.categoryService = new CategoryService();
-  }
+  }
+
   async getAllCategories(req, res, next) {
     try {
       const categories = await this.categoryService.getAllCategories();
@@ -13,7 +14,8 @@ class CategoryController {
     } catch (error) {
       next(error);
     }
-  }
+  }
+
   async getCategoriesWithProductCount(req, res, next) {
     try {
       const categories = await this.categoryService.getCategoriesWithProductCount();
@@ -21,7 +23,8 @@ class CategoryController {
     } catch (error) {
       next(error);
     }
-  }
+  }
+
   async getCategoryById(req, res, next) {
     try {
       const { id } = req.params;
@@ -30,18 +33,19 @@ class CategoryController {
     } catch (error) {
       next(error);
     }
-  }
+  }
+
   async createCategory(req, res, next) {
     try {
-      const { name, description, image } = req.body;
+      const { name, description } = req.body;
+
       if (!name || !name.trim()) {
         throw new ApiError(400, 'Category name is required');
       }
 
       const categoryData = {
         name: name.trim(),
-        description: description ? description.trim() : null,
-        image: image || null
+        description: description ? description.trim() : null
       };
 
       const category = await this.categoryService.createCategory(categoryData);
@@ -49,11 +53,13 @@ class CategoryController {
     } catch (error) {
       next(error);
     }
-  }
+  }
+
   async updateCategory(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, description, image, status } = req.body;
+      const { name, description } = req.body;
+
       if (name !== undefined && (!name || !name.trim())) {
         throw new ApiError(400, 'Category name cannot be empty');
       }
@@ -61,20 +67,19 @@ class CategoryController {
       const categoryData = {};
       if (name !== undefined) categoryData.name = name.trim();
       if (description !== undefined) categoryData.description = description ? description.trim() : null;
-      if (image !== undefined) categoryData.image = image;
-      if (status !== undefined) categoryData.status = status;
 
       const category = await this.categoryService.updateCategory(id, categoryData);
       res.json(success(category, 'Category updated successfully'));
     } catch (error) {
       next(error);
     }
-  }
+  }
+
   async deleteCategory(req, res, next) {
     try {
       const { id } = req.params;
       const result = await this.categoryService.deleteCategory(id);
-      res.json(success(result, 'Category deleted successfully'));
+      res.json(success(result, result.message));
     } catch (error) {
       next(error);
     }

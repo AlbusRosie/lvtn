@@ -10,65 +10,35 @@ const isCollapsed = ref(false);
 
 const menuItems = [
     {
-        title: 'Dashboard',
+        title: 'TRANG CHỦ',
         icon: 'fas fa-home',
         route: '/'
     },
     {
-        title: 'Products',
+        title: 'SẢN PHẨM',
         icon: 'fas fa-box',
         route: '/admin/products'
     },
     {
-        title: 'Tables',
+        title: 'BÀN',
         icon: 'fas fa-table',
         route: '/admin/tables'
     },
     {
-        title: 'Branches',
+        title: 'CHI NHÁNH',
         icon: 'fas fa-building',
         route: '/admin/branches'
     },
     {
-        title: 'Floors',
+        title: 'TẦNG',
         icon: 'fas fa-layer-group',
         route: '/admin/floors'
     },
     {
-        title: 'Categories',
+        title: 'DANH MỤC THỰC ĐƠN',
         icon: 'fas fa-tags',
         route: '/admin/categories'
     },
-    {
-        title: 'Orders',
-        icon: 'fas fa-shopping-cart',
-        route: '/orders'
-    },
-    {
-        title: 'Customers',
-        icon: 'fas fa-users',
-        route: '/customers'
-    },
-    {
-        title: 'Categories',
-        icon: 'fas fa-tags',
-        route: '/categories'
-    },
-    {
-        title: 'Promotions',
-        icon: 'fas fa-percent',
-        route: '/promotions'
-    },
-    {
-        title: 'Reports',
-        icon: 'fas fa-chart-bar',
-        route: '/reports'
-    },
-    {
-        title: 'Settings',
-        icon: 'fas fa-cog',
-        route: '/settings'
-    }
 ];
 
 const toggleSidebar = () => {
@@ -105,7 +75,7 @@ function handleLogout() {
         </router-link>
         <button class="nav-item logout-btn" @click="handleLogout">
             <i class="fas fa-sign-out-alt"></i>
-            <span v-if="!isCollapsed">Đăng xuất</span>
+            <span v-if="!isCollapsed">ĐĂNG XUẤT</span>
         </button>
     </nav>
   </div>

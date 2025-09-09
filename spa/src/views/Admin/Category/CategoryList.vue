@@ -1,7 +1,33 @@
 <template>
   <div class="category-list">
     <div class="page-header">
-      <h1>Quản lý danh mục</h1>
+      <div class="header-left">
+        <h1>Quản lý danh mục</h1>
+        <div class="search-container">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input
+              v-model="searchTerm"
+              type="text"
+              placeholder="Tìm kiếm danh mục theo tên..."
+              class="search-input"
+            />
+            <button 
+              v-if="searchTerm" 
+              @click="clearSearch" 
+              class="clear-search"
+              title="Xóa tìm kiếm"
+            >
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div v-if="searchTerm" class="search-results-info">
+            <span class="results-count">
+              {{ filteredCategories.length }} kết quả cho "{{ searchTerm }}"
+            </span>
+          </div>
+        </div>
+      </div>
       <button @click="showCreateForm = true" class="btn btn-primary">
         <i class="fas fa-plus"></i>
         Thêm danh mục mới
@@ -25,7 +51,7 @@
       <div v-else-if="filteredCategories.length === 0" class="empty-state">
         <i class="fas fa-tags"></i>
         <h3>Không có danh mục nào</h3>
-        <p v-if="searchTerm || statusFilter">
+        <p v-if="searchTerm">
           Không tìm thấy danh mục phù hợp với bộ lọc hiện tại
         </p>
         <p v-else>
@@ -68,7 +94,18 @@
           <h3>Xác nhận xóa</h3>
         </div>
         <p>Bạn có chắc chắn muốn xóa danh mục <strong>{{ categoryToDelete?.name }}</strong>?</p>
-        <p class="warning">Hành động này không thể hoàn tác và sẽ ảnh hưởng đến các sản phẩm thuộc danh mục này.</p>
+        <div class="warning-box">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <p><strong>Cảnh báo:</strong> Hành động này sẽ:</p>
+            <ul>
+              <li>Xóa tất cả sản phẩm thuộc danh mục này</li>
+              <li>Xóa tất cả quan hệ sản phẩm-chi nhánh</li>
+              <li>Xóa tất cả đơn hàng và đánh giá liên quan</li>
+              <li>Không thể hoàn tác</li>
+            </ul>
+          </div>
+        </div>
         <div class="modal-actions">
           <button @click="showDeleteModal = false" class="btn btn-secondary">
             Hủy
@@ -113,8 +150,7 @@ export default {
       showDeleteModal: false,
       categoryToDelete: null,
       deleteLoading: false,
-      searchTerm: '',
-      statusFilter: ''
+      searchTerm: ''
     };
   },
   computed: {
@@ -122,17 +158,16 @@ export default {
       return AuthService.isAdmin();
     },
     filteredCategories() {
-      let filtered = [...this.categories];
+      let filtered = [...this.categories];
+
       if (this.searchTerm) {
         const term = this.searchTerm.toLowerCase();
         filtered = filtered.filter(category =>
           category.name.toLowerCase().includes(term) ||
           category.description?.toLowerCase().includes(term)
         );
-      }
-      if (this.statusFilter) {
-        filtered = filtered.filter(category => category.status === this.statusFilter);
       }
+
 
       return filtered;
     }
@@ -163,7 +198,8 @@ export default {
     async handleFormSubmit(formData) {
       this.formLoading = true;
 
-      try {
+      try {
+
         if (formData && formData.target && formData.target.tagName === 'FORM') {
           this.$toast.error('Lỗi: Dữ liệu form không hợp lệ');
           return;
@@ -188,7 +224,8 @@ export default {
 
         await this.loadCategories();
         this.closeModal();
-      } catch (error) {
+      } catch (error) {
+
         let errorMessage = 'Có lỗi xảy ra';
         if (error.response && error.response.data) {
           errorMessage = error.response.data.message || error.response.data.error || errorMessage;
@@ -218,12 +255,17 @@ export default {
 
       try {
         const token = AuthService.getToken();
-        await CategoryService.deleteCategory(this.categoryToDelete.id, token);
+        const result = await CategoryService.deleteCategory(this.categoryToDelete.id, token);
+
+        let successMessage = 'Xóa danh mục thành công!';
+        if (result.deletedProductsCount > 0) {
+          successMessage = `Xóa danh mục thành công! Đã xóa ${result.deletedProductsCount} sản phẩm liên quan.`;
+        }
 
         if (this.toast) {
-          this.toast.success('Xóa danh mục thành công!');
+          this.toast.success(successMessage);
         } else {
-          alert('Xóa danh mục thành công!');
+          alert(successMessage);
         }
         await this.loadCategories();
         this.showDeleteModal = false;
@@ -243,6 +285,10 @@ export default {
     closeModal() {
       this.showCreateForm = false;
       this.editingCategory = null;
+    },
+
+    clearSearch() {
+      this.searchTerm = '';
     }
   }
 };
@@ -256,14 +302,86 @@ export default {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 24px;
+  gap: 20px;
+}
+
+.header-left {
+  flex: 1;
 }
 
 .page-header h1 {
-  margin: 0;
+  margin: 0 0 16px 0;
   color: #1f2937;
   font-size: 2rem;
+}
+
+.search-container {
+  max-width: 400px;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 12px;
+  transition: all 0.2s ease;
+}
+
+.search-box:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.search-box i {
+  color: #9ca3af;
+  margin-right: 8px;
+  font-size: 0.9rem;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 0.9rem;
+  color: #374151;
+  background: transparent;
+}
+
+.search-input::placeholder {
+  color: #9ca3af;
+}
+
+.clear-search {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clear-search:hover {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.search-results-info {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.results-count {
+  font-weight: 500;
 }
 
 .btn {
@@ -277,6 +395,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .btn:hover:not(:disabled) {
@@ -411,6 +530,40 @@ export default {
 .warning {
   color: #ef4444;
   font-weight: 500;
+}
+
+.warning-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 12px;
+  margin: 12px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.warning-box i {
+  color: #dc2626;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.warning-box p {
+  margin: 0 0 8px 0;
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.warning-box ul {
+  margin: 0;
+  padding-left: 16px;
+  color: #dc2626;
+}
+
+.warning-box li {
+  margin: 4px 0;
+  font-size: 14px;
 }
 
 .modal-actions {

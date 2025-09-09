@@ -82,8 +82,17 @@ async function updateProduct(req, res, next) {
             return next(new ApiError(400, 'Invalid status value'));
         }
 
+        const updateData = { ...req.body };
+        if (req.file) {
+            updateData.image = `/public/uploads/${req.file.filename}`;
+        }
+
+        if (updateData.is_available !== undefined) {
+            updateData.is_available = updateData.is_available === 'true' || updateData.is_available === true ? 1 : 0;
+        }
+
         const { id } = req.params;
-        const product = await ProductService.updateProduct(id, req.body);
+        const product = await ProductService.updateProduct(id, updateData);
 
         if (!product) {
             return next(new ApiError(404, 'Product not found'));
@@ -91,6 +100,12 @@ async function updateProduct(req, res, next) {
 
         res.json(JSend.success(product, 'Product updated successfully'));
     } catch (error) {
+        if (error.message === 'No valid fields to update') {
+            return next(new ApiError(400, 'No changes detected. Please modify at least one field.'));
+        }
+        if (error.message === 'Stock must be greater than 0 when status is active') {
+            return next(new ApiError(400, 'Số lượng sản phẩm phải lớn hơn 0 khi trạng thái là hoạt động'));
+        }
         next(error);
     }
 }

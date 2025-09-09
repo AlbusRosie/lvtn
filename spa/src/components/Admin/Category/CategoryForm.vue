@@ -24,13 +24,6 @@
         ></textarea>
       </div>
 
-      <div class="form-group" v-if="isEditing">
-        <label for="status">Trạng thái</label>
-        <select id="status" v-model="form.status" required>
-          <option value="active">Hoạt động</option>
-          <option value="inactive">Không hoạt động</option>
-        </select>
-      </div>
 
       <div class="form-actions">
         <button type="button" @click="$emit('cancel')" class="btn btn-secondary">
@@ -62,8 +55,7 @@ export default {
     return {
       form: {
         name: '',
-        description: '',
-        status: 'active'
+        description: ''
       }
     };
   },
@@ -78,8 +70,7 @@ export default {
         if (newCategory) {
           this.form = {
             name: newCategory.name,
-            description: newCategory.description || '',
-            status: newCategory.status || 'active'
+            description: newCategory.description || ''
           };
         } else {
           this.resetForm();
@@ -92,12 +83,12 @@ export default {
     resetForm() {
       this.form = {
         name: '',
-        description: '',
-        status: 'active'
+        description: ''
       };
     },
 
-    handleSubmit() {
+    handleSubmit() {
+
       if (!this.form.name || !this.form.name.trim()) {
         if (this.$toast) {
           this.$toast.error('Vui lòng nhập tên danh mục');

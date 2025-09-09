@@ -3,9 +3,6 @@
     <div class="category-header">
       <div class="category-info">
         <h3 class="category-name">{{ category.name }}</h3>
-        <span class="category-status" :class="`status-${category.status === 'active' ? 'active' : 'inactive'}`">
-          {{ getStatusLabel(category.status) }}
-        </span>
       </div>
       <div class="category-actions" v-if="isAdmin">
         <button @click="$emit('edit', category)" class="btn-icon" title="Chỉnh sửa">
@@ -59,10 +56,6 @@ export default {
     }
   },
   methods: {
-    getStatusLabel(status) {
-      return status === 'active' ? 'Hoạt động' : 'Không hoạt động';
-    },
-
     formatDate(dateString) {
       if (!dateString) return '';
       const date = new Date(dateString);
@@ -105,24 +98,6 @@ export default {
   font-weight: 600;
 }
 
-.category-status {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-transform: uppercase;
-}
-
-.status-active {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-inactive {
-  background: #fef2f2;
-  color: #dc2626;
-}
 
 .category-actions {
   display: flex;

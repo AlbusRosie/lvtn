@@ -144,6 +144,10 @@ async function updateProduct(id, payload) {
 
     const update = readProduct(payload);
 
+    if (Object.keys(update).length === 0) {
+        throw new Error('No valid fields to update');
+    }
+
     if (update.price !== undefined) {
         const price = parseFloat(update.price);
         if (isNaN(price) || price <= 0) {
@@ -159,6 +163,21 @@ async function updateProduct(id, payload) {
 
     if (update.status && !['active', 'inactive', 'out_of_stock'].includes(update.status)) {
         throw new Error('Invalid status value');
+    }
+
+    if (update.status) {
+        if (update.status === 'out_of_stock') {
+            update.stock = 0;
+            update.is_available = false;
+        } else if (update.status === 'active') {
+            const currentStock = update.stock !== undefined ? update.stock : existingProduct.stock;
+            if (currentStock <= 0) {
+                throw new Error('Stock must be greater than 0 when status is active');
+            }
+            update.is_available = true;
+        } else if (update.status === 'inactive') {
+            update.is_available = false;
+        }
     }
 
     if (update.category_id !== undefined) {

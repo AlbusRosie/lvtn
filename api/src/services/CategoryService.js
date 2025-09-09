@@ -1,22 +1,24 @@
 const knex = require('../database/knex');
 const ApiError = require('../api-error');
 
-class CategoryService {
+class CategoryService {
+
   async getAllCategories() {
     try {
       const categories = await knex('categories')
-        .select('*')
+        .select('id', 'name', 'description', 'created_at')
         .orderBy('name', 'asc');
 
       return categories;
     } catch (error) {
       throw new ApiError(500, 'Database error: ' + error.message);
     }
-  }
+  }
+
   async getCategoryById(id) {
     try {
       const category = await knex('categories')
-        .select('*')
+        .select('id', 'name', 'description', 'created_at')
         .where('id', id)
         .first();
 
@@ -31,9 +33,11 @@ class CategoryService {
       }
       throw new ApiError(500, 'Database error: ' + error.message);
     }
-  }
+  }
+
   async createCategory(categoryData) {
-    try {
+    try {
+
       const existingCategory = await knex('categories')
         .where('name', categoryData.name)
         .first();
@@ -53,16 +57,19 @@ class CategoryService {
       }
       throw new ApiError(500, 'Database error: ' + error.message);
     }
-  }
+  }
+
   async updateCategory(id, categoryData) {
-    try {
+    try {
+
       const existingCategory = await knex('categories')
         .where('id', id)
         .first();
 
       if (!existingCategory) {
         throw new ApiError(404, 'Category not found');
-      }
+      }
+
       if (categoryData.name && categoryData.name !== existingCategory.name) {
         const nameConflict = await knex('categories')
           .where('name', categoryData.name)
@@ -78,12 +85,6 @@ class CategoryService {
         .where('id', id)
         .update(categoryData);
 
-      if (categoryData.status === 'inactive') {
-        await knex('products')
-          .where('category_id', id)
-          .update({ status: 'inactive' });
-      }
-
       return this.getCategoryById(id);
     } catch (error) {
       if (error instanceof ApiError) {
@@ -91,42 +92,82 @@ class CategoryService {
       }
       throw new ApiError(500, 'Database error: ' + error.message);
     }
-  }
+  }
+
   async deleteCategory(id) {
-    try {
+    try {
+
       const existingCategory = await knex('categories')
         .where('id', id)
         .first();
 
       if (!existingCategory) {
         throw new ApiError(404, 'Category not found');
-      }
-      const productsCount = await knex('products')
-        .where('category_id', id)
-        .count('* as count')
-        .first();
-
-      if (productsCount.count > 0) {
-        throw new ApiError(400, 'Cannot delete category that has products');
       }
 
+      // Lấy danh sách sản phẩm thuộc danh mục này
+      const products = await knex('products')
+        .where('category_id', id)
+        .select('id', 'image');
+
+      // Xóa các sản phẩm thuộc danh mục này
+      if (products.length > 0) {
+        // Xóa các quan hệ branch_products trước
+        await knex('branch_products')
+          .whereIn('product_id', products.map(p => p.id))
+          .del();
+
+        // Xóa các order_details liên quan
+        await knex('order_details')
+          .whereIn('product_id', products.map(p => p.id))
+          .del();
+
+        // Xóa các reviews liên quan
+        await knex('reviews')
+          .whereIn('product_id', products.map(p => p.id))
+          .del();
+
+        // Xóa các sản phẩm
+        await knex('products')
+          .where('category_id', id)
+          .del();
+
+        // Xóa các file hình ảnh của sản phẩm (nếu có)
+        const { unlink } = require('node:fs');
+        products.forEach((product) => {
+          if (product.image && product.image.startsWith('/public/uploads')) {
+            unlink(`.${product.image}`, (err) => {
+              if (err) console.log('Error deleting product image:', err);
+            });
+          }
+        });
+      }
+
+      // Xóa danh mục
       await knex('categories')
         .where('id', id)
         .del();
 
-      return { message: 'Category deleted successfully' };
+      return { 
+        message: 'Category and all related products deleted successfully',
+        deletedProductsCount: products.length
+      };
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
       }
       throw new ApiError(500, 'Database error: ' + error.message);
     }
-  }
+  }
+
   async getCategoriesWithProductCount() {
     try {
       const categories = await knex('categories')
         .select(
-          'categories.*',
+          'categories.id',
+          'categories.name',
+          'categories.description',
+          'categories.created_at',
           knex.raw('COUNT(products.id) as product_count')
         )
         .leftJoin('products', 'categories.id', 'products.category_id')
