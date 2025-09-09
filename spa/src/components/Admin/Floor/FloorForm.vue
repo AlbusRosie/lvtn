@@ -35,33 +35,22 @@
 
       <div class="form-group">
         <label for="floor_number">Số tầng *</label>
-        <div class="floor-number-input">
-          <input
-            id="floor_number"
-            v-model.number="form.floor_number"
-            type="number"
-            min="1"
-            required
-            placeholder="VD: 1, 2, 3..."
-            :disabled="isEditing"
-          />
-          <button
-            v-if="!isEditing && form.branch_id"
-            type="button"
-            @click="generateFloorNumber"
-            class="btn btn-auto-generate"
-            title="Tự động tạo số tầng"
-          >
-            <i class="fas fa-magic"></i>
-          </button>
+        <div class="floor-number-display">
+          <div class="floor-number-value">
+            <i class="fas fa-hashtag"></i>
+            <span v-if="form.floor_number">{{ form.floor_number }}</span>
+            <span v-else class="placeholder">Đang tạo...</span>
+          </div>
         </div>
         <small class="form-text">
-          Số tầng phải là duy nhất trong chi nhánh.
-          <span v-if="!isEditing && form.branch_id">
-            Click nút <i class="fas fa-magic"></i> để tự động tạo số tầng.
-          </span>
+          <i class="fas fa-info-circle"></i>
+          Số tầng được tự động tạo dựa trên số tầng hiện có trong chi nhánh.
           <span v-if="floorCount > 0" class="floor-count-info">
             Hiện tại có {{ floorCount }} tầng trong chi nhánh này.
+            <span v-if="nextFloorNumber">Số tầng tiếp theo: <strong>{{ nextFloorNumber }}</strong></span>
+          </span>
+          <span v-if="!isEditing && form.branch_id && !form.floor_number" class="loading-info">
+            <i class="fas fa-spinner fa-spin"></i> Đang tạo số tầng...
           </span>
         </small>
       </div>
@@ -75,6 +64,13 @@
           required
           placeholder="VD: Tầng 1, Tầng lầu, Tầng VIP..."
         />
+        <small class="form-text">
+          <i class="fas fa-info-circle"></i>
+          Tên tầng sẽ được tự động tạo khi chọn chi nhánh, hoặc bạn có thể nhập tên tùy chỉnh.
+          <span v-if="form.branch_id && form.floor_number" class="name-preview">
+            Ví dụ: <strong>Tầng {{ form.floor_number }} - {{ getBranchName(form.branch_id) }}</strong>
+          </span>
+        </small>
       </div>
 
       <div class="form-group">
@@ -146,7 +142,8 @@ export default {
         status: 'active'
       },
       branches: [],
-      floorCount: 0
+      floorCount: 0,
+      nextFloorNumber: null
     };
   },
   computed: {
@@ -168,7 +165,8 @@ export default {
             capacity: newFloor.capacity,
             description: newFloor.description || '',
             status: newFloor.status
-          };
+          };
+
           this.loadBranchInfo(newFloor.branch_id);
         } else {
           this.resetForm();
@@ -189,7 +187,8 @@ export default {
     async loadBranchInfo(branchId) {
       try {
         const BranchService = await import('@/services/BranchService');
-        const branch = await BranchService.default.getBranchById(branchId);
+        const branch = await BranchService.default.getBranchById(branchId);
+
       } catch (error) {
       }
     },
@@ -199,9 +198,21 @@ export default {
       return branch ? branch.name : 'Không xác định';
     },
 
-    handleBranchChange() {
+    async handleBranchChange() {
       if (!this.isEditing && this.form.branch_id) {
-        this.generateFloorNumber();
+        // Hiển thị loading state
+        this.form.floor_number = '';
+        this.form.name = '';
+        this.nextFloorNumber = null;
+        this.floorCount = 0;
+        
+        // Tự động tạo số tầng và tên tầng
+        await this.generateFloorNumber();
+      } else if (!this.isEditing) {
+        this.form.floor_number = '';
+        this.form.name = '';
+        this.nextFloorNumber = null;
+        this.floorCount = 0;
       }
     },
 
@@ -212,16 +223,29 @@ export default {
 
       try {
         const FloorService = await import('@/services/FloorService');
-        const result = await FloorService.default.generateNextFloorNumber(this.form.branch_id);
-        this.floorCount = result.currentFloorCount;
-        this.form.floor_number = result.nextFloorNumber;
-        if (this.$toast) {
-          this.$toast.success(`Đã tạo số tầng: ${result.nextFloorNumber}`);
-        }
-      } catch (error) {
+        const result = await FloorService.default.generateNextFloorNumber(this.form.branch_id);
+
+        this.floorCount = result.currentFloorCount;
+        this.nextFloorNumber = result.nextFloorNumber;
+        this.form.floor_number = result.nextFloorNumber;
+        
+        // Tự động tạo tên tầng sau khi có số tầng
+        this.generateFloorName();
+      } catch (error) {
+        console.error('Error generating floor number:', error);
         this.form.floor_number = 1;
+        this.nextFloorNumber = 1;
         this.floorCount = 0;
       }
+    },
+
+    generateFloorName() {
+      if (!this.form.branch_id || !this.form.floor_number) {
+        return;
+      }
+
+      const branchName = this.getBranchName(this.form.branch_id);
+      this.form.name = `Tầng ${this.form.floor_number} - ${branchName}`;
     },
 
     resetForm() {
@@ -234,15 +258,38 @@ export default {
         status: 'active'
       };
       this.floorCount = 0;
+      this.nextFloorNumber = null;
     },
 
-    handleSubmit() {
-      if (!this.form.branch_id || !this.form.floor_number || !this.form.name || !this.form.capacity) {
+    handleSubmit() {
+      if (!this.form.branch_id) {
         if (this.$toast) {
-          this.$toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
+          this.$toast.error('Vui lòng chọn chi nhánh');
         }
         return;
-      }
+      }
+
+      if (!this.form.floor_number) {
+        if (this.$toast) {
+          this.$toast.error('Vui lòng chọn chi nhánh để tự động tạo số tầng');
+        }
+        return;
+      }
+
+      if (!this.form.name) {
+        if (this.$toast) {
+          this.$toast.error('Vui lòng điền tên tầng');
+        }
+        return;
+      }
+
+      if (!this.form.capacity) {
+        if (this.$toast) {
+          this.$toast.error('Vui lòng điền sức chứa');
+        }
+        return;
+      }
+
       if (this.isEditing && this.floor) {
         if (this.form.branch_id !== this.floor.branch_id) {
           if (this.$toast) {
@@ -381,31 +428,52 @@ export default {
   margin-left: 8px;
 }
 
-.floor-number-input {
+.loading-info {
+  color: #3b82f6;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.loading-info i {
+  margin-right: 4px;
+}
+
+.floor-number-display {
   display: flex;
-  gap: 8px;
   align-items: center;
 }
 
-.floor-number-input input {
-  flex: 1;
+.floor-number-value {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: #f9fafb;
+  color: #374151;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
 }
 
-.btn-auto-generate {
-  padding: 10px 12px;
-  background: #10b981;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+.floor-number-value i {
+  color: #6b7280;
   font-size: 0.9rem;
 }
 
-.btn-auto-generate:hover {
-  background: #059669;
-  transform: translateY(-1px);
+.floor-number-value .placeholder {
+  color: #9ca3af;
+  font-style: italic;
 }
+
+
+.name-preview {
+  color: #6b7280;
+  font-style: italic;
+  margin-left: 8px;
+}
+
 
 .form-actions {
   display: flex;

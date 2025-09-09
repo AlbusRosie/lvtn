@@ -2,7 +2,7 @@
   <div class="floor-card">
     <div class="floor-header">
       <div class="floor-info">
-        <h3 class="floor-name">{{ floor.name }}</h3>
+        <h3 class="floor-name">{{ getDisplayName() }}</h3>
         <span class="floor-status" :class="`status-${floor.status}`">
           {{ getStatusLabel(floor.status) }}
         </span>
@@ -66,6 +66,19 @@ export default {
     }
   },
   methods: {
+    getDisplayName() {
+      const branchName = this.floor.branch_name || 'Chi nhánh không xác định';
+      const floorName = this.floor.name || 'Tầng không xác định';
+      
+      // Nếu tên tầng đã chứa tên chi nhánh thì hiển thị nguyên văn
+      if (floorName.includes(branchName) || floorName.includes('Chi nhánh')) {
+        return floorName;
+      }
+      
+      // Nếu chưa có tên chi nhánh thì thêm vào
+      return `${floorName} - ${branchName}`;
+    },
+
     getStatusLabel(status) {
       const statusMap = {
         [FLOOR_STATUS.ACTIVE]: 'Hoạt động',
@@ -113,8 +126,11 @@ export default {
 .floor-name {
   margin: 0 0 8px 0;
   color: #1f2937;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
+  line-height: 1.3;
+  word-wrap: break-word;
+  hyphens: auto;
 }
 
 .floor-status {

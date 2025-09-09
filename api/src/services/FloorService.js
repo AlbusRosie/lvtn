@@ -137,7 +137,6 @@ class FloorService {
 
   async deleteFloor(id) {
     try {
-
       const existingFloor = await knex('floors')
         .where('id', id)
         .first();
@@ -146,20 +145,35 @@ class FloorService {
         throw new ApiError(404, 'Floor not found');
       }
 
+      // Kiểm tra có bàn đang sử dụng không
       const activeTables = await knex('tables')
         .where('floor_id', id)
         .whereIn('status', ['occupied', 'reserved'])
         .first();
 
       if (activeTables) {
-        throw new ApiError(400, 'Cannot delete floor that has occupied or reserved tables');
+        throw new ApiError(400, 'Không thể xóa tầng có bàn đang sử dụng hoặc đã đặt!');
+      }
+
+      // Kiểm tra quy tắc xóa tầng: chỉ được xóa tầng có số tầng lớn nhất
+      const maxFloorNumber = await knex('floors')
+        .where('branch_id', existingFloor.branch_id)
+        .max('floor_number as max_floor')
+        .first();
+
+      if (maxFloorNumber && existingFloor.floor_number < maxFloorNumber.max_floor) {
+        throw new ApiError(400, `Không thể xóa tầng ${existingFloor.floor_number}. Bạn chỉ có thể xóa tầng có số tầng lớn nhất (${maxFloorNumber.max_floor}) trong chi nhánh này. Vui lòng xóa từ tầng cao nhất xuống tầng thấp nhất.`);
       }
 
       await knex('floors')
         .where('id', id)
         .del();
 
-      return { message: 'Floor deleted successfully' };
+      return { 
+        message: 'Floor deleted successfully',
+        deletedFloorNumber: existingFloor.floor_number,
+        branchId: existingFloor.branch_id
+      };
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;

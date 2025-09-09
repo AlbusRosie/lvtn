@@ -8,6 +8,49 @@
       </button>
     </div>
 
+    <!-- Search and Filter Section -->
+    <div class="search-filter-section">
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input
+          v-model="searchTerm"
+          type="text"
+          placeholder="Tìm kiếm theo tên tầng, mô tả hoặc chi nhánh..."
+          class="search-input"
+        />
+        <button v-if="searchTerm" @click="searchTerm = ''" class="clear-search" title="Xóa tìm kiếm">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="filter-controls">
+        <div class="filter-group">
+          <label for="statusFilter">Trạng thái:</label>
+          <select v-model="statusFilter" id="statusFilter" class="filter-select">
+            <option value="">Tất cả</option>
+            <option value="active">Hoạt động</option>
+            <option value="inactive">Không hoạt động</option>
+            <option value="maintenance">Bảo trì</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="branchFilter">Chi nhánh:</label>
+          <select v-model="branchFilter" id="branchFilter" class="filter-select">
+            <option value="">Tất cả</option>
+            <option v-for="branch in branches" :key="branch.id" :value="branch.id">
+              {{ branch.name }}
+            </option>
+          </select>
+        </div>
+
+        <button @click="clearFilters" class="btn btn-secondary btn-sm">
+          <i class="fas fa-times"></i>
+          Xóa bộ lọc
+        </button>
+      </div>
+    </div>
+
     <div class="content-area">
       <div v-if="loading" class="loading">
         <LoadingSpinner />
@@ -65,10 +108,23 @@
       <div class="modal-content delete-modal" @click.stop>
         <div class="delete-header">
           <i class="fas fa-exclamation-triangle"></i>
-          <h3>Xác nhận xóa</h3>
+          <h3>Xác nhận xóa tầng</h3>
         </div>
         <p>Bạn có chắc chắn muốn xóa tầng <strong>{{ floorToDelete?.name }}</strong>?</p>
-        <p class="warning">Hành động này không thể hoàn tác.</p>
+        
+        <div class="warning-box">
+          <i class="fas fa-info-circle"></i>
+          <div>
+            <p><strong>Quy tắc xóa tầng:</strong></p>
+            <ul>
+              <li>Chỉ được xóa tầng có số tầng lớn nhất trong chi nhánh</li>
+              <li>Phải xóa từ tầng cao nhất xuống tầng thấp nhất</li>
+              <li>Không thể xóa tầng có bàn đang sử dụng</li>
+              <li>Hành động này không thể hoàn tác</li>
+            </ul>
+          </div>
+        </div>
+        
         <div class="modal-actions">
           <button @click="showDeleteModal = false" class="btn btn-secondary">
             Hủy
@@ -105,6 +161,7 @@ export default {
   data() {
     return {
       floors: [],
+      branches: [],
       loading: false,
       error: null,
       showCreateForm: false,
@@ -123,7 +180,8 @@ export default {
       return AuthService.isAdmin();
     },
     filteredFloors() {
-      let filtered = [...this.floors];
+      let filtered = [...this.floors];
+
       if (this.searchTerm) {
         const term = this.searchTerm.toLowerCase();
         filtered = filtered.filter(floor =>
@@ -131,10 +189,12 @@ export default {
           floor.description?.toLowerCase().includes(term) ||
           floor.branch_name?.toLowerCase().includes(term)
         );
-      }
+      }
+
       if (this.statusFilter) {
         filtered = filtered.filter(floor => floor.status === this.statusFilter);
-      }
+      }
+
       if (this.branchFilter) {
         filtered = filtered.filter(floor => floor.branch_id == this.branchFilter);
       }
@@ -144,6 +204,7 @@ export default {
   },
   async mounted() {
     await this.loadFloors();
+    await this.loadBranches();
   },
   methods: {
     async loadFloors() {
@@ -161,6 +222,22 @@ export default {
       }
     },
 
+    async loadBranches() {
+      try {
+        const BranchService = await import('@/services/BranchService');
+        const branches = await BranchService.default.getAllBranches();
+        this.branches = branches;
+      } catch (error) {
+        console.error('Error loading branches:', error);
+      }
+    },
+
+    clearFilters() {
+      this.searchTerm = '';
+      this.statusFilter = '';
+      this.branchFilter = '';
+    },
+
     handleEdit(floor) {
       this.editingFloor = floor;
     },
@@ -168,7 +245,8 @@ export default {
     async handleFormSubmit(formData) {
       this.formLoading = true;
 
-      try {
+      try {
+
         if (formData && formData.target && formData.target.tagName === 'FORM') {
           this.$toast.error('Lỗi: Dữ liệu form không hợp lệ');
           return;
@@ -193,7 +271,8 @@ export default {
 
         await this.loadFloors();
         this.closeModal();
-      } catch (error) {
+      } catch (error) {
+
         let errorMessage = 'Có lỗi xảy ra';
         if (error.response && error.response.data) {
           errorMessage = error.response.data.message || error.response.data.error || errorMessage;
@@ -223,18 +302,20 @@ export default {
 
       try {
         const token = AuthService.getToken();
-        await FloorService.deleteFloor(this.floorToDelete.id, token);
+        const result = await FloorService.deleteFloor(this.floorToDelete.id, token);
 
         if (this.toast) {
-          this.toast.success('Xóa tầng thành công!');
+          this.toast.success(`Xóa tầng ${result.deletedFloorNumber} thành công!`);
         } else {
-          alert('Xóa tầng thành công!');
+          alert(`Xóa tầng ${result.deletedFloorNumber} thành công!`);
         }
         await this.loadFloors();
         this.showDeleteModal = false;
         this.floorToDelete = null;
       } catch (error) {
+        // Hiển thị thông báo lỗi từ backend (đã được dịch sang tiếng Việt)
         const errorMessage = error.message || 'Có lỗi xảy ra khi xóa tầng';
+        
         if (this.toast) {
           this.toast.error(errorMessage);
         } else {
@@ -269,6 +350,100 @@ export default {
   margin: 0;
   color: #1f2937;
   font-size: 2rem;
+}
+
+.search-filter-section {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
+}
+
+.search-box {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.search-box i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 12px 10px 40px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.clear-search {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.2s ease;
+}
+
+.clear-search:hover {
+  color: #ef4444;
+}
+
+.filter-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-group label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: white;
+  min-width: 150px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.btn-sm {
+  padding: 8px 12px;
+  font-size: 0.8rem;
 }
 
 .btn {
@@ -416,6 +591,37 @@ export default {
 .warning {
   color: #ef4444;
   font-weight: 500;
+}
+
+.warning-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 16px;
+  margin: 16px 0;
+  display: flex;
+  gap: 12px;
+}
+
+.warning-box i {
+  color: #3b82f6;
+  font-size: 1.2rem;
+  margin-top: 2px;
+}
+
+.warning-box p {
+  margin: 0 0 8px 0;
+  color: #374151;
+}
+
+.warning-box ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #6b7280;
+}
+
+.warning-box li {
+  margin: 4px 0;
 }
 
 .modal-actions {
