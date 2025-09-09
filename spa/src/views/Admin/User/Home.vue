@@ -72,8 +72,8 @@ const selectedUser = computed(() => {
 });
 
 async function retrieveUsers(page) {
-  isLoading.value = true; // Bắt đầu tải
-  error.value = null; // Reset lỗi
+  isLoading.value = true;
+  error.value = null;
   try {
     const filters = {};
     if (searchText.value) {

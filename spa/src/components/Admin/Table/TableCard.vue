@@ -1,7 +1,10 @@
 <template>
   <div class="table-card" :class="statusClass">
     <div class="table-header">
-      <h3 class="table-number">{{ table.table_number }}</h3>
+      <div class="table-title">
+        <h3 class="table-number">{{ table.table_number }}</h3>
+        <span class="table-location" :class="getBranchColorClass()">{{ getTableLocationShort() }}</span>
+      </div>
       <span class="status-badge" :class="`status-${table.status}`">
         {{ getStatusLabel(table.status) }}
       </span>
@@ -34,45 +37,27 @@
       </div>
     </div>
 
+    <!-- Action Menu -->
     <div class="table-actions" v-if="isAdmin">
-      <button
-        @click="$emit('edit', table)"
-        class="btn btn-edit"
-        title="Chỉnh sửa"
-      >
-        <i class="fas fa-edit"></i>
-      </button>
-
-      <button
-        @click="$emit('delete', table)"
-        class="btn btn-delete"
-        title="Xóa"
-        :disabled="table.status === 'occupied' || table.status === 'reserved'"
-      >
-        <i class="fas fa-trash"></i>
-      </button>
-
-      <div class="status-actions">
-        <button
-          v-for="status in availableStatuses"
-          :key="status.value"
-          @click="$emit('updateStatus', table.id, status.value)"
-          class="btn btn-status"
-          :class="`btn-${status.value}`"
-          :title="`Đặt trạng thái: ${status.label}`"
-        >
-          <i :class="status.icon"></i>
-        </button>
-      </div>
+      <TableActionMenu
+        :table="table"
+        @edit="$emit('edit', table)"
+        @delete="$emit('delete', table)"
+        @updateStatus="(tableId, status) => $emit('updateStatus', tableId, status)"
+      />
     </div>
   </div>
 </template>
 
 <script>
 import TableService from '@/services/TableService';
+import TableActionMenu from './TableActionMenu.vue';
 
 export default {
   name: 'TableCard',
+  components: {
+    TableActionMenu
+  },
   props: {
     table: {
       type: Object,
@@ -86,17 +71,6 @@ export default {
   computed: {
     statusClass() {
       return `status-${this.table.status}`;
-    },
-    availableStatuses() {
-      const currentStatus = this.table.status;
-      const allStatuses = [
-        { value: 'available', label: 'Có sẵn', icon: 'fas fa-check' },
-        { value: 'occupied', label: 'Đang sử dụng', icon: 'fas fa-users' },
-        { value: 'reserved', label: 'Đã đặt trước', icon: 'fas fa-clock' },
-        { value: 'maintenance', label: 'Bảo trì', icon: 'fas fa-tools' }
-      ];
-
-      return allStatuses.filter(status => status.value !== currentStatus);
     }
   },
   methods: {
@@ -105,6 +79,74 @@ export default {
     },
     formatDate(dateString) {
       return new Date(dateString).toLocaleDateString('vi-VN');
+    },
+    getTableLocationShort() {
+      // Tạo tên viết tắt cho chi nhánh và tầng
+      let branchShort = '';
+      let floorShort = '';
+
+      // Viết tắt tên chi nhánh với logic cải thiện
+      if (this.table.branch_name) {
+        const branchName = this.table.branch_name.toLowerCase();
+        
+        // Xử lý các trường hợp đặc biệt
+        if (branchName.includes('quận 1')) {
+          branchShort = 'Q1';
+        } else if (branchName.includes('quận 7')) {
+          branchShort = 'Q7';
+        } else if (branchName.includes('quận 3')) {
+          branchShort = 'Q3';
+        } else if (branchName.includes('quận 2')) {
+          branchShort = 'Q2';
+        } else if (branchName.includes('quận')) {
+          // Lấy số quận
+          const match = branchName.match(/quận (\d+)/);
+          if (match) {
+            branchShort = `Q${match[1]}`;
+          }
+        } else if (branchName.includes('hà nội')) {
+          branchShort = 'HN';
+        } else if (branchName.includes('đà nẵng')) {
+          branchShort = 'DN';
+        } else if (branchName.includes('cần thơ')) {
+          branchShort = 'CT';
+        } else {
+          // Lấy 2-3 ký tự đầu của từ quan trọng nhất
+          const words = this.table.branch_name.split(' ').filter(word => 
+            !['chi', 'nhánh', 'của', 'tại', 'ở'].includes(word.toLowerCase())
+          );
+          if (words.length > 0) {
+            branchShort = words[0].substring(0, 2).toUpperCase();
+          }
+        }
+      }
+
+      // Viết tắt tầng
+      if (this.table.floor_number) {
+        floorShort = `F${this.table.floor_number}`;
+      }
+
+      return branchShort && floorShort ? `${branchShort}${floorShort}` : '';
+    },
+    getBranchColorClass() {
+      // Trả về class màu sắc dựa trên chi nhánh
+      if (!this.table.branch_name) return '';
+      
+      const branchName = this.table.branch_name.toLowerCase();
+      
+      if (branchName.includes('quận 1')) {
+        return 'branch-q1';
+      } else if (branchName.includes('quận 7')) {
+        return 'branch-q7';
+      } else if (branchName.includes('quận 3')) {
+        return 'branch-q3';
+      } else if (branchName.includes('hà nội')) {
+        return 'branch-hn';
+      } else if (branchName.includes('đà nẵng')) {
+        return 'branch-dn';
+      } else {
+        return 'branch-default';
+      }
     }
   }
 };
@@ -132,11 +174,66 @@ export default {
   margin-bottom: 12px;
 }
 
+.table-title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
 .table-number {
   font-size: 1.2rem;
   font-weight: bold;
   margin: 0;
   color: #333;
+  line-height: 1.2;
+}
+
+.table-location {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  transition: all 0.2s ease;
+}
+
+/* Màu sắc phân biệt theo chi nhánh */
+.table-location.branch-q1 {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+
+.table-location.branch-q7 {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.table-location.branch-q3 {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.table-location.branch-hn {
+  background: #fce7f3;
+  color: #be185d;
+  border: 1px solid #f9a8d4;
+}
+
+.table-location.branch-dn {
+  background: #e0f2fe;
+  color: #0e7490;
+  border: 1px solid #67e8f9;
+}
+
+.table-location.branch-default {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
 }
 
 .status-badge {
@@ -202,91 +299,10 @@ export default {
 }
 
 .table-actions {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+  margin-top: 16px;
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  transition: all 0.2s ease;
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-}
-
-.btn-edit {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-edit:hover {
-  background: #2563eb;
-}
-
-.btn-delete {
-  background: #ef4444;
-  color: white;
-}
-
-.btn-delete:hover:not(:disabled) {
-  background: #dc2626;
-}
-
-.btn-delete:disabled {
-  background: #9ca3af;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.status-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.btn-status {
-  padding: 4px 8px;
-  font-size: 0.7rem;
-}
-
-.btn-available {
-  background: #10b981;
-  color: white;
-}
-
-.btn-available:hover {
-  background: #059669;
-}
-
-.btn-occupied {
-  background: #ef4444;
-  color: white;
-}
-
-.btn-occupied:hover {
-  background: #dc2626;
-}
-
-.btn-reserved {
-  background: #f59e0b;
-  color: white;
-}
-
-.btn-reserved:hover {
-  background: #d97706;
-}
-
-.btn-maintenance {
-  background: #6b7280;
-  color: white;
-}
-
-.btn-maintenance:hover {
-  background: #4b5563;
+  justify-content: center;
 }
 </style>

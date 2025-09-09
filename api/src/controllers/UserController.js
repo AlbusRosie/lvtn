@@ -6,19 +6,23 @@ const SECRET_KEY = process.env.JWT_SECRET;
 const EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
 
 async function createUser(req, res, next) {
-    try {
+    try {
+
         const requiredFields = ['username', 'password', 'email', 'name', 'role_id'];
         const missingFields = requiredFields.filter(field => !req.body[field]);
 
         if (missingFields.length > 0) {
             return next(new ApiError(400, `Missing required fields: ${missingFields.join(', ')}`));
-        }
+        }
+
         if (isNaN(parseInt(req.body.role_id))) {
             return next(new ApiError(400, 'Invalid role_id'));
-        }
+        }
+
         if (req.body.phone && !/^[0-9]{10,11}$/.test(req.body.phone)) {
             return next(new ApiError(400, 'Invalid phone number format'));
-        }
+        }
+
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(req.body.email)) {
             return next(new ApiError(400, 'Invalid email format'));
@@ -59,9 +63,9 @@ async function login(req, res, next) {
 
         const result = await UserService.login(username, password);
         const token = jwt.sign(
-            { id: result.user.id, username: result.user.username, role_id: result.user.role_id }, // payload
+            { id: result.user.id, username: result.user.username, role_id: result.user.role_id },
             SECRET_KEY,
-            { expiresIn: EXPIRES_IN } // thời hạn token
+            { expiresIn: EXPIRES_IN }
         );
         return res.json({
             status: 'success',
@@ -123,10 +127,12 @@ async function updateUser(req, res, next) {
     }
     const { id } = req.params;
 
-    try {
+    try {
+
         if (req.body.phone && !/^[0-9]{10,11}$/.test(req.body.phone)) {
             return next(new ApiError(400, 'Invalid phone number format'));
-        }
+        }
+
         if (req.body.email) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(req.body.email)) {
@@ -137,7 +143,8 @@ async function updateUser(req, res, next) {
         const updateData = {
             ...req.body,
             avatar: req.file ? `/public/uploads/${req.file.filename}` : null,
-        };
+        };
+
         if (req.body.favorite !== undefined) {
             updateData.favorite = req.body.favorite === 'true' || req.body.favorite === true ? 1 : 0;
         }

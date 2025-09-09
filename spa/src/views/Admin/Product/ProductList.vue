@@ -255,7 +255,7 @@ const handleFilter = (filters) => {
   });
 
   Object.assign(currentFilters, filters);
-  currentFilters.page = 1; // Reset to first page
+  currentFilters.page = 1;
 
   loadProducts();
 };

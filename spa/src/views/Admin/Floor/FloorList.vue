@@ -313,7 +313,6 @@ export default {
         this.showDeleteModal = false;
         this.floorToDelete = null;
       } catch (error) {
-        // Hiển thị thông báo lỗi từ backend (đã được dịch sang tiếng Việt)
         const errorMessage = error.message || 'Có lỗi xảy ra khi xóa tầng';
         
         if (this.toast) {

@@ -105,34 +105,27 @@ class CategoryService {
         throw new ApiError(404, 'Category not found');
       }
 
-      // Lấy danh sách sản phẩm thuộc danh mục này
       const products = await knex('products')
         .where('category_id', id)
         .select('id', 'image');
 
-      // Xóa các sản phẩm thuộc danh mục này
       if (products.length > 0) {
-        // Xóa các quan hệ branch_products trước
         await knex('branch_products')
           .whereIn('product_id', products.map(p => p.id))
           .del();
 
-        // Xóa các order_details liên quan
         await knex('order_details')
           .whereIn('product_id', products.map(p => p.id))
           .del();
 
-        // Xóa các reviews liên quan
         await knex('reviews')
           .whereIn('product_id', products.map(p => p.id))
           .del();
 
-        // Xóa các sản phẩm
         await knex('products')
           .where('category_id', id)
           .del();
 
-        // Xóa các file hình ảnh của sản phẩm (nếu có)
         const { unlink } = require('node:fs');
         products.forEach((product) => {
           if (product.image && product.image.startsWith('/public/uploads')) {
@@ -143,7 +136,6 @@ class CategoryService {
         });
       }
 
-      // Xóa danh mục
       await knex('categories')
         .where('id', id)
         .del();

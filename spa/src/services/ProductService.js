@@ -58,7 +58,7 @@ class ProductService {
         headers: {
           'Authorization': `Bearer ${token}`
         },
-        body: productData // productData is already FormData
+        body: productData
       });
 
       if (!response.ok) {

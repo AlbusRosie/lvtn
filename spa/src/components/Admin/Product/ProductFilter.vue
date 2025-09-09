@@ -160,7 +160,8 @@ const filters = reactive({
   is_available: '',
   stock_status: '',
   limit: 10
-});
+});
+
 onMounted(async () => {
   await loadCategories();
 });
@@ -178,9 +179,10 @@ const loadCategories = async () => {
 };
 
 const handleFilter = () => {
-  const filterData = { ...filters };
+  const filterData = { ...filters };
+
   Object.keys(filterData).forEach(key => {
-    if (key === 'limit') return; // Keep limit
+    if (key === 'limit') return;
 
     if (filterData[key] === '' || filterData[key] === null || filterData[key] === undefined) {
       delete filterData[key];
@@ -190,7 +192,8 @@ const handleFilter = () => {
   emit('filter', filterData);
 };
 
-const handleClear = () => {
+const handleClear = () => {
+
   Object.keys(filters).forEach(key => {
     if (key === 'limit') {
       filters[key] = 10;
@@ -200,7 +203,8 @@ const handleClear = () => {
   });
 
   emit('clear');
-};
+};
+
 watch(() => filters.limit, () => {
   handleFilter();
 });

@@ -32,7 +32,8 @@ const user = ref(null);
 
 const emit = defineEmits(['logout']);
 
-onMounted(() => {
+onMounted(() => {
+
   const userStr = localStorage.getItem('currentUser');
   if (userStr) {
     user.value = JSON.parse(userStr);
@@ -43,7 +44,7 @@ function handleLogout() {
   authService.logout();
   localStorage.removeItem('currentUser');
   toast.success('Đăng xuất thành công!');
-  emit('logout'); // Emit event để parent component biết
+  emit('logout');
   router.push('/auth');
 }
 </script>

@@ -145,7 +145,6 @@ class FloorService {
         throw new ApiError(404, 'Floor not found');
       }
 
-      // Kiểm tra có bàn đang sử dụng không
       const activeTables = await knex('tables')
         .where('floor_id', id)
         .whereIn('status', ['occupied', 'reserved'])
@@ -155,7 +154,6 @@ class FloorService {
         throw new ApiError(400, 'Không thể xóa tầng có bàn đang sử dụng hoặc đã đặt!');
       }
 
-      // Kiểm tra quy tắc xóa tầng: chỉ được xóa tầng có số tầng lớn nhất
       const maxFloorNumber = await knex('floors')
         .where('branch_id', existingFloor.branch_id)
         .max('floor_number as max_floor')

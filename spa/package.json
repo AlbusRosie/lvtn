@@ -17,6 +17,7 @@
     "@vee-validate/zod": "^4.13.2",
     "axios": "^1.10.0",
     "bootstrap": "^5.3.3",
+    "fabric": "^6.7.1",
     "vee-validate": "^4.13.2",
     "vue": "^3.5.11",
     "vue-router": "^4.5.1",

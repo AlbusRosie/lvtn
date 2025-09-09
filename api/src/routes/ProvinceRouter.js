@@ -4,7 +4,6 @@ const ProvinceController = require('../controllers/ProvinceController');
 const router = express.Router();
 const provinceController = new ProvinceController();
 
-// Public routes (không cần authentication)
 router.get('/', provinceController.getAllProvinces.bind(provinceController));
 router.get('/search', provinceController.searchProvinces.bind(provinceController));
 router.get('/:id', provinceController.getProvinceById.bind(provinceController));

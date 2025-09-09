@@ -200,13 +200,11 @@ export default {
 
     async handleBranchChange() {
       if (!this.isEditing && this.form.branch_id) {
-        // Hiển thị loading state
         this.form.floor_number = '';
         this.form.name = '';
         this.nextFloorNumber = null;
         this.floorCount = 0;
         
-        // Tự động tạo số tầng và tên tầng
         await this.generateFloorNumber();
       } else if (!this.isEditing) {
         this.form.floor_number = '';
@@ -229,7 +227,6 @@ export default {
         this.nextFloorNumber = result.nextFloorNumber;
         this.form.floor_number = result.nextFloorNumber;
         
-        // Tự động tạo tên tầng sau khi có số tầng
         this.generateFloorName();
       } catch (error) {
         console.error('Error generating floor number:', error);

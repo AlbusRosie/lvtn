@@ -282,16 +282,20 @@ import ProductForm from '@/components/Admin/Product/ProductForm.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 
 const route = useRoute();
-const router = useRouter();
+const router = useRouter();
+
 const product = ref(null);
 const categories = ref([]);
 const loading = ref(false);
 const formLoading = ref(false);
-const deleteLoading = ref(false);
+const deleteLoading = ref(false);
+
 const showEditModal = ref(false);
-const showDeleteModal = ref(false);
+const showDeleteModal = ref(false);
+
 const toasts = ref([]);
-let toastId = 0;
+let toastId = 0;
+
 const loadProduct = async () => {
   loading.value = true;
   try {
@@ -303,16 +307,19 @@ const loadProduct = async () => {
   } finally {
     loading.value = false;
   }
-};
+};
+
 const loadCategories = () => {
   categories.value = [
     { id: 1, name: 'Điện thoại' },
     { id: 2, name: 'Laptop' }
   ];
-};
+};
+
 const formatPrice = (price) => {
   return new Intl.NumberFormat('vi-VN').format(price);
-};
+};
+
 const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('vi-VN', {
     year: 'numeric',
@@ -321,58 +328,68 @@ const formatDate = (dateString) => {
     hour: '2-digit',
     minute: '2-digit'
   });
-};
+};
+
 const getStockBadgeClass = () => {
   const stock = product.value.stock;
   if (stock === 0) return 'bg-danger';
   if (stock <= 5) return 'bg-warning';
   return 'bg-success';
-};
+};
+
 const getStockStatus = () => {
   const stock = product.value.stock;
   if (stock === 0) return 'Out of Stock';
   if (stock <= 5) return 'Low Stock';
   return 'In Stock';
-};
+};
+
 const getStockStatusClass = () => {
   const stock = product.value.stock;
   if (stock === 0) return 'text-danger';
   if (stock <= 5) return 'text-warning';
   return 'text-success';
-};
+};
+
 const getPriceRange = () => {
   const price = product.value.price;
   if (price < 1000000) return 'Budget';
   if (price < 10000000) return 'Mid-range';
   return 'Premium';
-};
+};
+
 const handleEdit = () => {
   showEditModal.value = true;
-};
+};
+
 const handleDelete = () => {
   showDeleteModal.value = true;
-};
-const handleDuplicate = () => {
+};
+
+const handleDuplicate = () => {
+
   router.push({
     path: '/admin/products/create',
     query: {
       duplicate: product.value.id
     }
   });
-};
+};
+
 const handleFormSubmit = async (formDataObj) => {
   formLoading.value = true;
   try {
     await ProductService.updateProduct(product.value.id, formDataObj);
     showToast('Success', 'Product updated successfully', 'success');
     showEditModal.value = false;
-    loadProduct(); // Reload product data
+    loadProduct();
   } catch (error) {
     showToast('Error', error.message, 'danger');
   } finally {
     formLoading.value = false;
   }
-};
+};
+
 const confirmDelete = async () => {
   deleteLoading.value = true;
   try {
@@ -385,7 +402,8 @@ const confirmDelete = async () => {
   } finally {
     deleteLoading.value = false;
   }
-};
+};
+
 const showToast = (title, message, type = 'info') => {
   const toast = {
     id: ++toastId,
@@ -394,17 +412,20 @@ const showToast = (title, message, type = 'info') => {
     type: `bg-${type} text-white`
   };
 
-  toasts.value.push(toast);
+  toasts.value.push(toast);
+
   setTimeout(() => {
     removeToast(toast.id);
   }, 5000);
-};
+};
+
 const removeToast = (id) => {
   const index = toasts.value.findIndex(toast => toast.id === id);
   if (index > -1) {
     toasts.value.splice(index, 1);
   }
-};
+};
+
 onMounted(() => {
   loadCategories();
   loadProduct();

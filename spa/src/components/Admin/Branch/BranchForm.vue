@@ -191,7 +191,6 @@ export default {
             district_id: newBranch.district_id || ''
           };
           console.log('Form data set:', this.form);
-          // Load districts nếu có province_id
           if (newBranch.province_id) {
             await this.loadDistricts(newBranch.province_id);
             console.log('Districts loaded:', this.districts);

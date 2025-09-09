@@ -177,7 +177,6 @@ class BranchService {
         throw new ApiError(404, 'Branch not found');
       }
 
-      // Kiểm tra xem có bàn đang được sử dụng không
       const occupiedTables = await knex('tables')
         .where('branch_id', id)
         .whereIn('status', ['occupied', 'reserved'])
@@ -187,49 +186,40 @@ class BranchService {
         throw new ApiError(400, 'Cannot delete branch that has occupied or reserved tables');
       }
 
-      // Xóa tất cả dữ liệu liên quan theo thứ tự dependency
       console.log('Deleting related data...');
       
-      // 1. Xóa order_details (có foreign key đến orders)
       await knex('order_details')
         .whereIn('order_id', function() {
           this.select('id').from('orders').where('branch_id', id);
         })
         .del();
 
-      // 2. Xóa orders
       await knex('orders')
         .where('branch_id', id)
         .del();
 
-      // 3. Xóa reservations
       await knex('reservations')
         .where('branch_id', id)
         .del();
 
-      // 4. Xóa reviews
       await knex('reviews')
         .where('branch_id', id)
         .del();
 
-      // 5. Xóa branch_products
       await knex('branch_products')
         .where('branch_id', id)
         .del();
 
-      // 6. Xóa tables
       await knex('tables')
         .where('branch_id', id)
         .del();
 
-      // 7. Xóa floors
       const deletedFloors = await knex('floors')
         .where('branch_id', id)
         .del();
 
       console.log(`Deleted ${deletedFloors} floors`);
 
-      // 8. Cuối cùng xóa branch
       await knex('branches')
         .where('id', id)
         .del();

@@ -16,14 +16,17 @@ const toast = useToast();
 const isLogin = ref(true);
 const isLoading = ref(false);
 const message = ref('');
-const currentUser = ref(null);
+const currentUser = ref(null);
+
 const checkLoggedInUser = () => {
   const userStr = localStorage.getItem('currentUser');
   if (userStr) {
     currentUser.value = JSON.parse(userStr);
   }
-};
-checkLoggedInUser();
+};
+
+checkLoggedInUser();
+
 const loginSchema = toTypedSchema(
   z.object({
     username: z
@@ -74,19 +77,27 @@ async function onLogin(values) {
   message.value = '';
 
   try {
-    const result = await authService.login(values.username, values.password);
+    const result = await authService.login(values.username, values.password);
+
     const userRole = result.user.role_id;
     const userName = result.user.name;
 
-    if (userRole === 1) {
-      toast.success(`Đăng nhập thành công! Chào mừng Admin ${userName}!`);
+    if (userRole === 1) {
+
+      toast.success(`Đăng nhập thành công! Chào mừng Admin ${userName}!`);
+
       router.push('/');
-      return; // Dừng hàm ở đây
-    } else {
+      return;
+    } else {
+
       const roleName = userRole === 2 ? 'Customer' : 'Seller';
-      toast.success(`Đăng nhập thành công! Chào mừng ${roleName} ${userName}!`);
+      toast.success(`Đăng nhập thành công! Chào mừng ${roleName} ${userName}!`);
+
       localStorage.setItem('currentUser', JSON.stringify(result.user));
-      currentUser.value = result.user;
+      currentUser.value = result.user;
+
+
+
     }
   } catch (error) {
     message.value = error.message;
@@ -107,7 +118,7 @@ async function onRegister(values) {
     formData.append('name', values.name);
     formData.append('email', values.email);
     formData.append('phone', values.phone);
-    formData.append('role_id', '2'); // Customer role
+    formData.append('role_id', '2');
     formData.append('avatar', 'public/images/blank-profile-picture.png');
     formData.append('address', '');
     formData.append('favorite', '0');
@@ -137,7 +148,8 @@ function toggleMode() {
 }
 
 function handleLogout() {
-  currentUser.value = null;
+  currentUser.value = null;
+
 }
 </script>
 

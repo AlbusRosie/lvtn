@@ -70,12 +70,10 @@ export default {
       const branchName = this.floor.branch_name || 'Chi nhánh không xác định';
       const floorName = this.floor.name || 'Tầng không xác định';
       
-      // Nếu tên tầng đã chứa tên chi nhánh thì hiển thị nguyên văn
       if (floorName.includes(branchName) || floorName.includes('Chi nhánh')) {
         return floorName;
       }
       
-      // Nếu chưa có tên chi nhánh thì thêm vào
       return `${floorName} - ${branchName}`;
     },
 

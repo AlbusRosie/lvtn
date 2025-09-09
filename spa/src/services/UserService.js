@@ -63,7 +63,7 @@ function makeUsersService() {
 
         return efetch(`${baseUrl}/register`, {
             method: 'POST',
-            body: user // FormData doesn't need Content-Type header or JSON.stringify
+            body: user
         });
     }
 

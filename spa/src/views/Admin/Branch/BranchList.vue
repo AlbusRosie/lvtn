@@ -292,7 +292,6 @@ export default {
         await this.loadBranches();
         console.log('Branches reloaded:', this.branches);
         this.closeModal();
-        // Reset form data
         this.editingBranch = null;
       } catch (error) {
 
