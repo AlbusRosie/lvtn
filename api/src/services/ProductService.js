@@ -15,11 +15,8 @@ function readProduct(payload) {
     if (payload.name !== undefined) {
         product.name = payload.name;
     }
-    if (payload.price !== undefined) {
-        product.price = payload.price;
-    }
-    if (payload.stock !== undefined) {
-        product.stock = payload.stock;
+    if (payload.base_price !== undefined) {
+        product.base_price = payload.base_price;
     }
     if (payload.description !== undefined) {
         product.description = payload.description;
@@ -27,11 +24,8 @@ function readProduct(payload) {
     if (payload.image !== undefined) {
         product.image = payload.image;
     }
-    if (payload.status !== undefined) {
-        product.status = payload.status;
-    }
-    if (payload.is_available !== undefined) {
-        product.is_available = payload.is_available;
+    if (payload.is_global_available !== undefined) {
+        product.is_global_available = payload.is_global_available;
     }
 
     return product;
@@ -39,12 +33,12 @@ function readProduct(payload) {
 
 async function createProduct(payload) {
 
-    if (!payload.category_id || !payload.name || !payload.price || !payload.stock === undefined) {
+    if (!payload.category_id || !payload.name || !payload.base_price === undefined) {
         throw new Error('Missing required fields');
     }
 
-    if (payload.price <= 0 || payload.stock < 0) {
-        throw new Error('Price must be positive and stock must be non-negative');
+    if (payload.base_price <= 0) {
+        throw new Error('Base price must be positive');
     }
 
     const product = readProduct(payload);

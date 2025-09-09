@@ -9,6 +9,7 @@ const CategoryRouter = require('./routes/CategoryRouter');
 const TableRouter = require('./routes/TableRouter');
 const BranchRouter = require('./routes/BranchRouter');
 const FloorRouter = require('./routes/FloorRouter');
+const ProvinceRouter = require('./routes/ProvinceRouter');
 const {
     resourceNotFound,
     handleError,
@@ -33,6 +34,7 @@ app.use('/api/categories', CategoryRouter);
 app.use('/api/tables', TableRouter);
 app.use('/api/branches', BranchRouter);
 app.use('/api/floors', FloorRouter);
+app.use('/api/provinces', ProvinceRouter);
 
 app.use(resourceNotFound);
 app.use(handleError);

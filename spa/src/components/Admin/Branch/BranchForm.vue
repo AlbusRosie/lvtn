@@ -14,14 +14,57 @@
         />
       </div>
 
+      <div class="form-row">
+        <div class="form-group">
+          <label for="province_id">Tỉnh/Thành phố *</label>
+          <select 
+            id="province_id" 
+            v-model="form.province_id" 
+            @change="onProvinceChange"
+            required
+            :disabled="loadingProvinces"
+          >
+            <option value="">Chọn tỉnh/thành phố</option>
+            <option 
+              v-for="province in provinces" 
+              :key="province.id" 
+              :value="province.id"
+            >
+              {{ province.name }}
+            </option>
+          </select>
+          <div v-if="loadingProvinces" class="loading-text">Đang tải...</div>
+        </div>
+
+        <div class="form-group">
+          <label for="district_id">Quận/Huyện *</label>
+          <select 
+            id="district_id" 
+            v-model="form.district_id" 
+            required
+            :disabled="!form.province_id || loadingDistricts"
+          >
+            <option value="">Chọn quận/huyện</option>
+            <option 
+              v-for="district in districts" 
+              :key="district.id" 
+              :value="district.id"
+            >
+              {{ district.name }}
+            </option>
+          </select>
+          <div v-if="loadingDistricts" class="loading-text">Đang tải...</div>
+        </div>
+      </div>
+
       <div class="form-group">
-        <label for="address">Địa chỉ *</label>
+        <label for="address_detail">Địa chỉ chi tiết *</label>
         <input
-          id="address"
-          v-model="form.address"
+          id="address_detail"
+          v-model="form.address_detail"
           type="text"
           required
-          placeholder="VD: 123 Nguyễn Huệ, Quận 1, TP.HCM"
+          placeholder="VD: 123 Nguyễn Huệ, Tầng 1"
         />
       </div>
 
@@ -90,6 +133,8 @@
 </template>
 
 <script>
+import ProvinceService from '@/services/ProvinceService';
+
 export default {
   name: 'BranchForm',
   props: {
@@ -106,13 +151,19 @@ export default {
     return {
       form: {
         name: '',
-        address: '',
+        address_detail: '',
         phone: '',
         email: '',
         opening_hours: '',
         description: '',
-        status: 'active'
-      }
+        status: 'active',
+        province_id: '',
+        district_id: ''
+      },
+      provinces: [],
+      districts: [],
+      loadingProvinces: false,
+      loadingDistricts: false
     };
   },
   computed: {
@@ -120,19 +171,33 @@ export default {
       return !!this.branch;
     }
   },
+  async mounted() {
+    await this.loadProvinces();
+  },
   watch: {
     branch: {
-      handler(newBranch) {
+      async handler(newBranch) {
+        console.log('Branch data received:', newBranch);
         if (newBranch) {
           this.form = {
             name: newBranch.name,
-            address: newBranch.address,
+            address_detail: newBranch.address_detail || '',
             phone: newBranch.phone,
             email: newBranch.email,
             opening_hours: newBranch.opening_hours || '',
             description: newBranch.description || '',
-            status: newBranch.status
+            status: newBranch.status,
+            province_id: newBranch.province_id || '',
+            district_id: newBranch.district_id || ''
           };
+          console.log('Form data set:', this.form);
+          // Load districts nếu có province_id
+          if (newBranch.province_id) {
+            await this.loadDistricts(newBranch.province_id);
+            console.log('Districts loaded:', this.districts);
+          } else {
+            this.districts = [];
+          }
         } else {
           this.resetForm();
         }
@@ -141,27 +206,68 @@ export default {
     }
   },
   methods: {
+    async loadProvinces() {
+      try {
+        this.loadingProvinces = true;
+        this.provinces = await ProvinceService.getAllProvinces();
+      } catch (error) {
+        console.error('Error loading provinces:', error);
+        this.$toast?.error('Không thể tải danh sách tỉnh/thành phố');
+      } finally {
+        this.loadingProvinces = false;
+      }
+    },
+
+    async loadDistricts(provinceId) {
+      try {
+        this.loadingDistricts = true;
+        console.log('Loading districts for province:', provinceId);
+        this.districts = await ProvinceService.getDistrictsByProvinceId(provinceId);
+        console.log('Districts loaded:', this.districts);
+      } catch (error) {
+        console.error('Error loading districts:', error);
+        this.$toast?.error('Không thể tải danh sách quận/huyện');
+      } finally {
+        this.loadingDistricts = false;
+      }
+    },
+
+    async onProvinceChange() {
+      console.log('Province changed to:', this.form.province_id);
+      this.form.district_id = '';
+      this.districts = [];
+      
+      if (this.form.province_id) {
+        await this.loadDistricts(this.form.province_id);
+        console.log('Districts loaded after province change:', this.districts);
+      }
+    },
+
     resetForm() {
       this.form = {
         name: '',
-        address: '',
+        address_detail: '',
         phone: '',
         email: '',
         opening_hours: '',
         description: '',
-        status: 'active'
+        status: 'active',
+        province_id: '',
+        district_id: ''
       };
+      this.districts = [];
     },
 
-    handleSubmit() {
-      if (!this.form.name || !this.form.address || !this.form.phone || !this.form.email) {
-        if (this.$toast) {
-          this.$toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
-        }
+    handleSubmit() {
+      if (!this.form.name || !this.form.address_detail || !this.form.phone || !this.form.email || !this.form.province_id || !this.form.district_id) {
+        this.$toast?.error('Vui lòng điền đầy đủ thông tin bắt buộc');
         return;
       }
 
       const formData = { ...this.form };
+      console.log('Submitting form data:', formData);
+      console.log('Current form state:', this.form);
+      console.log('Available districts:', this.districts);
       this.$emit('submit', formData);
     }
   }
@@ -178,20 +284,27 @@ export default {
 
 .branch-form h2 {
   margin: 0 0 24px 0;
-  color: #333;
+  color: #1f2937;
   font-size: 1.5rem;
+  font-weight: 600;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .form-group label {
@@ -204,7 +317,7 @@ export default {
 .form-group select,
 .form-group textarea {
   padding: 10px 12px;
-  border: 1px solid #d1d5db;
+  border: 2px solid #e5e7eb;
   border-radius: 6px;
   font-size: 0.9rem;
   transition: border-color 0.2s ease;
@@ -223,11 +336,19 @@ export default {
   min-height: 80px;
 }
 
+.loading-text {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
 .form-actions {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
-  margin-top: 8px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
 }
 
 .btn {
@@ -238,6 +359,9 @@ export default {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .btn:hover:not(:disabled) {
@@ -266,5 +390,11 @@ export default {
 
 .btn-secondary:hover:not(:disabled) {
   background: #4b5563;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

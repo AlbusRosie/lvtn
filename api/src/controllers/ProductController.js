@@ -4,35 +4,24 @@ const ApiError = require('../api-error');
 
 async function createProduct(req, res, next) {
     try {
-        const requiredFields = ['category_id', 'name', 'price', 'stock'];
+        const requiredFields = ['category_id', 'name', 'base_price'];
         const missingFields = requiredFields.filter(field => !req.body[field]);
 
         if (missingFields.length > 0) {
             return next(new ApiError(400, `Missing required fields: ${missingFields.join(', ')}`));
         }
 
-        if (req.body.price <= 0) {
-            return next(new ApiError(400, 'Price must be positive'));
+        if (req.body.base_price <= 0) {
+            return next(new ApiError(400, 'Base price must be positive'));
         }
 
-        if (req.body.stock < 0) {
-            return next(new ApiError(400, 'Stock must be non-negative'));
-        }
-
-        const status = req.body.status || 'active';
-        const validStatuses = ['active', 'inactive', 'out_of_stock'];
-
-        if (!validStatuses.includes(status)) {
-            return next(new ApiError(400, 'Invalid status. Must be: active, inactive, or out_of_stock'));
-        }
+        const is_global_available = req.body.is_global_available === 'true' || req.body.is_global_available === true ? 1 : 0;
 
         const product = await ProductService.createProduct({
             ...req.body,
             category_id: parseInt(req.body.category_id),
-            stock: parseInt(req.body.stock),
-            price: parseFloat(req.body.price),
-            status: status,
-            is_available: req.body.is_available === 'true' || req.body.is_available === true ? 1 : 0,
+            base_price: parseFloat(req.body.base_price),
+            is_global_available: is_global_available,
             image: req.file ? `/public/uploads/${req.file.filename}` : null,
         });
 

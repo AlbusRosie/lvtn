@@ -20,7 +20,12 @@
     <div class="branch-details">
       <div class="detail-item">
         <i class="fas fa-map-marker-alt"></i>
-        <span>{{ branch.address }}</span>
+        <div class="address-info">
+          <div v-if="branch.address_detail">{{ branch.address_detail }}</div>
+          <div v-if="branch.district_name || branch.province_name" class="location">
+            {{ [branch.district_name, branch.province_name].filter(Boolean).join(', ') }}
+          </div>
+        </div>
       </div>
 
       <div class="detail-item">
@@ -192,6 +197,19 @@ export default {
 .detail-item span {
   flex: 1;
   word-break: break-word;
+}
+
+.address-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.address-info .location {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  font-style: italic;
 }
 
 .branch-footer {

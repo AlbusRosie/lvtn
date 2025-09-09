@@ -19,8 +19,8 @@
           <h5 class="card-title mb-0 text-truncate" :title="product.name">
             {{ product.name }}
           </h5>
-          <span class="badge" :class="getStockBadgeClass()">
-            {{ product.stock }} món
+          <span class="badge" :class="getAvailabilityBadgeClass()">
+            {{ getAvailabilityLabel() }}
           </span>
         </div>
 
@@ -29,7 +29,7 @@
             <div class="col-6">
               <small class="text-muted">Giá:</small>
               <div class="fw-bold text-primary">
-                {{ formatPrice(product.price) }} VNĐ
+                {{ formatPrice(product.base_price) }} VNĐ
               </div>
             </div>
             <div class="col-6">
@@ -118,37 +118,20 @@ const truncateDescription = (description) => {
     : description;
 };
 
-const getStockBadgeClass = () => {
-  const stock = props.product.stock;
-  if (stock === 0) return 'bg-danger';
-  if (stock <= 5) return 'bg-warning';
-  return 'bg-success';
+const getAvailabilityBadgeClass = () => {
+  return props.product.is_global_available ? 'bg-success' : 'bg-warning';
+};
+
+const getAvailabilityLabel = () => {
+  return props.product.is_global_available ? 'Có sẵn' : 'Không có sẵn';
 };
 
 const getStatusLabel = () => {
-  switch (props.product.status) {
-    case 'inactive':
-      return 'Không hoạt động';
-    case 'out_of_stock':
-      return 'Hết hàng';
-    case 'active':
-      return props.product.is_available ? 'Có sẵn' : 'Không có sẵn';
-    default:
-      return 'Không xác định';
-  }
+  return props.product.is_global_available ? 'Có sẵn' : 'Không có sẵn';
 };
 
 const getStatusBadgeClass = () => {
-  switch (props.product.status) {
-    case 'inactive':
-      return 'bg-secondary';
-    case 'out_of_stock':
-      return 'bg-danger';
-    case 'active':
-      return props.product.is_available ? 'bg-success' : 'bg-warning';
-    default:
-      return 'bg-secondary';
-  }
+  return props.product.is_global_available ? 'bg-success' : 'bg-warning';
 };
 </script>
 
