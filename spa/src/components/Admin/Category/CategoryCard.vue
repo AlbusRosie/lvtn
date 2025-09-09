@@ -22,12 +22,12 @@
         <i class="fas fa-info-circle"></i>
         <span>{{ category.description }}</span>
       </div>
-      
+
       <div class="detail-item">
         <i class="fas fa-box"></i>
         <span>{{ category.product_count || 0 }} sản phẩm</span>
       </div>
-      
+
       <div class="detail-item" v-if="category.created_at">
         <i class="fas fa-calendar"></i>
         <span>Tạo ngày: {{ formatDate(category.created_at) }}</span>
@@ -62,7 +62,7 @@ export default {
     getStatusLabel(status) {
       return status === 'active' ? 'Hoạt động' : 'Không hoạt động';
     },
-    
+
     formatDate(dateString) {
       if (!dateString) return '';
       const date = new Date(dateString);
@@ -194,4 +194,4 @@ export default {
 .category-id i {
   font-size: 0.75rem;
 }
-</style> 
+</style>

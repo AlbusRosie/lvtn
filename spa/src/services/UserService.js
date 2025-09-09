@@ -1,10 +1,5 @@
 import { DEFAULT_AVATAR } from '@/constants';
 
-/**
- * @param {string} url
- * @param {RequestInit} options
- * @returns Promise<Response>
- */
 async function efetch(url, options = {}) {
     let result = {};
     let json = {};
@@ -16,9 +11,9 @@ async function efetch(url, options = {}) {
     try {
         result = await fetch(url, { ...options, headers });
         json = await result.json();
-        console.log('Server response:', json);
+
     } catch (error) {
-        console.error('Fetch error:', error.message);
+
         throw new Error(error.message);
     }
     if (!result.ok || json.status !== 'success') {
@@ -32,8 +27,7 @@ function makeUsersService() {
 
     async function fetchUsers(page, limit = 10, filters = {}) {
         let url = `${baseUrl}?page=${page}&limit=${limit}`;
-        
-        // Add filters to URL
+
         if (filters.name) {
             url += `&name=${encodeURIComponent(filters.name)}`;
         }
@@ -66,7 +60,7 @@ function makeUsersService() {
     }
 
     async function createUser(user) {
-        console.log('User:', user);
+
         return efetch(`${baseUrl}/register`, {
             method: 'POST',
             body: user // FormData doesn't need Content-Type header or JSON.stringify
@@ -80,8 +74,6 @@ function makeUsersService() {
     }
 
     async function updateUser(id, user) {
-        console.log('ID:', id); 
-        console.log('ID type:', typeof id); 
 
         return efetch(`${baseUrl}/${id}`, {
         method: 'PUT',

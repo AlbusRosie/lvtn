@@ -102,9 +102,10 @@ export default {
     async loadBranches() {
       try {
         const TableService = await import('@/services/TableService');
-        this.branches = await TableService.default.getAllBranches();
+        const branches = await TableService.default.getAllBranches();
+        this.branches = branches || [];
       } catch (error) {
-        console.error('Error loading branches:', error);
+        this.branches = [];
       }
     },
     handleSearch() {
@@ -261,17 +262,17 @@ export default {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .search-box {
     min-width: auto;
   }
-  
+
   .filter-controls {
     justify-content: center;
   }
-  
+
   .filter-stats {
     justify-content: center;
   }
 }
-</style> 
+</style>

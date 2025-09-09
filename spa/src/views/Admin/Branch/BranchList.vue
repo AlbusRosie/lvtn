@@ -122,20 +122,16 @@ export default {
       return AuthService.isAdmin();
     },
     filteredBranches() {
-      let filtered = [...this.branches];
-
-      // Search filter
+      let filtered = [...this.branches];
       if (this.searchTerm) {
         const term = this.searchTerm.toLowerCase();
-        filtered = filtered.filter(branch => 
+        filtered = filtered.filter(branch =>
           branch.name.toLowerCase().includes(term) ||
           branch.address.toLowerCase().includes(term) ||
           branch.phone.toLowerCase().includes(term) ||
           branch.email.toLowerCase().includes(term)
         );
-      }
-
-      // Status filter
+      }
       if (this.statusFilter) {
         filtered = filtered.filter(branch => branch.status === this.statusFilter);
       }
@@ -150,14 +146,13 @@ export default {
     async loadBranches() {
       this.loading = true;
       this.error = null;
-      
+
       try {
         const branches = await BranchService.getAllBranches();
         this.branches = branches;
       } catch (error) {
         const errorMessage = error.message || 'Có lỗi xảy ra khi tải danh sách chi nhánh';
         this.error = errorMessage;
-        console.error('Error loading branches:', error);
       } finally {
         this.loading = false;
       }
@@ -169,18 +164,14 @@ export default {
 
     async handleFormSubmit(formData) {
       this.formLoading = true;
-      
-      try {
-        // Kiểm tra xem formData có phải là SubmitEvent không
+
+      try {
         if (formData && formData.target && formData.target.tagName === 'FORM') {
-          console.error('Received SubmitEvent instead of form data');
           this.$toast.error('Lỗi: Dữ liệu form không hợp lệ');
           return;
         }
-        
-        console.log('BranchList.handleFormSubmit called with:', formData);
         const token = AuthService.getToken();
-        
+
         if (this.editingBranch) {
           await BranchService.updateBranch(this.editingBranch.id, formData, token);
           if (this.toast) {
@@ -196,13 +187,10 @@ export default {
             alert('Tạo chi nhánh mới thành công!');
           }
         }
-        
+
         await this.loadBranches();
         this.closeModal();
-      } catch (error) {
-        console.error('Error submitting form:', error);
-        
-        // Xử lý lỗi từ API response hoặc Error object
+      } catch (error) {
         let errorMessage = 'Có lỗi xảy ra';
         if (error.response && error.response.data) {
           errorMessage = error.response.data.message || error.response.data.error || errorMessage;
@@ -211,7 +199,7 @@ export default {
         } else if (typeof error === 'string') {
           errorMessage = error;
         }
-        
+
         if (this.toast) {
           this.toast.error(errorMessage);
         } else {
@@ -229,11 +217,11 @@ export default {
 
     async confirmDelete() {
       this.deleteLoading = true;
-      
+
       try {
         const token = AuthService.getToken();
         await BranchService.deleteBranch(this.branchToDelete.id, token);
-        
+
         if (this.toast) {
           this.toast.success('Xóa chi nhánh thành công!');
         } else {
@@ -249,7 +237,6 @@ export default {
         } else {
           alert('Lỗi: ' + errorMessage);
         }
-        console.error('Error deleting branch:', error);
       } finally {
         this.deleteLoading = false;
       }
@@ -434,4 +421,4 @@ export default {
   justify-content: flex-end;
   margin-top: 24px;
 }
-</style> 
+</style>

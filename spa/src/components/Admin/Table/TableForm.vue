@@ -1,7 +1,7 @@
 <template>
   <div class="table-form">
     <h2>{{ isEditing ? 'Chỉnh sửa bàn' : 'Thêm bàn mới' }}</h2>
-    
+
     <form class="form" @keydown.enter.prevent>
       <div class="form-group">
         <label for="branch_id">Chi nhánh *</label>
@@ -45,9 +45,9 @@
             placeholder="VD: T01, T02..."
             :disabled="isEditing"
           />
-          <button 
-            v-if="!isEditing && form.branch_id && form.floor_id" 
-            type="button" 
+          <button
+            v-if="!isEditing && form.branch_id && form.floor_id"
+            type="button"
             @click="generateTableNumber"
             class="btn btn-auto-generate"
             title="Tự động tạo số bàn"
@@ -56,7 +56,7 @@
           </button>
         </div>
         <small class="form-text">
-          Số bàn phải là duy nhất trong tầng. 
+          Số bàn phải là duy nhất trong tầng.
           <span v-if="!isEditing && form.branch_id && form.floor_id">
             Click nút <i class="fas fa-magic"></i> để tự động tạo số bàn.
           </span>
@@ -174,7 +174,6 @@ export default {
         const TableService = await import('@/services/TableService');
         this.branches = await TableService.default.getAllBranches();
       } catch (error) {
-        console.error('Error loading branches:', error);
       }
     },
     async loadFloors(branchId) {
@@ -186,11 +185,9 @@ export default {
         const TableService = await import('@/services/TableService');
         this.floors = await TableService.default.getFloorsByBranch(branchId);
       } catch (error) {
-        console.error('Error loading floors:', error);
       }
     },
-    handleFloorChange() {
-      // Tự động tạo số bàn khi chọn tầng (chỉ khi tạo mới)
+    handleFloorChange() {
       if (!this.isEditing && this.form.branch_id && this.form.floor_id) {
         this.generateTableNumber();
       }
@@ -223,50 +220,31 @@ export default {
 
       try {
         const TableService = await import('@/services/TableService');
-        const result = await TableService.default.generateNextTableNumber(this.form.branch_id, this.form.floor_id);
-        
-        // Cập nhật số lượng bàn hiện tại
-        this.tableCount = result.currentTableCount;
-        
-        // Tạo số bàn mới
-        this.form.table_number = result.nextTableNumber;
-        
-        // Hiển thị thông báo nếu đây là bàn đầu tiên
+        const result = await TableService.default.generateNextTableNumber(this.form.branch_id, this.form.floor_id);
+        this.tableCount = result.currentTableCount;
+        this.form.table_number = result.nextTableNumber;
         if (result.maxNumber === 0) {
-          console.log('Đây là bàn đầu tiên của tầng này');
-        }
-        
-        // Hiển thị thông báo thành công
+        }
         if (this.$toast) {
           this.$toast.success(`Đã tạo số bàn: ${result.nextTableNumber}`);
         }
-      } catch (error) {
-        console.error('Error generating table number:', error);
-        // Fallback: tạo số bàn mặc định
+      } catch (error) {
         this.form.table_number = 'T01';
         this.tableCount = 0;
       }
     },
-    handleSubmit() {
-      console.log('TableForm.handleSubmit called');
-      
-      // Kiểm tra xem form có hợp lệ không
+    handleSubmit() {
       if (!this.form.branch_id || !this.form.floor_id || !this.form.table_number || !this.form.capacity) {
-        console.error('Form validation failed:', this.form);
         if (this.$toast) {
           this.$toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
         }
         return;
       }
-      
-      const formData = { ...this.form };
-      
-      // Ensure status is set for new tables
+
+      const formData = { ...this.form };
       if (!this.isEditing) {
         formData.status = 'available';
       }
-      
-      console.log('TableForm submitting data:', formData);
       this.$emit('submit', formData);
     }
   }
@@ -414,4 +392,4 @@ export default {
   font-style: italic;
   margin-left: 8px;
 }
-</style> 
+</style>

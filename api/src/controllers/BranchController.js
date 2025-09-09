@@ -7,7 +7,6 @@ class BranchController {
     this.branchService = new BranchService();
   }
 
-  // Get all branches
   async getAllBranches(req, res, next) {
     try {
       const { status } = req.query;
@@ -18,7 +17,6 @@ class BranchController {
     }
   }
 
-  // Get branch by ID
   async getBranchById(req, res, next) {
     try {
       const { id } = req.params;
@@ -29,34 +27,26 @@ class BranchController {
     }
   }
 
-  // Create new branch
   async createBranch(req, res, next) {
     try {
-      console.log('Create branch request body:', req.body);
       const { name, address, phone, email, manager_id, status, opening_hours, description } = req.body;
 
-      // Validation
-      console.log('Validating name:', name, 'type:', typeof name);
       if (!name || !name.trim()) {
         throw new ApiError(400, 'Branch name is required');
       }
 
-      console.log('Validating address:', address, 'type:', typeof address);
       if (!address || !address.trim()) {
         throw new ApiError(400, 'Branch address is required');
-      }
+      }m 
 
-      console.log('Validating phone:', phone, 'type:', typeof phone);
       if (!phone || !phone.trim()) {
         throw new ApiError(400, 'Branch phone is required');
       }
 
-      console.log('Validating email:', email, 'type:', typeof email);
       if (!email || !email.trim()) {
         throw new ApiError(400, 'Branch email is required');
       }
 
-      // Validate status if provided
       if (status && !['active', 'inactive', 'maintenance'].includes(status)) {
         throw new ApiError(400, 'Invalid status value');
       }
@@ -72,23 +62,18 @@ class BranchController {
         description: description ? description.trim() : null
       };
 
-      console.log('Branch data to create:', branchData);
-
       const branch = await this.branchService.createBranch(branchData);
       res.status(201).json(success(branch, 'Branch created successfully'));
     } catch (error) {
-      console.error('Error creating branch:', error);
       next(error);
     }
   }
 
-  // Update branch
   async updateBranch(req, res, next) {
     try {
       const { id } = req.params;
       const { name, address, phone, email, manager_id, status, opening_hours, description } = req.body;
 
-      // Validation
       if (name !== undefined && (!name || !name.trim())) {
         throw new ApiError(400, 'Branch name cannot be empty');
       }
@@ -126,7 +111,6 @@ class BranchController {
     }
   }
 
-  // Delete branch
   async deleteBranch(req, res, next) {
     try {
       const { id } = req.params;
@@ -137,7 +121,6 @@ class BranchController {
     }
   }
 
-  // Get branch statistics
   async getBranchStatistics(req, res, next) {
     try {
       const stats = await this.branchService.getBranchStatistics();
@@ -147,7 +130,6 @@ class BranchController {
     }
   }
 
-  // Get active branches
   async getActiveBranches(req, res, next) {
     try {
       const branches = await this.branchService.getActiveBranches();
@@ -158,4 +140,4 @@ class BranchController {
   }
 }
 
-module.exports = BranchController; 
+module.exports = BranchController;

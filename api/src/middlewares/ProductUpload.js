@@ -22,47 +22,19 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-function imageUpload(req, res, next) {
+function productUpload(req, res, next) {
     const upload = multer({
         storage,
         fileFilter,
         limits: {
             fileSize: 5 * 1024 * 1024
         }
-    }).none();
+    }).single('imageFile');
 
     upload(req, res, function (err) {
         if(err instanceof multer.MulterError) {
-            if (err.code === 'LIMIT_FILE_SIZE') {
-                return next(new ApiError(400, 'File size too large. Maximum size is 5MB'));
-            }
+            if (err.code === 'LIMIT_FILE_SIZE') { return next(new ApiError(400, 'File size too large. Maximum size is 5MB')); }
             return next(new ApiError(400, 'Image upload failed'));
-        } else if(err) {
-            return next(err);
-        }
-
-        if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
-        }
-
-        next();
-    });
-}
-
-function avatarUpload(req, res, next) {
-    const upload = multer({
-        storage,
-        fileFilter,
-        limits: {
-            fileSize: 5 * 1024 * 1024 // 5MB limit
-        }
-    }).single('avatarFile');
-
-    upload(req, res, function (err) {
-        if(err instanceof multer.MulterError) {
-            if (err.code === 'LIMIT_FILE_SIZE') {
-                return next(new ApiError(400, 'File size too large. Maximum size is 5MB'));
-            }
-            return next(new ApiError(400, 'Avatar upload failed'));
         } else if(err) {
             return next(err);
         }
@@ -71,6 +43,5 @@ function avatarUpload(req, res, next) {
 }
 
 module.exports = {
-    imageUpload,
-    avatarUpload
+    productUpload
 };

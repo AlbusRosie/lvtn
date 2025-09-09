@@ -5,13 +5,12 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 if (!JWT_SECRET) {
-    console.error('JWT_SECRET is not defined in environment variables');
     process.exit(1);
 }
 
 function verifyToken(req, res, next) {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return next(new ApiError(401, 'No token provided'));
     }
@@ -32,23 +31,23 @@ function requireRole(allowedRoles) {
         if (!req.user) {
             return next(new ApiError(401, 'Authentication required'));
         }
-        
+
         if (!req.user.role_id) {
             return next(new ApiError(403, 'Role information not found'));
         }
-        
+
         const roleMap = {
             1: 'admin',
-            2: 'customer', 
+            2: 'customer',
             3: 'staff'
         };
-        
+
         const userRole = roleMap[req.user.role_id];
-        
+
         if (!userRole || !allowedRoles.includes(userRole)) {
             return next(new ApiError(403, 'Insufficient permissions'));
         }
-        
+
         next();
     };
 }
@@ -58,4 +57,4 @@ module.exports = {
     requireRole,
     JWT_SECRET,
     JWT_EXPIRES_IN
-}; 
+};

@@ -7,42 +7,58 @@ function productRepository() {
 }
 
 function readProduct(payload) {
-    const product = {
-        category_id: payload.category_id,
-        name: payload.name,
-        price: payload.price,
-        stock: payload.stock,
-        description: payload.description || null,
-        image: payload.image || null,
-        is_available: payload.is_available !== undefined ? payload.is_available : 1
-    };
+    const product = {};
+
+    if (payload.category_id !== undefined) {
+        product.category_id = payload.category_id;
+    }
+    if (payload.name !== undefined) {
+        product.name = payload.name;
+    }
+    if (payload.price !== undefined) {
+        product.price = payload.price;
+    }
+    if (payload.stock !== undefined) {
+        product.stock = payload.stock;
+    }
+    if (payload.description !== undefined) {
+        product.description = payload.description;
+    }
+    if (payload.image !== undefined) {
+        product.image = payload.image;
+    }
+    if (payload.status !== undefined) {
+        product.status = payload.status;
+    }
+    if (payload.is_available !== undefined) {
+        product.is_available = payload.is_available;
+    }
 
     return product;
 }
 
 async function createProduct(payload) {
-    // Validate required fields
+
     if (!payload.category_id || !payload.name || !payload.price || !payload.stock === undefined) {
         throw new Error('Missing required fields');
     }
 
-    // Validate price and stock are positive numbers
     if (payload.price <= 0 || payload.stock < 0) {
         throw new Error('Price must be positive and stock must be non-negative');
     }
 
     const product = readProduct(payload);
     const [id] = await productRepository().insert(product);
-    return {    
+    return {
         id,
         ...product
     };
 }
 
 async function getManyProducts(query) {
-    const { name, category_id, min_price, max_price, is_available, page = 1, limit = 10 } = query;
+    const { name, category_id, min_price, max_price, status, is_available, page = 1, limit = 10 } = query;
     const paginator = new Paginator(page, limit);
-    
+
     let results = await productRepository()
         .join('categories', 'products.category_id', 'categories.id')
         .where((builder) => {
@@ -57,6 +73,9 @@ async function getManyProducts(query) {
             }
             if (max_price) {
                 builder.where('products.price', '<=', max_price);
+            }
+            if (status) {
+                builder.where('products.status', status);
             }
             if (is_available !== undefined) {
                 builder.where('products.is_available', is_available === 'true' || is_available === true ? 1 : 0);
@@ -124,23 +143,39 @@ async function updateProduct(id, payload) {
     }
 
     const update = readProduct(payload);
-    
-    // Validate price and stock if provided
-    if (update.price !== undefined && update.price <= 0) {
-        throw new Error('Price must be positive');
+
+    if (update.price !== undefined) {
+        const price = parseFloat(update.price);
+        if (isNaN(price) || price <= 0) {
+            throw new Error('Price must be a positive number');
+        }
     }
-    if (update.stock !== undefined && update.stock < 0) {
-        throw new Error('Stock must be non-negative');
+    if (update.stock !== undefined) {
+        const stock = parseInt(update.stock);
+        if (isNaN(stock) || stock < 0) {
+            throw new Error('Stock must be a non-negative number');
+        }
     }
 
-    await productRepository().where('id', id).update(update);
-    
-    // Delete old image if new image is uploaded
-    if (update.image && existingProduct.image && update.image !== existingProduct.image && existingProduct.image.startsWith('/public/uploads')) {
-        unlink(`.${existingProduct.image}`, (err) => {});
+    if (update.status && !['active', 'inactive', 'out_of_stock'].includes(update.status)) {
+        throw new Error('Invalid status value');
     }
-    
-    return { ...existingProduct, ...update };
+
+    if (update.category_id !== undefined) {
+        const category = await knex('categories')
+            .where('id', update.category_id)
+            .first();
+        if (!category) {
+            throw new Error('Category not found');
+        }
+    }
+
+    const [updatedProduct] = await productRepository()
+        .where('id', id)
+        .update(update)
+        .returning('*');
+
+    return updatedProduct;
 }
 
 async function deleteProduct(id) {
@@ -154,26 +189,24 @@ async function deleteProduct(id) {
     }
 
     await productRepository().where('id', id).del();
-    
-    // Delete image file if exists
+
     if (deletedProduct.image && deletedProduct.image.startsWith('/public/uploads')) {
         unlink(`.${deletedProduct.image}`, (err) => {});
     }
-    
+
     return deletedProduct;
 }
 
 async function deleteAllProducts() {
     const products = await productRepository().select('image');
     await productRepository().del();
-    
-    // Delete all image files
+
     products.forEach((product) => {
         if (product.image && product.image.startsWith('/public/uploads')) {
             unlink(`.${product.image}`, (err) => {});
         }
     });
-    
+
     return true;
 }
 
@@ -200,7 +233,7 @@ async function getProductsByCategory(categoryId) {
 async function getAvailableProducts(query) {
     const { name, category_id, min_price, max_price, page = 1, limit = 10 } = query;
     const paginator = new Paginator(page, limit);
-    
+
     let results = await productRepository()
         .join('categories', 'products.category_id', 'categories.id')
         .where('products.is_available', 1)

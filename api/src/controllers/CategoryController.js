@@ -5,9 +5,7 @@ const { success } = require('../jsend');
 class CategoryController {
   constructor() {
     this.categoryService = new CategoryService();
-  }
-
-  // Get all categories
+  }
   async getAllCategories(req, res, next) {
     try {
       const categories = await this.categoryService.getAllCategories();
@@ -15,9 +13,7 @@ class CategoryController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Get categories with product count
+  }
   async getCategoriesWithProductCount(req, res, next) {
     try {
       const categories = await this.categoryService.getCategoriesWithProductCount();
@@ -25,9 +21,7 @@ class CategoryController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Get category by ID
+  }
   async getCategoryById(req, res, next) {
     try {
       const { id } = req.params;
@@ -36,14 +30,10 @@ class CategoryController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Create new category
+  }
   async createCategory(req, res, next) {
     try {
-      const { name, description, image } = req.body;
-
-      // Validation
+      const { name, description, image } = req.body;
       if (!name || !name.trim()) {
         throw new ApiError(400, 'Category name is required');
       }
@@ -59,15 +49,11 @@ class CategoryController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Update category
+  }
   async updateCategory(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, description, image, status } = req.body;
-
-      // Validation
+      const { name, description, image, status } = req.body;
       if (name !== undefined && (!name || !name.trim())) {
         throw new ApiError(400, 'Category name cannot be empty');
       }
@@ -83,9 +69,7 @@ class CategoryController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Delete category
+  }
   async deleteCategory(req, res, next) {
     try {
       const { id } = req.params;
@@ -97,4 +81,4 @@ class CategoryController {
   }
 }
 
-module.exports = CategoryController; 
+module.exports = CategoryController;

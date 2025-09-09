@@ -10,7 +10,6 @@ class ProductService {
       },
     });
 
-    // Add auth token to requests
     this.api.interceptors.request.use((config) => {
       const token = localStorage.getItem('auth_token');
       if (token) {
@@ -20,7 +19,6 @@ class ProductService {
     });
   }
 
-  // Get all products with filters
   async getProducts(params = {}) {
     try {
       const response = await this.api.get('', { params });
@@ -30,7 +28,6 @@ class ProductService {
     }
   }
 
-  // Get available products only
   async getAvailableProducts(params = {}) {
     try {
       const response = await this.api.get('/available', { params });
@@ -40,7 +37,6 @@ class ProductService {
     }
   }
 
-  // Get product by ID
   async getProduct(id) {
     try {
       const response = await this.api.get(`/${id}`);
@@ -50,59 +46,69 @@ class ProductService {
     }
   }
 
-  // Create new product with image upload
   async createProduct(productData) {
     try {
-      // Create FormData for file upload
-      const formData = new FormData();
-      
-      // Add all product data to FormData
-      Object.keys(productData).forEach(key => {
-        if (key === 'imageFile' && productData[key] instanceof File) {
-          formData.append(key, productData[key]);
-        } else if (key !== 'imageFile') {
-          formData.append(key, productData[key]);
-        }
+      if (productData instanceof FormData) {
+      } else {
+      }
+
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE_URL}/products`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: productData // productData is already FormData
       });
 
-      const response = await this.api.post('', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create product');
+      }
+
+      const result = await response.json();
+      return result;
     } catch (error) {
-      throw this.handleError(error);
+
+      throw error;
     }
   }
 
-  // Update product with image upload
   async updateProduct(id, productData) {
     try {
-      // Create FormData for file upload
+
       const formData = new FormData();
-      
-      // Add all product data to FormData
-      Object.keys(productData).forEach(key => {
-        if (key === 'imageFile' && productData[key] instanceof File) {
-          formData.append(key, productData[key]);
+
+      for (const [key, value] of Object.entries(productData)) {
+        if (key === 'imageFile' && value instanceof File) {
+          formData.append(key, value);
         } else if (key !== 'imageFile') {
-          formData.append(key, productData[key]);
+          formData.append(key, value);
         }
+      }
+
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
       });
 
-      const response = await this.api.put(`/${id}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update product');
+      }
+
+      const result = await response.json();
+      return result;
     } catch (error) {
-      throw this.handleError(error);
+
+      throw error;
     }
   }
 
-  // Delete product
   async deleteProduct(id) {
     try {
       const response = await this.api.delete(`/${id}`);
@@ -112,7 +118,6 @@ class ProductService {
     }
   }
 
-  // Get products by category
   async getProductsByCategory(categoryId) {
     try {
       const response = await this.api.get(`/category/${categoryId}`);
@@ -122,7 +127,6 @@ class ProductService {
     }
   }
 
-  // Delete all products
   async deleteAllProducts() {
     try {
       const response = await this.api.delete('');
@@ -132,7 +136,6 @@ class ProductService {
     }
   }
 
-  // Search products by name
   async searchProducts(name, params = {}) {
     try {
       const searchParams = { ...params, name };
@@ -143,7 +146,6 @@ class ProductService {
     }
   }
 
-  // Filter products by price range
   async filterProductsByPrice(minPrice, maxPrice, params = {}) {
     try {
       const filterParams = { ...params, min_price: minPrice, max_price: maxPrice };
@@ -154,7 +156,6 @@ class ProductService {
     }
   }
 
-  // Filter products by availability
   async filterProductsByAvailability(isAvailable, params = {}) {
     try {
       const filterParams = { ...params, is_available: isAvailable };
@@ -165,12 +166,11 @@ class ProductService {
     }
   }
 
-  // Handle API errors
   handleError(error) {
     if (error.response) {
-      // Server responded with error status
+
       const { status, data } = error.response;
-      
+
       switch (status) {
         case 400:
           return new Error(data.message || 'Invalid request data');
@@ -188,13 +188,13 @@ class ProductService {
           return new Error(data.message || 'An error occurred');
       }
     } else if (error.request) {
-      // Network error
+
       return new Error('Network error. Please check your connection.');
     } else {
-      // Other error
+
       return new Error('An unexpected error occurred');
     }
   }
 }
 
-export default new ProductService(); 
+export default new ProductService();

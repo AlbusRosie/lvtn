@@ -1,7 +1,7 @@
 <template>
   <div class="branch-form">
     <h2>{{ isEditing ? 'Chỉnh sửa chi nhánh' : 'Thêm chi nhánh mới' }}</h2>
-    
+
     <form class="form" @keydown.enter.prevent>
       <div class="form-group">
         <label for="name">Tên chi nhánh *</label>
@@ -152,22 +152,16 @@ export default {
         status: 'active'
       };
     },
-    
-    handleSubmit() {
-      console.log('BranchForm.handleSubmit called');
-      
-      // Kiểm tra xem form có hợp lệ không
+
+    handleSubmit() {
       if (!this.form.name || !this.form.address || !this.form.phone || !this.form.email) {
-        console.error('Form validation failed:', this.form);
         if (this.$toast) {
           this.$toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
         }
         return;
       }
-      
+
       const formData = { ...this.form };
-      
-      console.log('BranchForm submitting data:', formData);
       this.$emit('submit', formData);
     }
   }
@@ -273,4 +267,4 @@ export default {
 .btn-secondary:hover:not(:disabled) {
   background: #4b5563;
 }
-</style> 
+</style>

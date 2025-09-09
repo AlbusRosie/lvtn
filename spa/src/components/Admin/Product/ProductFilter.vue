@@ -5,7 +5,7 @@
         <h6 class="card-title mb-3">
           <i class="bi bi-funnel"></i> Lọc món ăn
         </h6>
-        
+
         <form @submit.prevent="handleFilter">
           <div class="row">
             <div class="col-md-3">
@@ -20,7 +20,7 @@
                 />
               </div>
             </div>
-            
+
             <div class="col-md-2">
               <div class="mb-3">
                 <label for="categoryFilter" class="form-label">Danh mục</label>
@@ -39,7 +39,7 @@
                 </select>
               </div>
             </div>
-            
+
             <div class="col-md-2">
               <div class="mb-3">
                 <label for="minPrice" class="form-label">Giá tối thiểu</label>
@@ -53,7 +53,7 @@
                 />
               </div>
             </div>
-            
+
             <div class="col-md-2">
               <div class="mb-3">
                 <label for="maxPrice" class="form-label">Giá tối đa</label>
@@ -67,10 +67,26 @@
                 />
               </div>
             </div>
-            
+
             <div class="col-md-2">
               <div class="mb-3">
-                <label for="availabilityFilter" class="form-label">Trạng thái</label>
+                <label for="statusFilter" class="form-label">Trạng thái</label>
+                <select
+                  v-model="filters.status"
+                  class="form-select form-select-sm"
+                  id="statusFilter"
+                >
+                  <option value="">Tất cả trạng thái</option>
+                  <option value="active">Hoạt động</option>
+                  <option value="inactive">Không hoạt động</option>
+                  <option value="out_of_stock">Hết hàng</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="col-md-1">
+              <div class="mb-3">
+                <label for="availabilityFilter" class="form-label">Có sẵn</label>
                 <select
                   v-model="filters.is_available"
                   class="form-select form-select-sm"
@@ -78,11 +94,11 @@
                 >
                   <option value="">Tất cả</option>
                   <option :value="true">Có sẵn</option>
-                  <option :value="false">Hết hàng</option>
+                  <option :value="false">Không có sẵn</option>
                 </select>
               </div>
             </div>
-            
+
             <div class="col-md-1">
               <div class="mb-3">
                 <label for="stockFilter" class="form-label">Số lượng</label>
@@ -99,7 +115,7 @@
               </div>
             </div>
           </div>
-          
+
           <div class="d-flex justify-content-between align-items-center">
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary btn-sm">
@@ -109,7 +125,7 @@
                 <i class="bi bi-x-circle"></i> Xóa bộ lọc
               </button>
             </div>
-            
+
             <div class="d-flex align-items-center gap-2">
               <label class="form-label mb-0">Hiển thị:</label>
               <select v-model="filters.limit" class="form-select form-select-sm" style="width: auto;">
@@ -140,12 +156,11 @@ const filters = reactive({
   category_id: '',
   min_price: '',
   max_price: '',
+  status: '',
   is_available: '',
   stock_status: '',
   limit: 10
-});
-
-// Load categories on mount
+});
 onMounted(async () => {
   await loadCategories();
 });
@@ -154,9 +169,8 @@ const loadCategories = async () => {
   try {
     loadingCategories.value = true;
     const response = await CategoryService.getAllCategories();
-    categories.value = response.data || [];
+    categories.value = response || [];
   } catch (error) {
-    console.error('Error loading categories:', error);
     categories.value = [];
   } finally {
     loadingCategories.value = false;
@@ -164,23 +178,19 @@ const loadCategories = async () => {
 };
 
 const handleFilter = () => {
-  const filterData = { ...filters };
-  
-  // Remove empty values but keep limit
+  const filterData = { ...filters };
   Object.keys(filterData).forEach(key => {
     if (key === 'limit') return; // Keep limit
-    
+
     if (filterData[key] === '' || filterData[key] === null || filterData[key] === undefined) {
       delete filterData[key];
     }
   });
-  
-  console.log('Filter data:', filterData); // Debug log
+
   emit('filter', filterData);
 };
 
-const handleClear = () => {
-  // Reset all filters
+const handleClear = () => {
   Object.keys(filters).forEach(key => {
     if (key === 'limit') {
       filters[key] = 10;
@@ -188,11 +198,9 @@ const handleClear = () => {
       filters[key] = '';
     }
   });
-  
-  emit('clear');
-};
 
-// Watch for limit changes and auto-filter
+  emit('clear');
+};
 watch(() => filters.limit, () => {
   handleFilter();
 });
@@ -219,4 +227,4 @@ watch(() => filters.limit, () => {
 .form-select-sm {
   font-size: 0.875rem;
 }
-</style> 
+</style>

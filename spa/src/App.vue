@@ -5,12 +5,8 @@ import { useToast } from 'vue-toastification';
 import AdminSidebar from '@/components/Admin/Sidebar.vue';
 
 const route = useRoute();
-const toast = useToast();
-
-// Provide toast cho các component con
-provide('toast', toast);
-
-// Kiểm tra xem có phải trang auth không
+const toast = useToast();
+provide('toast', toast);
 const isAuthPage = computed(() => {
   return route.path === '/auth' || route.path === '/login' || route.path === '/register';
 });
@@ -44,7 +40,6 @@ const isAuthPage = computed(() => {
   margin-left: 60px;
 }
 
-/* Layout cho trang auth */
 .auth-layout {
   display: block;
 }

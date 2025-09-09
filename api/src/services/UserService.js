@@ -19,9 +19,7 @@ function readUser(payload) {
         favorite: payload.favorite !== undefined ? payload.favorite : 0,
         avatar: payload.avatar || null,
         role_id: payload.role_id
-    };
-
-    // Only include password if it's provided
+    };
     if (payload.password) {
         user.password = bcrypt.hashSync(payload.password, 10);
     }
@@ -29,13 +27,10 @@ function readUser(payload) {
     return user;
 }
 
-async function createUser(payload) {
-    // Validate required fields
+async function createUser(payload) {
     if (!payload.username || !payload.password || !payload.email || !payload.name || !payload.role_id) {
         throw new Error('Missing required fields');
-    }
-
-    // Check if username or email already exists
+    }
     const existingUser = await userRepository()
         .where('username', payload.username)
         .orWhere('email', payload.email)
@@ -47,7 +42,7 @@ async function createUser(payload) {
 
     const user = readUser(payload);
     const [id] = await userRepository().insert(user);
-    return {    
+    return {
         id,
         ...user,
         password: undefined
@@ -67,7 +62,7 @@ async function getManyUsers(query) {
         if(role_id){
             builder.where('role_id', role_id);
         }
-        if( favorite !== undefined && 
+        if( favorite !== undefined &&
             favorite !== '0' &&
             favorite !== 'false'){
             builder.where('favorite', 1);
@@ -128,7 +123,7 @@ async function updateUser(id, payload) {
         unlink(`.${updatedUser.avatar}`, (err) => {});
     }
     return { ...updatedUser, ...update };
-}   
+}
 
 async function deleteUser(id) {
     const deletedUser = await userRepository()
@@ -137,7 +132,7 @@ async function deleteUser(id) {
     .first();
     if (!deletedUser) {
         return null;
-    }    
+    }
     await userRepository().where('id', id).del();
     if (
         deletedUser.avatar &&
@@ -169,7 +164,7 @@ async function login(username, password) {
     }
 
     const token = jwt.sign(
-        { 
+        {
             id: user.id,
             username: user.username,
             role_id: user.role_id
@@ -198,7 +193,7 @@ module.exports = {
     createUser,
     getManyUsers,
     getUserById,
-    updateUser, 
+    updateUser,
     deleteUser,
     deleteAllUsers,
     login,

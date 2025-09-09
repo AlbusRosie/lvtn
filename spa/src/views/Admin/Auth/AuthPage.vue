@@ -16,20 +16,14 @@ const toast = useToast();
 const isLogin = ref(true);
 const isLoading = ref(false);
 const message = ref('');
-const currentUser = ref(null);
-
-// Kiểm tra xem có user đã đăng nhập không
+const currentUser = ref(null);
 const checkLoggedInUser = () => {
   const userStr = localStorage.getItem('currentUser');
   if (userStr) {
     currentUser.value = JSON.parse(userStr);
   }
-};
-
-// Gọi hàm kiểm tra khi component mount
-checkLoggedInUser();
-
-// Validation schemas
+};
+checkLoggedInUser();
 const loginSchema = toTypedSchema(
   z.object({
     username: z
@@ -78,32 +72,21 @@ const currentSchema = computed(() => isLogin.value ? loginSchema : registerSchem
 async function onLogin(values) {
   isLoading.value = true;
   message.value = '';
-  
+
   try {
-    const result = await authService.login(values.username, values.password);
-    
-    // Kiểm tra role của user
+    const result = await authService.login(values.username, values.password);
     const userRole = result.user.role_id;
     const userName = result.user.name;
-    
-    if (userRole === 1) {
-      // Admin - chuyển đến trang quản trị
-      toast.success(`Đăng nhập thành công! Chào mừng Admin ${userName}!`);
-      // Không lưu currentUser, chuyển hướng ngay
+
+    if (userRole === 1) {
+      toast.success(`Đăng nhập thành công! Chào mừng Admin ${userName}!`);
       router.push('/');
       return; // Dừng hàm ở đây
-    } else {
-      // Customer hoặc Seller - chỉ thông báo thành công
+    } else {
       const roleName = userRole === 2 ? 'Customer' : 'Seller';
-      toast.success(`Đăng nhập thành công! Chào mừng ${roleName} ${userName}!`);
-      
-      // Lưu thông tin user vào localStorage và cập nhật state
+      toast.success(`Đăng nhập thành công! Chào mừng ${roleName} ${userName}!`);
       localStorage.setItem('currentUser', JSON.stringify(result.user));
-      currentUser.value = result.user;
-      
-      // Có thể thêm logic khác ở đây khi cần
-      // Ví dụ: router.push('/customer-dashboard') hoặc router.push('/seller-dashboard')
-      // Hiện tại chỉ thông báo thành công và ở lại trang auth
+      currentUser.value = result.user;
     }
   } catch (error) {
     message.value = error.message;
@@ -116,7 +99,7 @@ async function onLogin(values) {
 async function onRegister(values) {
   isLoading.value = true;
   message.value = '';
-  
+
   try {
     const formData = new FormData();
     formData.append('username', values.username);
@@ -154,8 +137,7 @@ function toggleMode() {
 }
 
 function handleLogout() {
-  currentUser.value = null;
-  // Không cần xóa localStorage vì UserInfo component đã xóa rồi
+  currentUser.value = null;
 }
 </script>
 
@@ -163,7 +145,7 @@ function handleLogout() {
   <div class="auth-container">
     <!-- Hiển thị thông tin user nếu đã đăng nhập -->
     <UserInfo v-if="currentUser" @logout="handleLogout" />
-    
+
     <!-- Hiển thị form đăng nhập/đăng ký nếu chưa đăng nhập -->
     <div v-else class="auth-card">
       <div class="auth-header">
@@ -177,10 +159,10 @@ function handleLogout() {
         <!-- Username field -->
         <div class="form-group">
           <label for="username" class="form-label">Tên đăng nhập</label>
-          <Field 
-            name="username" 
-            type="text" 
-            class="form-control" 
+          <Field
+            name="username"
+            type="text"
+            class="form-control"
             placeholder="Nhập tên đăng nhập"
           />
           <ErrorMessage name="username" class="error-message" />
@@ -189,10 +171,10 @@ function handleLogout() {
         <!-- Password field -->
         <div class="form-group">
           <label for="password" class="form-label">Mật khẩu</label>
-          <Field 
-            name="password" 
-            type="password" 
-            class="form-control" 
+          <Field
+            name="password"
+            type="password"
+            class="form-control"
             placeholder="Nhập mật khẩu"
           />
           <ErrorMessage name="password" class="error-message" />
@@ -202,10 +184,10 @@ function handleLogout() {
         <template v-if="!isLogin">
           <div class="form-group">
             <label for="confirmPassword" class="form-label">Xác nhận mật khẩu</label>
-            <Field 
-              name="confirmPassword" 
-              type="password" 
-              class="form-control" 
+            <Field
+              name="confirmPassword"
+              type="password"
+              class="form-control"
               placeholder="Nhập lại mật khẩu"
             />
             <ErrorMessage name="confirmPassword" class="error-message" />
@@ -213,10 +195,10 @@ function handleLogout() {
 
           <div class="form-group">
             <label for="name" class="form-label">Họ và tên</label>
-            <Field 
-              name="name" 
-              type="text" 
-              class="form-control" 
+            <Field
+              name="name"
+              type="text"
+              class="form-control"
               placeholder="Nhập họ và tên"
             />
             <ErrorMessage name="name" class="error-message" />
@@ -224,10 +206,10 @@ function handleLogout() {
 
           <div class="form-group">
             <label for="email" class="form-label">Email</label>
-            <Field 
-              name="email" 
-              type="email" 
-              class="form-control" 
+            <Field
+              name="email"
+              type="email"
+              class="form-control"
               placeholder="Nhập email"
             />
             <ErrorMessage name="email" class="error-message" />
@@ -235,10 +217,10 @@ function handleLogout() {
 
           <div class="form-group">
             <label for="phone" class="form-label">Số điện thoại</label>
-            <Field 
-              name="phone" 
-              type="tel" 
-              class="form-control" 
+            <Field
+              name="phone"
+              type="tel"
+              class="form-control"
               placeholder="Nhập số điện thoại"
             />
             <ErrorMessage name="phone" class="error-message" />
@@ -246,9 +228,9 @@ function handleLogout() {
         </template>
 
         <!-- Submit button -->
-        <button 
-          type="submit" 
-          class="submit-btn" 
+        <button
+          type="submit"
+          class="submit-btn"
           :disabled="isLoading"
         >
           <LoadingSpinner v-if="isLoading" text="" />
@@ -265,9 +247,9 @@ function handleLogout() {
       <div class="auth-footer">
         <p class="toggle-text">
           {{ isLogin ? 'Chưa có tài khoản?' : 'Đã có tài khoản?' }}
-          <button 
-            type="button" 
-            class="toggle-btn" 
+          <button
+            type="button"
+            class="toggle-btn"
             @click="toggleMode"
           >
             {{ isLogin ? 'Đăng ký ngay' : 'Đăng nhập' }}
@@ -438,20 +420,19 @@ function handleLogout() {
   color: #764ba2;
 }
 
-/* Responsive design */
 @media (max-width: 480px) {
   .auth-card {
     padding: 30px 20px;
     margin: 10px;
   }
-  
+
   .auth-title {
     font-size: 24px;
   }
-  
+
   .form-control {
     padding: 10px 14px;
     font-size: 14px;
   }
 }
-</style> 
+</style>

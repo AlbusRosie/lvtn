@@ -6,26 +6,19 @@ const SECRET_KEY = process.env.JWT_SECRET;
 const EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
 
 async function createUser(req, res, next) {
-    try {
-        // Validate required fields
+    try {
         const requiredFields = ['username', 'password', 'email', 'name', 'role_id'];
         const missingFields = requiredFields.filter(field => !req.body[field]);
-        
+
         if (missingFields.length > 0) {
             return next(new ApiError(400, `Missing required fields: ${missingFields.join(', ')}`));
-        }
-
-        // Validate role_id is a number
+        }
         if (isNaN(parseInt(req.body.role_id))) {
             return next(new ApiError(400, 'Invalid role_id'));
-        }
-
-        // Validate phone number format (optional)
+        }
         if (req.body.phone && !/^[0-9]{10,11}$/.test(req.body.phone)) {
             return next(new ApiError(400, 'Invalid phone number format'));
-        }
-
-        // Validate email format
+        }
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(req.body.email)) {
             return next(new ApiError(400, 'Invalid email format'));
@@ -129,14 +122,11 @@ async function updateUser(req, res, next) {
         return next(new ApiError(400, 'No data to update'));
     }
     const { id } = req.params;
-    
-    try {
-        // Validate phone number format if provided
+
+    try {
         if (req.body.phone && !/^[0-9]{10,11}$/.test(req.body.phone)) {
             return next(new ApiError(400, 'Invalid phone number format'));
-        }
-
-        // Validate email format if provided
+        }
         if (req.body.email) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(req.body.email)) {
@@ -147,9 +137,7 @@ async function updateUser(req, res, next) {
         const updateData = {
             ...req.body,
             avatar: req.file ? `/public/uploads/${req.file.filename}` : null,
-        };
-
-        // Convert favorite to integer if provided
+        };
         if (req.body.favorite !== undefined) {
             updateData.favorite = req.body.favorite === 'true' || req.body.favorite === true ? 1 : 0;
         }
@@ -193,7 +181,7 @@ async function deleteAllUsers(req, res, next) {
         );
     }
 }
-    
+
 module.exports = {
     login,
     getUser,

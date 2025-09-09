@@ -32,8 +32,7 @@ const user = ref(null);
 
 const emit = defineEmits(['logout']);
 
-onMounted(() => {
-  // Lấy thông tin user từ localStorage
+onMounted(() => {
   const userStr = localStorage.getItem('currentUser');
   if (userStr) {
     user.value = JSON.parse(userStr);
@@ -122,4 +121,4 @@ function handleLogout() {
 .logout-btn i {
   font-size: 12px;
 }
-</style> 
+</style>

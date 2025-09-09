@@ -2,9 +2,9 @@
   <div class="product-card">
     <div class="card h-100 shadow-sm">
       <div class="card-img-top-container">
-        <img 
-          :src="product.image || '/public/images/blank-profile-picture.png'" 
-          class="card-img-top" 
+        <img
+          :src="product.image || '/public/images/blank-profile-picture.png'"
+          class="card-img-top"
           :alt="product.name"
           style="height: 200px; object-fit: cover;"
         />
@@ -23,7 +23,7 @@
             {{ product.stock }} món
           </span>
         </div>
-        
+
         <div class="product-info mb-3">
           <div class="row">
             <div class="col-6">
@@ -37,7 +37,7 @@
               <div class="fw-bold">{{ product.category_name }}</div>
             </div>
           </div>
-          
+
           <div class="row mt-2">
             <div class="col-6">
               <small class="text-muted">Trạng thái:</small>
@@ -53,32 +53,32 @@
             </div>
           </div>
         </div>
-        
+
         <div class="product-description mb-3">
           <small class="text-muted">Mô tả:</small>
           <p class="card-text small mb-0" :title="product.description">
             {{ truncateDescription(product.description) }}
           </p>
         </div>
-        
+
         <div class="product-actions">
           <div class="btn-group w-100" role="group">
-            <button 
-              @click="$emit('view', product)" 
+            <button
+              @click="$emit('view', product)"
               class="btn btn-outline-primary btn-sm"
               title="Xem chi tiết"
             >
               <i class="bi bi-eye"></i> Xem
             </button>
-            <button 
-              @click="$emit('edit', product)" 
+            <button
+              @click="$emit('edit', product)"
               class="btn btn-outline-warning btn-sm"
               title="Chỉnh sửa"
             >
               <i class="bi bi-pencil"></i> Sửa
             </button>
-            <button 
-              @click="$emit('delete', product)" 
+            <button
+              @click="$emit('delete', product)"
               class="btn btn-outline-danger btn-sm"
               title="Xóa món ăn"
             >
@@ -113,8 +113,8 @@ const formatDate = (dateString) => {
 
 const truncateDescription = (description) => {
   if (!description) return 'Chưa có mô tả';
-  return description.length > 100 
-    ? description.substring(0, 100) + '...' 
+  return description.length > 100
+    ? description.substring(0, 100) + '...'
     : description;
 };
 
@@ -126,15 +126,29 @@ const getStockBadgeClass = () => {
 };
 
 const getStatusLabel = () => {
-  if (props.product.status === 'inactive') return 'Không hoạt động';
-  if (props.product.status === 'out_of_stock' || props.product.is_available === false) return 'Hết hàng';
-  return 'Có sẵn';
+  switch (props.product.status) {
+    case 'inactive':
+      return 'Không hoạt động';
+    case 'out_of_stock':
+      return 'Hết hàng';
+    case 'active':
+      return props.product.is_available ? 'Có sẵn' : 'Không có sẵn';
+    default:
+      return 'Không xác định';
+  }
 };
 
 const getStatusBadgeClass = () => {
-  if (props.product.status === 'inactive') return 'bg-secondary';
-  if (props.product.status === 'out_of_stock' || props.product.is_available === false) return 'bg-danger';
-  return 'bg-success';
+  switch (props.product.status) {
+    case 'inactive':
+      return 'bg-secondary';
+    case 'out_of_stock':
+      return 'bg-danger';
+    case 'active':
+      return props.product.is_available ? 'bg-success' : 'bg-warning';
+    default:
+      return 'bg-secondary';
+  }
 };
 </script>
 
@@ -179,4 +193,4 @@ const getStatusBadgeClass = () => {
 .badge {
   font-size: 0.7rem;
 }
-</style> 
+</style>

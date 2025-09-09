@@ -6,12 +6,12 @@
         - Tầng {{ form.floor_number }} ({{ getBranchName(form.branch_id) }})
       </span>
     </h2>
-    
+
     <div v-if="isEditing" class="edit-notice">
       <i class="fas fa-info-circle"></i>
       <span>Chỉ có thể thay đổi: Tên, sức chứa, mô tả, trạng thái</span>
     </div>
-    
+
     <form class="form" @keydown.enter.prevent>
       <div class="form-group">
         <label for="branch_id">Chi nhánh *</label>
@@ -28,7 +28,7 @@
           </option>
         </select>
         <small v-if="isEditing && form.branch_id" class="form-text">
-          <i class="fas fa-building"></i> Đang chỉnh sửa tầng số <strong>{{ form.floor_number }}</strong> thuộc chi nhánh: 
+          <i class="fas fa-building"></i> Đang chỉnh sửa tầng số <strong>{{ form.floor_number }}</strong> thuộc chi nhánh:
           <strong>{{ getBranchName(form.branch_id) }}</strong>
         </small>
       </div>
@@ -45,9 +45,9 @@
             placeholder="VD: 1, 2, 3..."
             :disabled="isEditing"
           />
-          <button 
-            v-if="!isEditing && form.branch_id" 
-            type="button" 
+          <button
+            v-if="!isEditing && form.branch_id"
+            type="button"
             @click="generateFloorNumber"
             class="btn btn-auto-generate"
             title="Tự động tạo số tầng"
@@ -56,7 +56,7 @@
           </button>
         </div>
         <small class="form-text">
-          Số tầng phải là duy nhất trong chi nhánh. 
+          Số tầng phải là duy nhất trong chi nhánh.
           <span v-if="!isEditing && form.branch_id">
             Click nút <i class="fas fa-magic"></i> để tự động tạo số tầng.
           </span>
@@ -168,8 +168,7 @@ export default {
             capacity: newFloor.capacity,
             description: newFloor.description || '',
             status: newFloor.status
-          };
-          // Load thông tin chi nhánh khi edit
+          };
           this.loadBranchInfo(newFloor.branch_id);
         } else {
           this.resetForm();
@@ -184,33 +183,28 @@ export default {
         const BranchService = await import('@/services/BranchService');
         this.branches = await BranchService.default.getAllBranches();
       } catch (error) {
-        console.error('Error loading branches:', error);
       }
     },
-    
+
     async loadBranchInfo(branchId) {
       try {
         const BranchService = await import('@/services/BranchService');
-        const branch = await BranchService.default.getBranchById(branchId);
-        // Có thể sử dụng thông tin chi nhánh để hiển thị thêm thông tin nếu cần
-        console.log('Loaded branch info:', branch);
+        const branch = await BranchService.default.getBranchById(branchId);
       } catch (error) {
-        console.error('Error loading branch info:', error);
       }
     },
-    
+
     getBranchName(branchId) {
       const branch = this.branches.find(b => b.id === branchId);
       return branch ? branch.name : 'Không xác định';
     },
-    
-    handleBranchChange() {
-      // Chỉ tự động tạo số tầng khi thêm mới, không phải khi edit
+
+    handleBranchChange() {
       if (!this.isEditing && this.form.branch_id) {
         this.generateFloorNumber();
       }
     },
-    
+
     async generateFloorNumber() {
       if (!this.form.branch_id) {
         return;
@@ -218,26 +212,18 @@ export default {
 
       try {
         const FloorService = await import('@/services/FloorService');
-        const result = await FloorService.default.generateNextFloorNumber(this.form.branch_id);
-        
-        // Cập nhật số lượng tầng hiện tại
-        this.floorCount = result.currentFloorCount;
-        
-        // Tạo số tầng mới
-        this.form.floor_number = result.nextFloorNumber;
-        
-        // Hiển thị thông báo thành công
+        const result = await FloorService.default.generateNextFloorNumber(this.form.branch_id);
+        this.floorCount = result.currentFloorCount;
+        this.form.floor_number = result.nextFloorNumber;
         if (this.$toast) {
           this.$toast.success(`Đã tạo số tầng: ${result.nextFloorNumber}`);
         }
-      } catch (error) {
-        console.error('Error generating floor number:', error);
-        // Fallback: tạo số tầng mặc định
+      } catch (error) {
         this.form.floor_number = 1;
         this.floorCount = 0;
       }
     },
-    
+
     resetForm() {
       this.form = {
         branch_id: '',
@@ -249,40 +235,30 @@ export default {
       };
       this.floorCount = 0;
     },
-    
-    handleSubmit() {
-      console.log('FloorForm.handleSubmit called');
-      
-      // Kiểm tra xem form có hợp lệ không
+
+    handleSubmit() {
       if (!this.form.branch_id || !this.form.floor_number || !this.form.name || !this.form.capacity) {
-        console.error('Form validation failed:', this.form);
         if (this.$toast) {
           this.$toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
         }
         return;
-      }
-      
-      // Khi edit, đảm bảo chi nhánh và số tầng không bị thay đổi
+      }
       if (this.isEditing && this.floor) {
         if (this.form.branch_id !== this.floor.branch_id) {
-          console.error('Branch ID cannot be changed when editing floor');
           if (this.$toast) {
             this.$toast.error('Không thể thay đổi chi nhánh khi chỉnh sửa tầng');
           }
           return;
         }
         if (this.form.floor_number !== this.floor.floor_number) {
-          console.error('Floor number cannot be changed when editing floor');
           if (this.$toast) {
             this.$toast.error('Không thể thay đổi số tầng khi chỉnh sửa');
           }
           return;
         }
       }
-      
+
       const formData = { ...this.form };
-      
-      console.log('FloorForm submitting data:', formData);
       this.$emit('submit', formData);
     }
   }
@@ -475,4 +451,4 @@ export default {
 .btn-secondary:hover:not(:disabled) {
   background: #4b5563;
 }
-</style> 
+</style>

@@ -18,7 +18,6 @@ const { data: user, isError, isLoading } = useQuery({
   queryKey: ['user', props.userId],
   queryFn: () => usersService.fetchUser(props.userId),
   onError: (error) => {
-    console.error('Error fetching user:', error); 
     router.push({
       name: 'notfound',
       params: { pathMatch: route.path.split('/').slice(1) },
@@ -26,18 +25,14 @@ const { data: user, isError, isLoading } = useQuery({
       hash: route.hash,
     });
   },
-});
-
-// Update user
+});
 const updateMutation = useMutation({
   mutationFn: (updatedUser) => usersService.updateUser(props.userId, updatedUser),
   onSuccess: () => {
     message.value = 'Tài khoản được cập nhật thành công.';
-    console.log('User updated successfully'); 
     queryClient.invalidateQueries(['user', props.userId]);
   },
   onError: (error) => {
-    console.error('Error updating user:', error); 
     message.value = 'Lỗi cập nhật tài khoản.';
   },
 });
@@ -45,16 +40,13 @@ const updateMutation = useMutation({
 const deleteMutation = useMutation({
   mutationFn: (id) => usersService.deleteUser(id),
   onSuccess: () => {
-    console.log('User deleted successfully'); 
     router.push({ name: 'home' });
   },
   onError: (error) => {
-    console.error('Error deleting user:', error); 
   },
 });
 
 const onUpdateUser = (user) => {
-  console.log('Updating user:', user); 
   updateMutation.mutate(user);
 };
 

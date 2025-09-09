@@ -6,55 +6,55 @@
         {{ getStatusLabel(table.status) }}
       </span>
     </div>
-    
+
     <div class="table-info">
       <div class="info-item">
         <i class="fas fa-building"></i>
         <span>{{ table.branch_name }}</span>
       </div>
-      
+
       <div class="info-item">
         <i class="fas fa-layer-group"></i>
         <span>{{ table.floor_name }}</span>
       </div>
-      
+
       <div class="info-item">
         <i class="fas fa-users"></i>
         <span>Sức chứa: {{ table.capacity }} người</span>
       </div>
-      
+
       <div class="info-item" v-if="table.location">
         <i class="fas fa-map-marker-alt"></i>
         <span>{{ table.location }}</span>
       </div>
-      
+
       <div class="info-item">
         <i class="fas fa-calendar"></i>
         <span>Tạo: {{ formatDate(table.created_at) }}</span>
       </div>
     </div>
-    
+
     <div class="table-actions" v-if="isAdmin">
-      <button 
-        @click="$emit('edit', table)" 
+      <button
+        @click="$emit('edit', table)"
         class="btn btn-edit"
         title="Chỉnh sửa"
       >
         <i class="fas fa-edit"></i>
       </button>
-      
-      <button 
-        @click="$emit('delete', table)" 
+
+      <button
+        @click="$emit('delete', table)"
         class="btn btn-delete"
         title="Xóa"
         :disabled="table.status === 'occupied' || table.status === 'reserved'"
       >
         <i class="fas fa-trash"></i>
       </button>
-      
+
       <div class="status-actions">
-        <button 
-          v-for="status in availableStatuses" 
+        <button
+          v-for="status in availableStatuses"
           :key="status.value"
           @click="$emit('updateStatus', table.id, status.value)"
           class="btn btn-status"
@@ -95,7 +95,7 @@ export default {
         { value: 'reserved', label: 'Đã đặt trước', icon: 'fas fa-clock' },
         { value: 'maintenance', label: 'Bảo trì', icon: 'fas fa-tools' }
       ];
-      
+
       return allStatuses.filter(status => status.value !== currentStatus);
     }
   },
@@ -289,4 +289,4 @@ export default {
 .btn-maintenance:hover {
   background: #4b5563;
 }
-</style> 
+</style>

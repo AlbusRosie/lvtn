@@ -23,14 +23,14 @@
           </h2>
         </div>
         <div class="d-flex gap-2">
-          <button 
-            @click="handleEdit" 
+          <button
+            @click="handleEdit"
             class="btn btn-warning"
           >
             <i class="bi bi-pencil"></i> Edit
           </button>
-          <button 
-            @click="handleDelete" 
+          <button
+            @click="handleDelete"
             class="btn btn-danger"
           >
             <i class="bi bi-trash"></i> Delete
@@ -62,7 +62,7 @@
                   </div>
                 </div>
               </div>
-              
+
               <div class="row">
                 <div class="col-md-6">
                   <div class="mb-3">
@@ -83,7 +83,7 @@
                   </div>
                 </div>
               </div>
-              
+
               <div class="row">
                 <div class="col-md-6">
                   <div class="mb-3">
@@ -98,7 +98,7 @@
                   </div>
                 </div>
               </div>
-              
+
               <div class="mb-3">
                 <label class="form-label fw-bold">Description</label>
                 <p class="form-control-plaintext">
@@ -108,7 +108,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="col-lg-4">
           <!-- Quick Stats -->
           <div class="card mb-3">
@@ -132,7 +132,7 @@
               </div>
             </div>
           </div>
-          
+
           <!-- Actions -->
           <div class="card">
             <div class="card-header">
@@ -142,20 +142,20 @@
             </div>
             <div class="card-body">
               <div class="d-grid gap-2">
-                <button 
-                  @click="handleEdit" 
+                <button
+                  @click="handleEdit"
                   class="btn btn-warning"
                 >
                   <i class="bi bi-pencil"></i> Edit Product
                 </button>
-                <button 
-                  @click="handleDuplicate" 
+                <button
+                  @click="handleDuplicate"
                   class="btn btn-info"
                 >
                   <i class="bi bi-files"></i> Duplicate
                 </button>
-                <button 
-                  @click="handleDelete" 
+                <button
+                  @click="handleDelete"
                   class="btn btn-danger"
                 >
                   <i class="bi bi-trash"></i> Delete Product
@@ -178,9 +178,9 @@
     </div>
 
     <!-- Edit Modal -->
-    <div 
-      v-if="showEditModal" 
-      class="modal fade show d-block" 
+    <div
+      v-if="showEditModal"
+      class="modal fade show d-block"
       tabindex="-1"
       style="background-color: rgba(0,0,0,0.5);"
     >
@@ -188,14 +188,14 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">Edit Product</h5>
-            <button 
-              @click="showEditModal = false" 
-              type="button" 
+            <button
+              @click="showEditModal = false"
+              type="button"
               class="btn-close"
             ></button>
           </div>
           <div class="modal-body">
-            <ProductForm 
+            <ProductForm
               :product="product"
               :categories="categories"
               :loading="formLoading"
@@ -208,9 +208,9 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div 
-      v-if="showDeleteModal" 
-      class="modal fade show d-block" 
+    <div
+      v-if="showDeleteModal"
+      class="modal fade show d-block"
       tabindex="-1"
       style="background-color: rgba(0,0,0,0.5);"
     >
@@ -218,9 +218,9 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">Confirm Delete</h5>
-            <button 
-              @click="showDeleteModal = false" 
-              type="button" 
+            <button
+              @click="showDeleteModal = false"
+              type="button"
               class="btn-close"
             ></button>
           </div>
@@ -229,16 +229,16 @@
             <p class="text-danger small">This action cannot be undone.</p>
           </div>
           <div class="modal-footer">
-            <button 
-              @click="showDeleteModal = false" 
-              type="button" 
+            <button
+              @click="showDeleteModal = false"
+              type="button"
               class="btn btn-secondary"
             >
               Cancel
             </button>
-            <button 
-              @click="confirmDelete" 
-              type="button" 
+            <button
+              @click="confirmDelete"
+              type="button"
               class="btn btn-danger"
               :disabled="deleteLoading"
             >
@@ -252,17 +252,17 @@
 
     <!-- Toast Notifications -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3">
-      <div 
-        v-for="toast in toasts" 
+      <div
+        v-for="toast in toasts"
         :key="toast.id"
         class="toast show"
         :class="toast.type"
       >
         <div class="toast-header">
           <strong class="me-auto">{{ toast.title }}</strong>
-          <button 
-            @click="removeToast(toast.id)" 
-            type="button" 
+          <button
+            @click="removeToast(toast.id)"
+            type="button"
             class="btn-close"
           ></button>
         </div>
@@ -282,24 +282,16 @@ import ProductForm from '@/components/Admin/Product/ProductForm.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 
 const route = useRoute();
-const router = useRouter();
-
-// Reactive data
+const router = useRouter();
 const product = ref(null);
 const categories = ref([]);
 const loading = ref(false);
 const formLoading = ref(false);
-const deleteLoading = ref(false);
-
-// Modal states
+const deleteLoading = ref(false);
 const showEditModal = ref(false);
-const showDeleteModal = ref(false);
-
-// Toast notifications
+const showDeleteModal = ref(false);
 const toasts = ref([]);
-let toastId = 0;
-
-// Load product
+let toastId = 0;
 const loadProduct = async () => {
   loading.value = true;
   try {
@@ -311,22 +303,16 @@ const loadProduct = async () => {
   } finally {
     loading.value = false;
   }
-};
-
-// Load categories
+};
 const loadCategories = () => {
   categories.value = [
     { id: 1, name: 'Điện thoại' },
     { id: 2, name: 'Laptop' }
   ];
-};
-
-// Format price
+};
 const formatPrice = (price) => {
   return new Intl.NumberFormat('vi-VN').format(price);
-};
-
-// Format date
+};
 const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('vi-VN', {
     year: 'numeric',
@@ -335,66 +321,49 @@ const formatDate = (dateString) => {
     hour: '2-digit',
     minute: '2-digit'
   });
-};
-
-// Get stock badge class
+};
 const getStockBadgeClass = () => {
   const stock = product.value.stock;
   if (stock === 0) return 'bg-danger';
   if (stock <= 5) return 'bg-warning';
   return 'bg-success';
-};
-
-// Get stock status
+};
 const getStockStatus = () => {
   const stock = product.value.stock;
   if (stock === 0) return 'Out of Stock';
   if (stock <= 5) return 'Low Stock';
   return 'In Stock';
-};
-
-// Get stock status class
+};
 const getStockStatusClass = () => {
   const stock = product.value.stock;
   if (stock === 0) return 'text-danger';
   if (stock <= 5) return 'text-warning';
   return 'text-success';
-};
-
-// Get price range
+};
 const getPriceRange = () => {
   const price = product.value.price;
   if (price < 1000000) return 'Budget';
   if (price < 10000000) return 'Mid-range';
   return 'Premium';
-};
-
-// Handle edit
+};
 const handleEdit = () => {
   showEditModal.value = true;
-};
-
-// Handle delete
+};
 const handleDelete = () => {
   showDeleteModal.value = true;
-};
-
-// Handle duplicate
-const handleDuplicate = () => {
-  // Navigate to create page with pre-filled data
+};
+const handleDuplicate = () => {
   router.push({
     path: '/admin/products/create',
-    query: { 
-      duplicate: product.value.id 
+    query: {
+      duplicate: product.value.id
     }
   });
-};
-
-// Handle form submit
-const handleFormSubmit = async (formData) => {
+};
+const handleFormSubmit = async (formDataObj) => {
   formLoading.value = true;
   try {
-    await ProductService.updateProduct(product.value.id, formData);
+    await ProductService.updateProduct(product.value.id, formDataObj);
     showToast('Success', 'Product updated successfully', 'success');
     showEditModal.value = false;
     loadProduct(); // Reload product data
@@ -403,9 +372,7 @@ const handleFormSubmit = async (formData) => {
   } finally {
     formLoading.value = false;
   }
-};
-
-// Confirm delete
+};
 const confirmDelete = async () => {
   deleteLoading.value = true;
   try {
@@ -418,9 +385,7 @@ const confirmDelete = async () => {
   } finally {
     deleteLoading.value = false;
   }
-};
-
-// Show toast notification
+};
 const showToast = (title, message, type = 'info') => {
   const toast = {
     id: ++toastId,
@@ -428,24 +393,18 @@ const showToast = (title, message, type = 'info') => {
     message,
     type: `bg-${type} text-white`
   };
-  
-  toasts.value.push(toast);
-  
-  // Auto remove after 5 seconds
+
+  toasts.value.push(toast);
   setTimeout(() => {
     removeToast(toast.id);
   }, 5000);
-};
-
-// Remove toast
+};
 const removeToast = (id) => {
   const index = toasts.value.findIndex(toast => toast.id === id);
   if (index > -1) {
     toasts.value.splice(index, 1);
   }
-};
-
-// Initialize
+};
 onMounted(() => {
   loadCategories();
   loadProduct();
@@ -482,4 +441,4 @@ onMounted(() => {
   border: solid transparent;
   border-width: 1px 0;
 }
-</style> 
+</style>

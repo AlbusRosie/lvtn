@@ -92,4 +92,4 @@ const roleIcon = computed(() => roleInfo.value.icon);
 .role-badge i {
   font-size: 10px;
 }
-</style> 
+</style>

@@ -2,7 +2,7 @@ const knex = require('../database/knex');
 const ApiError = require('../api-error');
 
 class FloorService {
-  // Get all floors
+
   async getAllFloors(status = null, branchId = null) {
     try {
       let query = knex('floors')
@@ -26,7 +26,6 @@ class FloorService {
     }
   }
 
-  // Get floor by ID
   async getFloorById(id) {
     try {
       const floor = await knex('floors')
@@ -48,7 +47,6 @@ class FloorService {
     }
   }
 
-  // Get floors by branch
   async getFloorsByBranch(branchId) {
     try {
       const floors = await knex('floors')
@@ -62,12 +60,8 @@ class FloorService {
     }
   }
 
-  // Create new floor
   async createFloor(floorData) {
     try {
-      console.log('FloorService.createFloor called with:', floorData);
-
-      // Check if floor number already exists in the same branch (only for active floors)
       const existingFloor = await knex('floors')
         .where('branch_id', floorData.branch_id)
         .where('floor_number', floorData.floor_number)
@@ -78,7 +72,6 @@ class FloorService {
         throw new ApiError(400, 'Active floor with this number already exists in this branch');
       }
 
-      // Validate branch exists
       const branch = await knex('branches').where('id', floorData.branch_id).first();
       if (!branch) {
         throw new ApiError(400, 'Branch not found');
@@ -97,10 +90,9 @@ class FloorService {
     }
   }
 
-  // Update floor
   async updateFloor(id, floorData) {
     try {
-      // Check if floor exists
+
       const existingFloor = await knex('floors')
         .where('id', id)
         .first();
@@ -109,7 +101,6 @@ class FloorService {
         throw new ApiError(404, 'Floor not found');
       }
 
-      // Check if new floor number conflicts with other active floors in the same branch
       if (floorData.floor_number && floorData.floor_number !== existingFloor.floor_number) {
         const branchId = floorData.branch_id || existingFloor.branch_id;
         const numberConflict = await knex('floors')
@@ -124,7 +115,6 @@ class FloorService {
         }
       }
 
-      // Validate branch exists if being updated
       if (floorData.branch_id) {
         const branch = await knex('branches').where('id', floorData.branch_id).first();
         if (!branch) {
@@ -145,10 +135,9 @@ class FloorService {
     }
   }
 
-  // Delete floor
   async deleteFloor(id) {
     try {
-      // Check if floor exists
+
       const existingFloor = await knex('floors')
         .where('id', id)
         .first();
@@ -157,7 +146,6 @@ class FloorService {
         throw new ApiError(404, 'Floor not found');
       }
 
-      // Check if floor has active tables
       const activeTables = await knex('tables')
         .where('floor_id', id)
         .whereIn('status', ['occupied', 'reserved'])
@@ -180,7 +168,6 @@ class FloorService {
     }
   }
 
-  // Get floor statistics
   async getFloorStatistics(branchId = null) {
     try {
       let query = knex('floors')
@@ -212,7 +199,6 @@ class FloorService {
     }
   }
 
-  // Get active floors
   async getActiveFloors(branchId = null) {
     try {
       let query = knex('floors')
@@ -231,12 +217,10 @@ class FloorService {
     }
   }
 
-  // Generate next floor number for a branch
   async generateNextFloorNumber(branchId) {
     try {
       const floors = await this.getFloorsByBranch(branchId);
-      
-      // Tìm số tầng lớn nhất
+
       let maxNumber = 0;
       floors.forEach(floor => {
         const floorNumber = floor.floor_number;
@@ -245,7 +229,6 @@ class FloorService {
         }
       });
 
-      // Tạo số tầng mới
       const nextNumber = maxNumber + 1;
       return {
         nextFloorNumber: nextNumber,
@@ -258,4 +241,4 @@ class FloorService {
   }
 }
 
-module.exports = FloorService; 
+module.exports = FloorService;

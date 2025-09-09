@@ -91,7 +91,7 @@ function handleLogout() {
             <i :class="isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left'"></i>
         </button>
     </div>
-    
+
     <nav class="sidebar-nav">
         <router-link
             v-for="item in menuItems"
@@ -204,4 +204,4 @@ function handleLogout() {
   width: 20px;
   margin-right: 1rem;
 }
-</style> 
+</style>

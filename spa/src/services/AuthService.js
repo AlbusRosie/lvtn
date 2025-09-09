@@ -1,20 +1,12 @@
 import { DEFAULT_AVATAR, USER_ROLES } from '@/constants';
 
-/**
- * Hàm fetch chuẩn hóa cho AuthService
- * @param {string} url
- * @param {RequestInit} options
- * @returns Promise<any>
- */
 async function efetch(url, options = {}) {
     let result = {};
     let json = {};
     try {
         result = await fetch(url, options);
         json = await result.json();
-        console.log('Server response:', json);
     } catch (error) {
-        console.error('Fetch error:', error.message);
         throw new Error(error.message);
     }
     if (!result.ok || json.status !== 'success') {
@@ -99,4 +91,4 @@ function makeAuthService() {
     };
 }
 
-export default makeAuthService(); 
+export default makeAuthService();

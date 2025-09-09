@@ -8,7 +8,7 @@
       </button>
     </div>
 
-    <TableFilter 
+    <TableFilter
       :stats="tableStats"
       @search="handleSearch"
       @filter="handleFilter"
@@ -141,30 +141,22 @@ export default {
       return AuthService.isAdmin();
     },
     filteredTables() {
-      let filtered = [...this.tables];
-
-      // Search filter
+      let filtered = [...this.tables];
       if (this.searchTerm) {
         const term = this.searchTerm.toLowerCase();
-        filtered = filtered.filter(table => 
+        filtered = filtered.filter(table =>
           table.table_number.toLowerCase().includes(term) ||
           (table.location && table.location.toLowerCase().includes(term)) ||
           (table.branch_name && table.branch_name.toLowerCase().includes(term)) ||
           (table.floor_name && table.floor_name.toLowerCase().includes(term))
         );
-      }
-
-      // Branch filter
+      }
       if (this.branchFilter) {
         filtered = filtered.filter(table => table.branch_id == this.branchFilter);
-      }
-
-      // Status filter
+      }
       if (this.statusFilter) {
         filtered = filtered.filter(table => table.status === this.statusFilter);
-      }
-
-      // Capacity filter
+      }
       if (this.capacityFilter) {
         filtered = filtered.filter(table => {
           const capacity = table.capacity;
@@ -188,7 +180,7 @@ export default {
     async loadTables() {
       this.loading = true;
       this.error = null;
-      
+
       try {
         const tables = await TableService.getAllTables();
         this.tables = tables;
@@ -196,7 +188,6 @@ export default {
       } catch (error) {
         const errorMessage = error.message || 'Có lỗi xảy ra khi tải danh sách bàn';
         this.error = errorMessage;
-        console.error('Error loading tables:', error);
       } finally {
         this.loading = false;
       }
@@ -241,18 +232,14 @@ export default {
 
     async handleFormSubmit(formData) {
       this.formLoading = true;
-      
-      try {
-        // Kiểm tra xem formData có phải là SubmitEvent không
+
+      try {
         if (formData && formData.target && formData.target.tagName === 'FORM') {
-          console.error('Received SubmitEvent instead of form data');
           this.$toast.error('Lỗi: Dữ liệu form không hợp lệ');
           return;
         }
-        
-        console.log('TableList.handleFormSubmit called with:', formData);
         const token = AuthService.getToken();
-        
+
         if (this.editingTable) {
           await TableService.updateTable(this.editingTable.id, formData, token);
           if (this.toast) {
@@ -268,13 +255,10 @@ export default {
             alert('Tạo bàn mới thành công!');
           }
         }
-        
+
         await this.loadTables();
         this.closeModal();
-      } catch (error) {
-        console.error('Error submitting form:', error);
-        
-        // Xử lý lỗi từ API response hoặc Error object
+      } catch (error) {
         let errorMessage = 'Có lỗi xảy ra';
         if (error.response && error.response.data) {
           errorMessage = error.response.data.message || error.response.data.error || errorMessage;
@@ -283,7 +267,7 @@ export default {
         } else if (typeof error === 'string') {
           errorMessage = error;
         }
-        
+
         if (this.$toast) {
           this.$toast.error(errorMessage);
         } else {
@@ -301,11 +285,11 @@ export default {
 
     async confirmDelete() {
       this.deleteLoading = true;
-      
+
       try {
         const token = AuthService.getToken();
         await TableService.deleteTable(this.tableToDelete.id, token);
-        
+
         if (this.toast) {
           this.toast.success('Xóa bàn thành công!');
         } else {
@@ -321,7 +305,6 @@ export default {
         } else {
           alert('Lỗi: ' + errorMessage);
         }
-        console.error('Error deleting table:', error);
       } finally {
         this.deleteLoading = false;
       }
@@ -331,7 +314,7 @@ export default {
       try {
         const token = AuthService.getToken();
         await TableService.updateTableStatus(tableId, status, token);
-        
+
         if (this.$toast) {
           this.$toast.success('Cập nhật trạng thái thành công!');
         } else {
@@ -345,7 +328,6 @@ export default {
         } else {
           alert('Lỗi: ' + errorMessage);
         }
-        console.error('Error updating status:', error);
       }
     },
 
@@ -537,13 +519,13 @@ export default {
     gap: 16px;
     align-items: stretch;
   }
-  
+
   .tables-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .modal-overlay {
     padding: 10px;
   }
 }
-</style> 
+</style>

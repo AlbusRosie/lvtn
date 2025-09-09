@@ -122,18 +122,14 @@ export default {
       return AuthService.isAdmin();
     },
     filteredCategories() {
-      let filtered = [...this.categories];
-
-      // Search filter
+      let filtered = [...this.categories];
       if (this.searchTerm) {
         const term = this.searchTerm.toLowerCase();
-        filtered = filtered.filter(category => 
+        filtered = filtered.filter(category =>
           category.name.toLowerCase().includes(term) ||
           category.description?.toLowerCase().includes(term)
         );
-      }
-
-      // Status filter
+      }
       if (this.statusFilter) {
         filtered = filtered.filter(category => category.status === this.statusFilter);
       }
@@ -148,14 +144,13 @@ export default {
     async loadCategories() {
       this.loading = true;
       this.error = null;
-      
+
       try {
         const categories = await CategoryService.getCategoriesWithProductCount();
         this.categories = categories;
       } catch (error) {
         const errorMessage = error.message || 'Có lỗi xảy ra khi tải danh sách danh mục';
         this.error = errorMessage;
-        console.error('Error loading categories:', error);
       } finally {
         this.loading = false;
       }
@@ -167,18 +162,14 @@ export default {
 
     async handleFormSubmit(formData) {
       this.formLoading = true;
-      
-      try {
-        // Kiểm tra xem formData có phải là SubmitEvent không
+
+      try {
         if (formData && formData.target && formData.target.tagName === 'FORM') {
-          console.error('Received SubmitEvent instead of form data');
           this.$toast.error('Lỗi: Dữ liệu form không hợp lệ');
           return;
         }
-        
-        console.log('CategoryList.handleFormSubmit called with:', formData);
         const token = AuthService.getToken();
-        
+
         if (this.editingCategory) {
           await CategoryService.updateCategory(this.editingCategory.id, formData, token);
           if (this.toast) {
@@ -194,13 +185,10 @@ export default {
             alert('Tạo danh mục mới thành công!');
           }
         }
-        
+
         await this.loadCategories();
         this.closeModal();
-      } catch (error) {
-        console.error('Error submitting form:', error);
-        
-        // Xử lý lỗi từ API response hoặc Error object
+      } catch (error) {
         let errorMessage = 'Có lỗi xảy ra';
         if (error.response && error.response.data) {
           errorMessage = error.response.data.message || error.response.data.error || errorMessage;
@@ -209,7 +197,7 @@ export default {
         } else if (typeof error === 'string') {
           errorMessage = error;
         }
-        
+
         if (this.toast) {
           this.toast.error(errorMessage);
         } else {
@@ -227,11 +215,11 @@ export default {
 
     async confirmDelete() {
       this.deleteLoading = true;
-      
+
       try {
         const token = AuthService.getToken();
         await CategoryService.deleteCategory(this.categoryToDelete.id, token);
-        
+
         if (this.toast) {
           this.toast.success('Xóa danh mục thành công!');
         } else {
@@ -247,7 +235,6 @@ export default {
         } else {
           alert('Lỗi: ' + errorMessage);
         }
-        console.error('Error deleting category:', error);
       } finally {
         this.deleteLoading = false;
       }
@@ -432,4 +419,4 @@ export default {
   justify-content: flex-end;
   margin-top: 24px;
 }
-</style> 
+</style>

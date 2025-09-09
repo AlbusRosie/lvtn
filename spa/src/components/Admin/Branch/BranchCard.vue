@@ -22,22 +22,22 @@
         <i class="fas fa-map-marker-alt"></i>
         <span>{{ branch.address }}</span>
       </div>
-      
+
       <div class="detail-item">
         <i class="fas fa-phone"></i>
         <span>{{ branch.phone }}</span>
       </div>
-      
+
       <div class="detail-item">
         <i class="fas fa-envelope"></i>
         <span>{{ branch.email }}</span>
       </div>
-      
+
       <div class="detail-item" v-if="branch.opening_hours">
         <i class="fas fa-clock"></i>
         <span>{{ branch.opening_hours }}</span>
       </div>
-      
+
       <div class="detail-item" v-if="branch.description">
         <i class="fas fa-info-circle"></i>
         <span>{{ branch.description }}</span>
@@ -79,7 +79,7 @@ export default {
       };
       return statusMap[status] || status;
     },
-    
+
     formatDate(dateString) {
       if (!dateString) return '';
       const date = new Date(dateString);
@@ -216,4 +216,4 @@ export default {
 .created-date i {
   font-size: 0.75rem;
 }
-</style> 
+</style>

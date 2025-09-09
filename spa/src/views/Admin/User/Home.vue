@@ -24,9 +24,8 @@ const searchType = ref('name');
 const selectedRole = ref('');
 const selectedFavorite = ref('');
 const isLoading = ref(true);
-const error = ref(null); 
+const error = ref(null);
 
-// Map each contact to a string for searching
 const searchableUsers = computed(() =>
   users.value.map((user) => {
     const { name, email, address, phone } = user;
@@ -34,11 +33,9 @@ const searchableUsers = computed(() =>
   })
 );
 
-// Users filtered by searchText
 const filteredUsers = computed(() => {
   let filtered = users.value;
-  
-  // Filter by search text
+
   if (searchText.value) {
     filtered = filtered.filter((user) => {
       const searchValue = searchText.value.toLowerCase();
@@ -57,17 +54,15 @@ const filteredUsers = computed(() => {
       }
     });
   }
-  
-  // Filter by role
+
   if (selectedRole.value) {
     filtered = filtered.filter(user => user.role_id == selectedRole.value);
   }
-  
-  // Filter by favorite
+
   if (selectedFavorite.value !== '') {
     filtered = filtered.filter(user => user.favorite == selectedFavorite.value);
   }
-  
+
   return filtered;
 });
 
@@ -76,7 +71,6 @@ const selectedUser = computed(() => {
   return filteredUsers.value[selectedIndex.value];
 });
 
-// Get contacts for a specific page and order them by name
 async function retrieveUsers(page) {
   isLoading.value = true; // Bắt đầu tải
   error.value = null; // Reset lỗi
@@ -91,21 +85,18 @@ async function retrieveUsers(page) {
     if (selectedFavorite.value !== '') {
       filters.favorite = selectedFavorite.value;
     }
-    
+
     const chunk = await usersService.fetchUsers(page, 10, filters);
     totalPages.value = chunk.metadata.lastPage ?? 1;
     users.value = chunk.users.sort((current, next) => current.name.localeCompare(next.name));
     selectedIndex.value = -1;
   } catch (err) {
-    console.log(err); // Ghi log chi tiết lỗi
-    console.error('Error fetching users:', err); // Thêm ghi log chi tiết
-    error.value = 'Đã có lỗi xảy ra khi tải danh sách người dùng.'; // Thiết lập thông báo lỗi
+    error.value = 'Đã có lỗi xảy ra khi tải danh sách người dùng.';
   } finally {
-    isLoading.value = false; // Kết thúc tải
+    isLoading.value = false;
   }
 }
 
-// Handle delete all contacts event
 async function onDeleteUsers() {
   if (confirm('Bạn muốn xóa tất cả tài khoản?')) {
     try {
@@ -115,7 +106,6 @@ async function onDeleteUsers() {
       selectedIndex.value = -1;
       changeCurrentPage(1);
     } catch (error) {
-      console.log(error);
     }
   }
 }
@@ -141,10 +131,8 @@ function handleFavoriteFilter() {
   retrieveUsers(1);
 }
 
-// Whenever searchText changes, reset selectedIndex
 watch(searchText, () => (selectedIndex.value = -1));
 
-// When currentPage changes, fetch contacts for currentPage
 watch(currentPage, () => retrieveUsers(currentPage.value), { immediate: true });
 </script>
 
@@ -155,16 +143,16 @@ watch(currentPage, () => retrieveUsers(currentPage.value), { immediate: true });
         Quản lý người dùng
         <i class="fas fa-users"></i>
       </h4>
-      
+
       <!-- Search and Filters -->
       <div class="my-3">
-        <InputSearch 
-          v-model="searchText" 
+        <InputSearch
+          v-model="searchText"
           :search-type="searchType"
           @submit="handleSearch"
         />
       </div>
-      
+
       <!-- Additional Filters -->
       <div class="row mb-3">
         <div class="col-md-6">
@@ -185,7 +173,7 @@ watch(currentPage, () => retrieveUsers(currentPage.value), { immediate: true });
           </select>
         </div>
       </div>
-      
+
       <p v-if="isLoading">Đang tải danh sách người dùng...</p> <!-- Thông báo đang tải -->
       <p v-if="error" class="text-danger">{{ error }}</p> <!-- Thông báo lỗi -->
       <UserList
@@ -220,7 +208,7 @@ watch(currentPage, () => retrieveUsers(currentPage.value), { immediate: true });
         </h4>
         <UserCard v-if="selectedUser" :user="selectedUser" />
         <router-link
-          v-if="selectedUser?.id" 
+          v-if="selectedUser?.id"
           :to="{
             name: 'user.edit',
             params: { id: selectedUser.id }

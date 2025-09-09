@@ -1,7 +1,7 @@
 <template>
   <div class="category-form">
     <h2>{{ isEditing ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới' }}</h2>
-    
+
     <form class="form" @keydown.enter.prevent>
       <div class="form-group">
         <label for="name">Tên danh mục *</label>
@@ -96,22 +96,16 @@ export default {
         status: 'active'
       };
     },
-    
-    handleSubmit() {
-      console.log('CategoryForm.handleSubmit called');
-      
-      // Kiểm tra xem form có hợp lệ không
+
+    handleSubmit() {
       if (!this.form.name || !this.form.name.trim()) {
-        console.error('Form validation failed:', this.form);
         if (this.$toast) {
           this.$toast.error('Vui lòng nhập tên danh mục');
         }
         return;
       }
-      
+
       const formData = { ...this.form };
-      
-      console.log('CategoryForm submitting data:', formData);
       this.$emit('submit', formData);
     }
   }
@@ -217,4 +211,4 @@ export default {
 .btn-secondary:hover:not(:disabled) {
   background: #4b5563;
 }
-</style> 
+</style>

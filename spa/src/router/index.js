@@ -14,7 +14,7 @@ const routes = [
     component: AdminHome,
     meta: { requiresAuth: true }
   },
-  
+
   {
     path: '/admin/products',
     name: 'admin.products',
@@ -33,28 +33,28 @@ const routes = [
     component: () => import('@/views/Admin/Product/ProductCreate.vue'),
     meta: { requiresAuth: true }
   },
-  
+
   {
     path: '/admin/tables',
     name: 'admin.tables',
     component: () => import('@/views/Admin/Table/TableList.vue'),
     meta: { requiresAuth: true }
   },
-  
+
   {
     path: '/admin/branches',
     name: 'admin.branches',
     component: () => import('@/views/Admin/Branch/BranchList.vue'),
     meta: { requiresAuth: true }
   },
-  
+
   {
     path: '/admin/floors',
     name: 'admin.floors',
     component: () => import('@/views/Admin/Floor/FloorList.vue'),
     meta: { requiresAuth: true }
   },
-  
+
   {
     path: '/admin/categories',
     name: 'admin.categories',
@@ -81,29 +81,25 @@ const router = createRouter({
   routes
 });
 
-
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('auth_token');
   const userStr = localStorage.getItem('auth_user');
   const user = userStr ? JSON.parse(userStr) : null;
   const isAuthenticated = !!token;
 
-  
   if (to.meta.requiresAuth && !isAuthenticated) {
     return next('/auth');
   }
 
-  
   if (to.path === '/auth' && isAuthenticated) {
-    
+
     if (user && user.role_id === 1) {
       return next('/');
     }
-    
+
     return next();
   }
 
-  
   if (to.path === '/' && user && user.role_id !== 1) {
     return next('/');
   }

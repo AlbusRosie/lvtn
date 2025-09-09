@@ -5,9 +5,7 @@ const { success } = require('../jsend');
 class TableController {
   constructor() {
     this.tableService = new TableService();
-  }
-
-  // Get all tables
+  }
   async getAllTables(req, res, next) {
     try {
       const { branch_id } = req.query;
@@ -16,9 +14,7 @@ class TableController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Get tables by status
+  }
   async getTablesByStatus(req, res, next) {
     try {
       const { status } = req.params;
@@ -28,9 +24,7 @@ class TableController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Get table by ID
+  }
   async getTableById(req, res, next) {
     try {
       const { id } = req.params;
@@ -39,37 +33,22 @@ class TableController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Create new table
+  }
   async createTable(req, res, next) {
     try {
-      const { branch_id, floor_id, table_number, capacity, location, status } = req.body;
-
-      console.log('Create table request body:', req.body);
-
-      // Validation
-      console.log('Validating branch_id:', branch_id, 'type:', typeof branch_id);
+      const { branch_id, floor_id, table_number, capacity, location, status } = req.body;
       if (!branch_id || branch_id === '') {
         throw new ApiError(400, 'Branch ID is required');
       }
-
-      console.log('Validating floor_id:', floor_id, 'type:', typeof floor_id);
       if (!floor_id || floor_id === '') {
         throw new ApiError(400, 'Floor ID is required');
       }
-
-      console.log('Validating table_number:', table_number, 'type:', typeof table_number);
       if (!table_number || !table_number.trim()) {
         throw new ApiError(400, 'Table number is required');
       }
-
-      console.log('Validating capacity:', capacity, 'type:', typeof capacity);
       if (!capacity || capacity < 1) {
         throw new ApiError(400, 'Capacity must be at least 1');
-      }
-
-      // Validate status if provided
+      }
       if (status && !['available', 'occupied', 'reserved', 'maintenance'].includes(status)) {
         throw new ApiError(400, 'Invalid status value');
       }
@@ -82,24 +61,16 @@ class TableController {
         location: location ? location.trim() : null,
         status: status || 'available'
       };
-
-      console.log('Table data to create:', tableData);
-
       const table = await this.tableService.createTable(tableData);
       res.status(201).json(success(table, 'Table created successfully'));
     } catch (error) {
-      console.error('Error creating table:', error);
       next(error);
     }
-  }
-
-  // Update table
+  }
   async updateTable(req, res, next) {
     try {
       const { id } = req.params;
-      const { branch_id, floor_id, table_number, capacity, status, location } = req.body;
-
-      // Validation
+      const { branch_id, floor_id, table_number, capacity, status, location } = req.body;
       if (branch_id !== undefined && !branch_id) {
         throw new ApiError(400, 'Branch ID cannot be empty');
       }
@@ -133,9 +104,7 @@ class TableController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Update table status
+  }
   async updateTableStatus(req, res, next) {
     try {
       const { id } = req.params;
@@ -150,9 +119,7 @@ class TableController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Delete table
+  }
   async deleteTable(req, res, next) {
     try {
       const { id } = req.params;
@@ -161,9 +128,7 @@ class TableController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Get available tables
+  }
   async getAvailableTables(req, res, next) {
     try {
       const { branch_id } = req.query;
@@ -172,9 +137,7 @@ class TableController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Get all branches
+  }
   async getAllBranches(req, res, next) {
     try {
       const branches = await this.tableService.getAllBranches();
@@ -182,9 +145,7 @@ class TableController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Get floors by branch
+  }
   async getFloorsByBranch(req, res, next) {
     try {
       const { branch_id } = req.params;
@@ -193,9 +154,7 @@ class TableController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Get tables by branch and floor
+  }
   async getTablesByBranchAndFloor(req, res, next) {
     try {
       const { branch_id, floor_id } = req.params;
@@ -204,9 +163,7 @@ class TableController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Get table statistics
+  }
   async getTableStatistics(req, res, next) {
     try {
       const { branch_id } = req.query;
@@ -215,13 +172,11 @@ class TableController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Generate next table number
+  }
   async generateNextTableNumber(req, res, next) {
     try {
       const { branch_id, floor_id } = req.params;
-      
+
       if (!branch_id || !floor_id) {
         throw new ApiError(400, 'Branch ID and Floor ID are required');
       }
@@ -231,13 +186,11 @@ class TableController {
     } catch (error) {
       next(error);
     }
-  }
-
-  // Get table by number and branch
+  }
   async getTableByNumber(req, res, next) {
     try {
       const { branch_id, table_number } = req.params;
-      
+
       if (!branch_id || !table_number) {
         throw new ApiError(400, 'Branch ID and Table Number are required');
       }
@@ -250,4 +203,4 @@ class TableController {
   }
 }
 
-module.exports = TableController; 
+module.exports = TableController;

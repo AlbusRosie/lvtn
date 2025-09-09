@@ -33,9 +33,7 @@ const options = {
     },
     apis: ['./src/routes/*.js', './src/docs/components.yaml'],
 };
-const specs = swaggerJsdoc(options);
-
-// Thêm cấu hình cho Swagger UI
+const specs = swaggerJsdoc(options);
 const swaggerOptions = {
     swaggerOptions: {
         persistAuthorization: true,
@@ -44,13 +42,7 @@ const swaggerOptions = {
         filter: true,
         showRequestHeaders: true,
         tryItOutEnabled: true,
-        requestInterceptor: (req) => {
-            // Log request để debug
-            console.log('Swagger Request:', {
-                method: req.method,
-                url: req.url,
-                headers: req.headers
-            });
+        requestInterceptor: (req) => {
             return req;
         }
     },

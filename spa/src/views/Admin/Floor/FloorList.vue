@@ -123,24 +123,18 @@ export default {
       return AuthService.isAdmin();
     },
     filteredFloors() {
-      let filtered = [...this.floors];
-
-      // Search filter
+      let filtered = [...this.floors];
       if (this.searchTerm) {
         const term = this.searchTerm.toLowerCase();
-        filtered = filtered.filter(floor => 
+        filtered = filtered.filter(floor =>
           floor.name.toLowerCase().includes(term) ||
           floor.description?.toLowerCase().includes(term) ||
           floor.branch_name?.toLowerCase().includes(term)
         );
-      }
-
-      // Status filter
+      }
       if (this.statusFilter) {
         filtered = filtered.filter(floor => floor.status === this.statusFilter);
-      }
-
-      // Branch filter
+      }
       if (this.branchFilter) {
         filtered = filtered.filter(floor => floor.branch_id == this.branchFilter);
       }
@@ -155,14 +149,13 @@ export default {
     async loadFloors() {
       this.loading = true;
       this.error = null;
-      
+
       try {
         const floors = await FloorService.getAllFloors();
         this.floors = floors;
       } catch (error) {
         const errorMessage = error.message || 'Có lỗi xảy ra khi tải danh sách tầng';
         this.error = errorMessage;
-        console.error('Error loading floors:', error);
       } finally {
         this.loading = false;
       }
@@ -174,18 +167,14 @@ export default {
 
     async handleFormSubmit(formData) {
       this.formLoading = true;
-      
-      try {
-        // Kiểm tra xem formData có phải là SubmitEvent không
+
+      try {
         if (formData && formData.target && formData.target.tagName === 'FORM') {
-          console.error('Received SubmitEvent instead of form data');
           this.$toast.error('Lỗi: Dữ liệu form không hợp lệ');
           return;
         }
-        
-        console.log('FloorList.handleFormSubmit called with:', formData);
         const token = AuthService.getToken();
-        
+
         if (this.editingFloor) {
           await FloorService.updateFloor(this.editingFloor.id, formData, token);
           if (this.toast) {
@@ -201,13 +190,10 @@ export default {
             alert('Tạo tầng mới thành công!');
           }
         }
-        
+
         await this.loadFloors();
         this.closeModal();
-      } catch (error) {
-        console.error('Error submitting form:', error);
-        
-        // Xử lý lỗi từ API response hoặc Error object
+      } catch (error) {
         let errorMessage = 'Có lỗi xảy ra';
         if (error.response && error.response.data) {
           errorMessage = error.response.data.message || error.response.data.error || errorMessage;
@@ -216,7 +202,7 @@ export default {
         } else if (typeof error === 'string') {
           errorMessage = error;
         }
-        
+
         if (this.toast) {
           this.toast.error(errorMessage);
         } else {
@@ -234,11 +220,11 @@ export default {
 
     async confirmDelete() {
       this.deleteLoading = true;
-      
+
       try {
         const token = AuthService.getToken();
         await FloorService.deleteFloor(this.floorToDelete.id, token);
-        
+
         if (this.toast) {
           this.toast.success('Xóa tầng thành công!');
         } else {
@@ -254,7 +240,6 @@ export default {
         } else {
           alert('Lỗi: ' + errorMessage);
         }
-        console.error('Error deleting floor:', error);
       } finally {
         this.deleteLoading = false;
       }
@@ -439,4 +424,4 @@ export default {
   justify-content: flex-end;
   margin-top: 24px;
 }
-</style> 
+</style>

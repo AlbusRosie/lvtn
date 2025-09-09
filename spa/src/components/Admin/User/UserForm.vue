@@ -66,25 +66,22 @@ function previewAvatarFile(event) {
 
 function submitUser(values) {
   const formData = new FormData();
-  
-  // Add required fields
+
   formData.append('username', values.username || '');
   formData.append('password', values.password || '');
   formData.append('role_id', values.role_id || '');
   formData.append('name', values.name || '');
   formData.append('email', values.email || '');
-  
-  // Add optional fields if they exist
+
   if (values.address) formData.append('address', values.address);
   if (values.phone) formData.append('phone', values.phone);
   if (values.favorite !== undefined) formData.append('favorite', values.favorite);
   if (values.avatarFile) formData.append('avatarFile', values.avatarFile);
-  
-  // Log the form data for debugging
+
   for (let pair of formData.entries()) {
-    console.log(pair[0] + ': ' + pair[1]);
+
   }
-  
+
   $emit('submit:user', formData);
 }
 

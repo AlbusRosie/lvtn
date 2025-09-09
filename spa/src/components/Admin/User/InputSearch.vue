@@ -10,7 +10,7 @@ const props = defineProps({
 
 const model = defineModel({
   type: String,
-  default: '',  
+  default: '',
 });
 
 const searchTypes = [
@@ -24,8 +24,8 @@ const selectedType = ref(props.searchType);
 
 <template>
   <div class="input-group">
-    <select 
-      class="form-select" 
+    <select
+      class="form-select"
       style="max-width: 120px;"
       v-model="selectedType"
     >

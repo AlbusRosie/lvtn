@@ -22,17 +22,17 @@
         <i class="fas fa-building"></i>
         <span>{{ floor.branch_name || 'Chi nhánh không xác định' }}</span>
       </div>
-      
+
       <div class="detail-item">
         <i class="fas fa-hashtag"></i>
         <span>Tầng số: {{ floor.floor_number }}</span>
       </div>
-      
+
       <div class="detail-item">
         <i class="fas fa-users"></i>
         <span>Sức chứa: {{ floor.capacity }} người</span>
       </div>
-      
+
       <div class="detail-item" v-if="floor.description">
         <i class="fas fa-info-circle"></i>
         <span>{{ floor.description }}</span>
@@ -74,7 +74,7 @@ export default {
       };
       return statusMap[status] || status;
     },
-    
+
     formatDate(dateString) {
       if (!dateString) return '';
       const date = new Date(dateString);
@@ -211,4 +211,4 @@ export default {
 .created-date i {
   font-size: 0.75rem;
 }
-</style> 
+</style>

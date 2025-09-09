@@ -26,4 +26,4 @@ router.put('/:id', floorController.updateFloor.bind(floorController));
 
 router.delete('/:id', floorController.deleteFloor.bind(floorController));
 
-module.exports = router; 
+module.exports = router;

@@ -4,20 +4,26 @@ const ApiError = require('../api-error');
 
 async function createProduct(req, res, next) {
     try {
-        // Validate required fields
         const requiredFields = ['category_id', 'name', 'price', 'stock'];
         const missingFields = requiredFields.filter(field => !req.body[field]);
-        
+
         if (missingFields.length > 0) {
             return next(new ApiError(400, `Missing required fields: ${missingFields.join(', ')}`));
         }
 
-        // Validate price and stock
         if (req.body.price <= 0) {
             return next(new ApiError(400, 'Price must be positive'));
         }
+
         if (req.body.stock < 0) {
             return next(new ApiError(400, 'Stock must be non-negative'));
+        }
+
+        const status = req.body.status || 'active';
+        const validStatuses = ['active', 'inactive', 'out_of_stock'];
+
+        if (!validStatuses.includes(status)) {
+            return next(new ApiError(400, 'Invalid status. Must be: active, inactive, or out_of_stock'));
         }
 
         const product = await ProductService.createProduct({
@@ -25,10 +31,11 @@ async function createProduct(req, res, next) {
             category_id: parseInt(req.body.category_id),
             stock: parseInt(req.body.stock),
             price: parseFloat(req.body.price),
+            status: status,
             is_available: req.body.is_available === 'true' || req.body.is_available === true ? 1 : 0,
             image: req.file ? `/public/uploads/${req.file.filename}` : null,
         });
-        
+
         res.status(201).json(JSend.success(product, 'Product created successfully'));
     } catch (error) {
         next(new ApiError(400, error.message));
@@ -58,40 +65,33 @@ async function getProduct(req, res, next) {
 
 async function updateProduct(req, res, next) {
     try {
-        // Validate price and stock if provided
-        if (req.body.price !== undefined && req.body.price <= 0) {
-            return next(new ApiError(400, 'Price must be positive'));
-        }
-        if (req.body.stock !== undefined && req.body.stock < 0) {
-            return next(new ApiError(400, 'Stock must be non-negative'));
-        }
-
-        const updateData = {
-            ...req.body,
-            image: req.file ? `/public/uploads/${req.file.filename}` : null,
-        };
-
-        // Convert data types if provided
-        if (req.body.category_id !== undefined) {
-            updateData.category_id = parseInt(req.body.category_id);
+        if (req.body.price !== undefined) {
+            const price = parseFloat(req.body.price);
+            if (isNaN(price) || price <= 0) {
+                return next(new ApiError(400, 'Price must be a positive number'));
+            }
         }
         if (req.body.stock !== undefined) {
-            updateData.stock = parseInt(req.body.stock);
-        }
-        if (req.body.price !== undefined) {
-            updateData.price = parseFloat(req.body.price);
-        }
-        if (req.body.is_available !== undefined) {
-            updateData.is_available = req.body.is_available === 'true' || req.body.is_available === true ? 1 : 0;
+            const stock = parseInt(req.body.stock);
+            if (isNaN(stock) || stock < 0) {
+                return next(new ApiError(400, 'Stock must be a non-negative number'));
+            }
         }
 
-        const product = await ProductService.updateProduct(req.params.id, updateData);
+        if (req.body.status && !['active', 'inactive', 'out_of_stock'].includes(req.body.status)) {
+            return next(new ApiError(400, 'Invalid status value'));
+        }
+
+        const { id } = req.params;
+        const product = await ProductService.updateProduct(id, req.body);
+
         if (!product) {
             return next(new ApiError(404, 'Product not found'));
         }
+
         res.json(JSend.success(product, 'Product updated successfully'));
     } catch (error) {
-        next(new ApiError(400, error.message));
+        next(error);
     }
 }
 
