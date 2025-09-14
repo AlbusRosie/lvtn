@@ -23,6 +23,18 @@ function setup(app) {
 
     router.delete('/products', AuthMiddleware.verifyToken, ProductController.deleteAllProducts);
 
+    router.get('/branches/:branchId/products', ProductController.getProductsByBranch);
+
+    router.post('/branches/:branchId/products/:productId', AuthMiddleware.verifyToken, ProductController.addProductToBranch);
+
+    router.put('/branch-products/:branchProductId', AuthMiddleware.verifyToken, ProductController.updateBranchProduct);
+
+    router.delete('/branches/:branchId/products/:productId', AuthMiddleware.verifyToken, ProductController.removeProductFromBranch);
+
+    router.get('/branch-products/:branchProductId', ProductController.getBranchProduct);
+
+    router.get('/branches/active', ProductController.getActiveBranches);
+
     app.use('/api', router);
 }
 

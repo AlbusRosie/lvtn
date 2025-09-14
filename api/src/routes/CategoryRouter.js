@@ -3,20 +3,19 @@ const CategoryController = require('../controllers/CategoryController');
 const { verifyToken, requireRole } = require('../middlewares/AuthMiddleware');
 
 const router = express.Router();
-const categoryController = new CategoryController();
 
-router.get('/', categoryController.getAllCategories.bind(categoryController));
+router.get('/', CategoryController.getAllCategories);
 
-router.get('/with-count', categoryController.getCategoriesWithProductCount.bind(categoryController));
+router.get('/with-count', CategoryController.getCategoriesWithProductCount);
 
-router.get('/:id', categoryController.getCategoryById.bind(categoryController));
+router.get('/:id', CategoryController.getCategoryById);
 
 router.use(verifyToken);
 
-router.post('/', requireRole(['admin']), categoryController.createCategory.bind(categoryController));
+router.post('/', requireRole(['admin']), CategoryController.createCategory);
 
-router.put('/:id', requireRole(['admin']), categoryController.updateCategory.bind(categoryController));
+router.put('/:id', requireRole(['admin']), CategoryController.updateCategory);
 
-router.delete('/:id', requireRole(['admin']), categoryController.deleteCategory.bind(categoryController));
+router.delete('/:id', requireRole(['admin']), CategoryController.deleteCategory);
 
 module.exports = router;

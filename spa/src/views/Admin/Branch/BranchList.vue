@@ -111,7 +111,7 @@
       </div>
     </div>
 
-    <!-- Create/Edit Modal -->
+    
     <div v-if="showCreateForm || editingBranch" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
         <BranchForm
@@ -123,7 +123,7 @@
       </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
+    
     <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
       <div class="modal-content delete-modal" @click.stop>
         <div class="delete-header">

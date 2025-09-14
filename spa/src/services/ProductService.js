@@ -12,6 +12,7 @@ class ProductService {
 
     this.api.interceptors.request.use((config) => {
       const token = localStorage.getItem('auth_token');
+      console.log('ProductService token:', token ? 'exists' : 'missing');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -21,9 +22,12 @@ class ProductService {
 
   async getProducts(params = {}) {
     try {
+      console.log('Getting products with params:', params);
       const response = await this.api.get('', { params });
+      console.log('Products API response:', response.data);
       return response.data;
     } catch (error) {
+      console.error('Products API error:', error);
       throw this.handleError(error);
     }
   }
@@ -32,6 +36,15 @@ class ProductService {
     try {
       const response = await this.api.get('/available', { params });
       return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getCategories() {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/categories`);
+      return response.data.data || response.data;
     } catch (error) {
       throw this.handleError(error);
     }
@@ -160,6 +173,60 @@ class ProductService {
     try {
       const filterParams = { ...params, is_available: isAvailable };
       const response = await this.api.get('', { params: filterParams });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async addProductToBranch(branchId, productId, branchProductData) {
+    try {
+      const response = await this.api.post(`/branches/${branchId}/products/${productId}`, branchProductData);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async updateBranchProduct(branchProductId, updateData) {
+    try {
+      const response = await this.api.put(`/branch-products/${branchProductId}`, updateData);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async removeProductFromBranch(branchId, productId) {
+    try {
+      const response = await this.api.delete(`/branches/${branchId}/products/${productId}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getProductsByBranch(branchId, params = {}) {
+    try {
+      const response = await this.api.get(`/branches/${branchId}/products`, { params });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getBranchProduct(branchProductId) {
+    try {
+      const response = await this.api.get(`/branch-products/${branchProductId}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getActiveBranches() {
+    try {
+      const response = await this.api.get('/branches/active');
       return response.data;
     } catch (error) {
       throw this.handleError(error);

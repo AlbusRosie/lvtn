@@ -15,9 +15,9 @@ const menuItems = [
         route: '/'
     },
     {
-        title: 'SẢN PHẨM',
-        icon: 'fas fa-box',
-        route: '/admin/products'
+        title: 'MENU CHI NHÁNH',
+        icon: 'fas fa-shop',
+        route: '/admin/products/branch-menu'
     },
     {
         title: 'BÀN',
@@ -54,124 +54,103 @@ function handleLogout() {
 </script>
 
 <template>
-  <div class="admin-sidebar" :class="{ 'collapsed': isCollapsed }">
-    <div class="sidebar-header">
-        <img src="#" alt="Logo" class="logo" v-if="!isCollapsed">
-        <button class="toggle-btn" @click="toggleSidebar">
-            <i :class="isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left'"></i>
-        </button>
+  <div class="sidebar" :class="{ 'collapsed': isCollapsed }">
+    <div class="header">
+      <span v-if="!isCollapsed">Menu</span>
+      <button @click="toggleSidebar">☰</button>
     </div>
 
-    <nav class="sidebar-nav">
-        <router-link
-            v-for="item in menuItems"
-            :key="item.route"
-            :to="item.route"
-            class="nav-item"
-            :title="isCollapsed ? item.title : ''"
-        >
-            <i :class="item.icon"></i>
-            <span v-if="!isCollapsed">{{ item.title }}</span>
-        </router-link>
-        <button class="nav-item logout-btn" @click="handleLogout">
-            <i class="fas fa-sign-out-alt"></i>
-            <span v-if="!isCollapsed">ĐĂNG XUẤT</span>
-        </button>
-    </nav>
+    <div class="nav">
+      <router-link
+        v-for="item in menuItems"
+        :key="item.route"
+        :to="item.route"
+        class="item"
+      >
+        <i :class="item.icon"></i>
+        <span v-if="!isCollapsed">{{ item.title }}</span>
+      </router-link>
+      
+      <button class="item logout" @click="handleLogout">
+        <i class="fas fa-sign-out-alt"></i>
+        <span v-if="!isCollapsed">ĐĂNG XUẤT</span>
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.admin-sidebar {
-  width: 250px;
+.sidebar {
+  width: 200px;
   height: 100vh;
-  background-color: #2c3e50;
+  background: #333;
   color: white;
-  transition: all 0.3s ease;
   position: fixed;
   left: 0;
   top: 0;
-  z-index: 1000;
+  transition: width 0.3s;
 }
 
-.admin-sidebar.collapsed {
-  width: 60px;
+.sidebar.collapsed {
+  width: 50px;
 }
 
-.sidebar-header {
-  padding: 1rem;
+.header {
+  padding: 15px;
+  border-bottom: 1px solid #555;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  align-items: center;
 }
 
-.logo {
-  height: 40px;
-  width: auto;
-}
-
-.toggle-btn {
+.header button {
   background: none;
   border: none;
   color: white;
   cursor: pointer;
-  padding: 0.5rem;
+  font-size: 18px;
 }
 
-.sidebar-nav {
-  padding: 1rem 0;
+.nav {
+  padding: 10px 0;
 }
 
-.nav-item {
+.item {
   display: flex;
   align-items: center;
-  padding: 0.8rem 1rem;
+  padding: 12px 15px;
   color: white;
   text-decoration: none;
-  transition: background-color 0.3s;
+  border: none;
+  background: none;
+  width: 100%;
+  cursor: pointer;
 }
 
-.nav-item:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+.item:hover {
+  background: #555;
 }
 
-.nav-item i {
+.item i {
   width: 20px;
-  margin-right: 1rem;
+  margin-right: 10px;
 }
 
-.nav-item.router-link-active {
-  background-color: #3498db;
+.item.router-link-active {
+  background: #007bff;
 }
 
-.collapsed .nav-item span {
+.collapsed .item span {
   display: none;
 }
 
-.collapsed .nav-item i {
+.collapsed .item i {
   margin-right: 0;
 }
 
-.logout-btn {
-  background: none;
-  border: none;
-  color: white;
-  width: 100%;
-  text-align: left;
-  padding: 0.8rem 1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: background-color 0.3s;
-}
-
-.logout-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.logout-btn i {
-  width: 20px;
-  margin-right: 1rem;
+.logout {
+  margin-top: 10px;
+  border-top: 1px solid #555;
+  padding-top: 10px;
 }
 </style>

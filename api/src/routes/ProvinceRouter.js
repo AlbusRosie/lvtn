@@ -2,13 +2,12 @@ const express = require('express');
 const ProvinceController = require('../controllers/ProvinceController');
 
 const router = express.Router();
-const provinceController = new ProvinceController();
 
-router.get('/', provinceController.getAllProvinces.bind(provinceController));
-router.get('/search', provinceController.searchProvinces.bind(provinceController));
-router.get('/:id', provinceController.getProvinceById.bind(provinceController));
-router.get('/:provinceId/districts', provinceController.getDistrictsByProvinceId.bind(provinceController));
-router.get('/districts/search', provinceController.searchDistricts.bind(provinceController));
-router.get('/districts/:id', provinceController.getDistrictById.bind(provinceController));
+router.get('/', ProvinceController.getAllProvinces);
+router.get('/search', ProvinceController.searchProvinces);
+router.get('/:id', ProvinceController.getProvinceById);
+router.get('/:provinceId/districts', ProvinceController.getDistrictsByProvinceId);
+router.get('/districts/search', ProvinceController.searchDistricts);
+router.get('/districts/:id', ProvinceController.getDistrictById);
 
 module.exports = router;

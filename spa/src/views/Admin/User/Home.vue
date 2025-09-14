@@ -144,7 +144,7 @@ watch(currentPage, () => retrieveUsers(currentPage.value), { immediate: true });
         <i class="fas fa-users"></i>
       </h4>
 
-      <!-- Search and Filters -->
+      
       <div class="my-3">
         <InputSearch
           v-model="searchText"
@@ -153,7 +153,7 @@ watch(currentPage, () => retrieveUsers(currentPage.value), { immediate: true });
         />
       </div>
 
-      <!-- Additional Filters -->
+      
       <div class="row mb-3">
         <div class="col-md-6">
           <label class="form-label">Lọc theo vai trò:</label>
@@ -174,14 +174,14 @@ watch(currentPage, () => retrieveUsers(currentPage.value), { immediate: true });
         </div>
       </div>
 
-      <p v-if="isLoading">Đang tải danh sách người dùng...</p> <!-- Thông báo đang tải -->
-      <p v-if="error" class="text-danger">{{ error }}</p> <!-- Thông báo lỗi -->
+      <p v-if="isLoading">Đang tải danh sách người dùng...</p> 
+      <p v-if="error" class="text-danger">{{ error }}</p> 
       <UserList
         v-if="filteredUsers.length > 0 && !isLoading"
         :users="filteredUsers"
         v-model:selected-index="selectedIndex"
       />
-      <p v-else-if="!isLoading">Không có người dùng nào.</p> <!-- Không có liên hệ -->
+      <p v-else-if="!isLoading">Không có người dùng nào.</p> 
       <div class="mt-3 d-flex flex-wrap justify-content-round align-items-center">
         <MainPagination
           :total-pages="totalPages"

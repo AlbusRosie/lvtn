@@ -1,12 +1,12 @@
 <template>
   <div class="product-create">
-    <!-- Header -->
+    
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
         <nav aria-label="breadcrumb">
           <ol class="breadcrumb">
             <li class="breadcrumb-item">
-              <router-link to="/admin/products">Products</router-link>
+              <router-link to="/admin/products/branch-menu">Menu Chi nhánh</router-link>
             </li>
             <li class="breadcrumb-item active" aria-current="page">
               Create Product
@@ -18,12 +18,12 @@
         </h2>
         <p class="text-muted mb-0">Add a new product to your inventory</p>
       </div>
-      <router-link to="/admin/products" class="btn btn-secondary">
+      <router-link to="/admin/products/branch-menu" class="btn btn-secondary">
         <i class="bi bi-arrow-left"></i> Back to Products
       </router-link>
     </div>
 
-    <!-- Create Form -->
+    
     <div class="row justify-content-center">
       <div class="col-lg-8">
         <div class="card">
@@ -45,7 +45,7 @@
       </div>
     </div>
 
-    <!-- Toast Notifications -->
+    
     <div class="toast-container position-fixed bottom-0 end-0 p-3">
       <div
         v-for="toast in toasts"
@@ -76,24 +76,29 @@ import ProductService from '@/services/ProductService';
 import ProductForm from '@/components/Admin/Product/ProductForm.vue';
 
 const route = useRoute();
-const router = useRouter();
+const router = useRouter();
+
 const categories = ref([]);
 const duplicateProduct = ref(null);
-const loading = ref(false);
+const loading = ref(false);
+
 const toasts = ref([]);
-let toastId = 0;
+let toastId = 0;
+
 const loadCategories = () => {
   categories.value = [
     { id: 1, name: 'Điện thoại' },
     { id: 2, name: 'Laptop' }
   ];
-};
+};
+
 const loadDuplicateProduct = async () => {
   const duplicateId = route.query.duplicate;
   if (duplicateId) {
     try {
       const response = await ProductService.getProduct(duplicateId);
-      const product = response.data;
+      const product = response.data;
+
       duplicateProduct.value = {
         name: `${product.name} (Copy)`,
         category_id: product.category_id,
@@ -105,24 +110,28 @@ const loadDuplicateProduct = async () => {
       showToast('Error', 'Failed to load product for duplication', 'danger');
     }
   }
-};
+};
+
 const handleSubmit = async (formData) => {
   loading.value = true;
   try {
     await ProductService.createProduct(formData);
-    showToast('Success', 'Product created successfully', 'success');
+    showToast('Success', 'Product created successfully', 'success');
+
     setTimeout(() => {
-      router.push('/admin/products');
+      router.push('/admin/products/branch-menu');
     }, 1500);
   } catch (error) {
     showToast('Error', error.message, 'danger');
   } finally {
     loading.value = false;
   }
-};
+};
+
 const handleCancel = () => {
-  router.push('/admin/products');
-};
+  router.push('/admin/products/branch-menu');
+};
+
 const showToast = (title, message, type = 'info') => {
   const toast = {
     id: ++toastId,
@@ -131,17 +140,20 @@ const showToast = (title, message, type = 'info') => {
     type: `bg-${type} text-white`
   };
 
-  toasts.value.push(toast);
+  toasts.value.push(toast);
+
   setTimeout(() => {
     removeToast(toast.id);
   }, 5000);
-};
+};
+
 const removeToast = (id) => {
   const index = toasts.value.findIndex(toast => toast.id === id);
   if (index > -1) {
     toasts.value.splice(index, 1);
   }
-};
+};
+
 onMounted(() => {
   loadCategories();
   loadDuplicateProduct();

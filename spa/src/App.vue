@@ -5,8 +5,8 @@ import { useToast } from 'vue-toastification';
 import AdminSidebar from '@/components/Admin/Sidebar.vue';
 
 const route = useRoute();
-const toast = useToast();
-provide('toast', toast);
+const toast = useToast();
+provide('toast', toast);
 const isAuthPage = computed(() => {
   return route.path === '/auth' || route.path === '/login' || route.path === '/register';
 });

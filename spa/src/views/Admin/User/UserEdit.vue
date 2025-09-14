@@ -25,7 +25,8 @@ const { data: user, isError, isLoading } = useQuery({
       hash: route.hash,
     });
   },
-});
+});
+
 const updateMutation = useMutation({
   mutationFn: (updatedUser) => usersService.updateUser(props.userId, updatedUser),
   onSuccess: () => {

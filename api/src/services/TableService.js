@@ -1,74 +1,221 @@
 const knex = require('../database/knex');
-const ApiError = require('../api-error');
+const Paginator = require('./Paginator');
 
-class TableService {
+function tableRepository() {
+    return knex('tables');
+}
 
-  async getAllTables(branchId = null) {
-    try {
-      let query = knex('tables')
+function readTable(payload) {
+    return {
+        branch_id: payload.branch_id,
+        floor_id: payload.floor_id,
+        table_number: payload.table_number,
+        capacity: payload.capacity,
+        status: payload.status || 'available',
+        location: payload.location || null,
+        position_x: payload.position_x || null,
+        position_y: payload.position_y || null
+    };
+}
+
+async function createTable(payload) {
+    if (!payload.branch_id || !payload.floor_id || !payload.table_number || !payload.capacity) {
+        throw new Error('Branch ID, floor ID, table number and capacity are required');
+    }
+
+    const existingTable = await tableRepository()
+        .where('branch_id', payload.branch_id)
+        .where('floor_id', payload.floor_id)
+        .where('table_number', payload.table_number)
+        .first();
+
+    if (existingTable) {
+        throw new Error('Table number already exists in this floor');
+    }
+
+    const branch = await knex('branches').where('id', payload.branch_id).first();
+    if (!branch) {
+        throw new Error('Branch not found');
+    }
+
+    const floor = await knex('floors').where('id', payload.floor_id).first();
+    if (!floor) {
+        throw new Error('Floor not found');
+    }
+
+    if (parseInt(floor.branch_id) !== parseInt(payload.branch_id)) {
+        throw new Error('Floor does not belong to the specified branch');
+    }
+
+    const table = readTable(payload);
+    const [id] = await tableRepository().insert(table);
+    return { id, ...table };
+}
+
+async function getManyTables(query) {
+    const { branch_id, floor_id, status, page = 1, limit = 10 } = query;
+    const paginator = new Paginator(page, limit);
+
+    let results = await tableRepository()
         .select(
-          'tables.*',
-          'branches.name as branch_name',
-          'floors.name as floor_name',
-          'floors.floor_number'
+            knex.raw('count(tables.id) OVER() AS recordCount'),
+            'tables.*',
+            'branches.name as branch_name',
+            'floors.name as floor_name',
+            'floors.floor_number'
         )
         .join('branches', 'tables.branch_id', 'branches.id')
         .join('floors', 'tables.floor_id', 'floors.id')
+        .where((builder) => {
+            if (branch_id) {
+                builder.where('tables.branch_id', branch_id);
+            }
+            if (floor_id) {
+                builder.where('tables.floor_id', floor_id);
+            }
+            if (status) {
+                builder.where('tables.status', status);
+            }
+        })
         .orderBy('branches.name', 'asc')
         .orderBy('floors.floor_number', 'asc')
-        .orderBy('tables.table_number', 'asc');
+        .orderBy('tables.table_number', 'asc')
+        .limit(paginator.limit)
+        .offset(paginator.offset);
 
-      if (branchId) {
-        query = query.where('tables.branch_id', branchId);
-      }
+    let totalRecords = 0;
+    results = results.map((result) => {
+        totalRecords = result.recordCount;
+        delete result.recordCount;
+        return result;
+    });
 
-      const tables = await query;
-      return tables;
-    } catch (error) {
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
+    return {
+        metadata: paginator.getMetadata(totalRecords),
+        tables: results,
+    };
+}
 
-  async getTableById(id) {
-    try {
-      const table = await knex('tables')
+async function getTableById(id) {
+    return tableRepository()
         .select(
-          'tables.*',
-          'branches.name as branch_name',
-          'floors.name as floor_name',
-          'floors.floor_number'
+            'tables.*',
+            'branches.name as branch_name',
+            'floors.name as floor_name',
+            'floors.floor_number'
         )
         .join('branches', 'tables.branch_id', 'branches.id')
         .join('floors', 'tables.floor_id', 'floors.id')
         .where('tables.id', id)
         .first();
+}
 
-      if (!table) {
-        throw new ApiError(404, 'Table not found');
-      }
+async function updateTable(id, payload) {
+    const updatedTable = await tableRepository()
+        .where('id', id)
+        .select('*')
+        .first();
 
-      return table;
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(500, 'Database error: ' + error.message);
+    if (!updatedTable) {
+        return null;
     }
-  }
 
-  async getTablesByStatus(status, branchId = null) {
-    try {
-      const validStatuses = ['available', 'occupied', 'reserved', 'maintenance'];
-      if (!validStatuses.includes(status)) {
-        throw new ApiError(400, 'Invalid status value');
-      }
+    if (payload.table_number && payload.table_number !== updatedTable.table_number) {
+        const floorId = payload.floor_id || updatedTable.floor_id;
+        const numberConflict = await tableRepository()
+            .where('branch_id', updatedTable.branch_id)
+            .where('floor_id', floorId)
+            .where('table_number', payload.table_number)
+            .whereNot('id', id)
+            .first();
 
-      let query = knex('tables')
+        if (numberConflict) {
+            throw new Error('Table number already exists in this floor');
+        }
+    }
+
+    if (payload.branch_id || payload.floor_id) {
+        const branchId = payload.branch_id || updatedTable.branch_id;
+        const floorId = payload.floor_id || updatedTable.floor_id;
+
+        const branch = await knex('branches').where('id', branchId).first();
+        if (!branch) {
+            throw new Error('Branch not found');
+        }
+
+        const floor = await knex('floors').where('id', floorId).first();
+        if (!floor) {
+            throw new Error('Floor not found');
+        }
+
+        if (floor.branch_id !== branchId) {
+            throw new Error('Floor does not belong to the specified branch');
+        }
+    }
+
+    const update = readTable(payload);
+    await tableRepository().where('id', id).update(update);
+    return { ...updatedTable, ...update };
+}
+
+async function updateTableStatus(id, status) {
+    const updatedTable = await tableRepository()
+        .where('id', id)
+        .select('*')
+        .first();
+
+    if (!updatedTable) {
+        return null;
+    }
+
+    const validStatuses = ['available', 'occupied', 'reserved', 'maintenance'];
+    if (!validStatuses.includes(status)) {
+        throw new Error('Invalid status value');
+    }
+
+    await tableRepository().where('id', id).update({ status });
+    return { ...updatedTable, status };
+}
+
+async function deleteTable(id) {
+    const deletedTable = await tableRepository()
+        .where('id', id)
+        .select('*')
+        .first();
+
+    if (!deletedTable) {
+        return null;
+    }
+
+    if (deletedTable.status === 'occupied' || deletedTable.status === 'reserved') {
+        throw new Error('Cannot delete table that is currently occupied or reserved');
+    }
+
+    await tableRepository().where('id', id).del();
+    return { ...deletedTable, message: 'Table deleted successfully' };
+}
+
+async function deleteAllTables() {
+    const tables = await tableRepository().select('*');
+    await tableRepository().del();
+    return { 
+        message: 'All tables deleted successfully',
+        deletedTablesCount: tables.length
+    };
+}
+
+async function getTablesByStatus(status, branchId = null) {
+    const validStatuses = ['available', 'occupied', 'reserved', 'maintenance'];
+    if (!validStatuses.includes(status)) {
+        throw new Error('Invalid status value');
+    }
+
+    let query = tableRepository()
         .select(
-          'tables.*',
-          'branches.name as branch_name',
-          'floors.name as floor_name',
-          'floors.floor_number'
+            'tables.*',
+            'branches.name as branch_name',
+            'floors.name as floor_name',
+            'floors.floor_number'
         )
         .join('branches', 'tables.branch_id', 'branches.id')
         .join('floors', 'tables.floor_id', 'floors.id')
@@ -77,28 +224,20 @@ class TableService {
         .orderBy('floors.floor_number', 'asc')
         .orderBy('tables.table_number', 'asc');
 
-      if (branchId) {
+    if (branchId) {
         query = query.where('tables.branch_id', branchId);
-      }
-
-      const tables = await query;
-      return tables;
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(500, 'Database error: ' + error.message);
     }
-  }
 
-  async getAvailableTables(branchId = null) {
-    try {
-      let query = knex('tables')
+    return await query;
+}
+
+async function getAvailableTables(branchId = null) {
+    let query = tableRepository()
         .select(
-          'tables.*',
-          'branches.name as branch_name',
-          'floors.name as floor_name',
-          'floors.floor_number'
+            'tables.*',
+            'branches.name as branch_name',
+            'floors.name as floor_name',
+            'floors.floor_number'
         )
         .join('branches', 'tables.branch_id', 'branches.id')
         .join('floors', 'tables.floor_id', 'floors.id')
@@ -107,304 +246,122 @@ class TableService {
         .orderBy('floors.floor_number', 'asc')
         .orderBy('tables.table_number', 'asc');
 
-      if (branchId) {
+    if (branchId) {
         query = query.where('tables.branch_id', branchId);
-      }
-
-      const tables = await query;
-      return tables;
-    } catch (error) {
-      throw new ApiError(500, 'Database error: ' + error.message);
     }
-  }
 
-  async createTable(tableData) {
-    try {
+    return await query;
+}
 
-      const existingTable = await knex('tables')
-        .where('branch_id', tableData.branch_id)
-        .where('floor_id', tableData.floor_id)
-        .where('table_number', tableData.table_number)
-        .first();
-
-      if (existingTable) {
-        throw new ApiError(400, 'Table number already exists in this floor');
-      }
-
-      const branch = await knex('branches').where('id', tableData.branch_id).first();
-      if (!branch) {
-        throw new ApiError(400, 'Branch not found');
-      }
-
-      const floor = await knex('floors').where('id', tableData.floor_id).first();
-      if (!floor) {
-        throw new ApiError(400, 'Floor not found');
-      }
-
-      if (parseInt(floor.branch_id) !== parseInt(tableData.branch_id)) {
-        throw new ApiError(400, 'Floor does not belong to the specified branch');
-      }
-
-      const [tableId] = await knex('tables')
-        .insert(tableData)
-        .returning('id');
-
-      return this.getTableById(tableId);
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
-
-  async updateTable(id, tableData) {
-    try {
-
-      const existingTable = await knex('tables')
-        .where('id', id)
-        .first();
-
-      if (!existingTable) {
-        throw new ApiError(404, 'Table not found');
-      }
-
-      if (tableData.table_number && tableData.table_number !== existingTable.table_number) {
-        const floorId = tableData.floor_id || existingTable.floor_id;
-        const numberConflict = await knex('tables')
-          .where('branch_id', existingTable.branch_id)
-          .where('floor_id', floorId)
-          .where('table_number', tableData.table_number)
-          .whereNot('id', id)
-          .first();
-
-        if (numberConflict) {
-          throw new ApiError(400, 'Table number already exists in this floor');
-        }
-      }
-
-      if (tableData.branch_id || tableData.floor_id) {
-        const branchId = tableData.branch_id || existingTable.branch_id;
-        const floorId = tableData.floor_id || existingTable.floor_id;
-
-        const branch = await knex('branches').where('id', branchId).first();
-        if (!branch) {
-          throw new ApiError(400, 'Branch not found');
-        }
-
-        const floor = await knex('floors').where('id', floorId).first();
-        if (!floor) {
-          throw new ApiError(400, 'Floor not found');
-        }
-
-        if (floor.branch_id !== branchId) {
-          throw new ApiError(400, 'Floor does not belong to the specified branch');
-        }
-      }
-
-      await knex('tables')
-        .where('id', id)
-        .update(tableData);
-
-      return this.getTableById(id);
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
-
-  async updateTableStatus(id, status) {
-    try {
-
-      const existingTable = await knex('tables')
-        .where('id', id)
-        .first();
-
-      if (!existingTable) {
-        throw new ApiError(404, 'Table not found');
-      }
-
-      const validStatuses = ['available', 'occupied', 'reserved', 'maintenance'];
-      if (!validStatuses.includes(status)) {
-        throw new ApiError(400, 'Invalid status value');
-      }
-
-      await knex('tables')
-        .where('id', id)
-        .update({ status });
-
-      return this.getTableById(id);
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
-
-  async deleteTable(id) {
-    try {
-
-      const existingTable = await knex('tables')
-        .where('id', id)
-        .first();
-
-      if (!existingTable) {
-        throw new ApiError(404, 'Table not found');
-      }
-
-      if (existingTable.status === 'occupied' || existingTable.status === 'reserved') {
-        throw new ApiError(400, 'Cannot delete table that is currently occupied or reserved');
-      }
-
-      await knex('tables')
-        .where('id', id)
-        .del();
-
-      return { message: 'Table deleted successfully' };
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
-
-  async getTableStatistics(branchId = null) {
-    try {
-      let query = knex('tables')
-        .select('status')
-        .count('* as count')
-        .groupBy('status');
-
-      if (branchId) {
-        query = query.where('branch_id', branchId);
-      }
-
-      const stats = await query;
-
-      const result = {
-        total: 0,
-        available: 0,
-        occupied: 0,
-        reserved: 0,
-        maintenance: 0
-      };
-
-      stats.forEach(stat => {
-        result[stat.status] = parseInt(stat.count);
-        result.total += parseInt(stat.count);
-      });
-
-      return result;
-    } catch (error) {
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
-
-  async getAllBranches() {
-    try {
-      const branches = await knex('branches')
+async function getAllBranches() {
+    return knex('branches')
         .select('*')
         .where('status', 'active')
         .orderBy('name', 'asc');
+}
 
-      return branches;
-    } catch (error) {
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
-
-  async getFloorsByBranch(branchId) {
-    try {
-      const floors = await knex('floors')
+async function getFloorsByBranch(branchId) {
+    return knex('floors')
         .select('*')
         .where('branch_id', branchId)
         .where('status', 'active')
         .orderBy('floor_number', 'asc');
+}
 
-      return floors;
-    } catch (error) {
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
-
-  async getTablesByBranchAndFloor(branchId, floorId) {
-    try {
-      const tables = await knex('tables')
+async function getTablesByBranchAndFloor(branchId, floorId) {
+    return tableRepository()
         .select(
-          'tables.*',
-          'branches.name as branch_name',
-          'floors.name as floor_name',
-          'floors.floor_number'
+            'tables.*',
+            'branches.name as branch_name',
+            'floors.name as floor_name',
+            'floors.floor_number'
         )
         .join('branches', 'tables.branch_id', 'branches.id')
         .join('floors', 'tables.floor_id', 'floors.id')
         .where('tables.branch_id', branchId)
         .where('tables.floor_id', floorId)
         .orderBy('tables.table_number', 'asc');
+}
 
-      return tables;
-    } catch (error) {
-      throw new ApiError(500, 'Database error: ' + error.message);
+async function getTableStatistics(branchId = null) {
+    let query = tableRepository()
+        .select('status')
+        .count('* as count')
+        .groupBy('status');
+
+    if (branchId) {
+        query = query.where('branch_id', branchId);
     }
-  }
 
-  async generateNextTableNumber(branchId, floorId) {
-    try {
-      const tables = await this.getTablesByBranchAndFloor(branchId, floorId);
+    const stats = await query;
 
-      let maxNumber = 0;
-      tables.forEach(table => {
+    const result = {
+        total: 0,
+        available: 0,
+        occupied: 0,
+        reserved: 0,
+        maintenance: 0
+    };
+
+    stats.forEach(stat => {
+        result[stat.status] = parseInt(stat.count);
+        result.total += parseInt(stat.count);
+    });
+
+    return result;
+}
+
+async function generateNextTableNumber(branchId, floorId) {
+    const tables = await getTablesByBranchAndFloor(branchId, floorId);
+
+    let maxNumber = 0;
+    tables.forEach(table => {
         const tableNumber = table.table_number;
         if (tableNumber.startsWith('T')) {
-          const numberPart = parseInt(tableNumber.substring(1));
-          if (!isNaN(numberPart) && numberPart > maxNumber) {
-            maxNumber = numberPart;
-          }
+            const numberPart = parseInt(tableNumber.substring(1));
+            if (!isNaN(numberPart) && numberPart > maxNumber) {
+                maxNumber = numberPart;
+            }
         }
-      });
+    });
 
-      const nextNumber = maxNumber + 1;
-      return {
+    const nextNumber = maxNumber + 1;
+    return {
         nextTableNumber: `T${String(nextNumber).padStart(2, '0')}`,
         currentTableCount: tables.length,
         maxNumber: maxNumber
-      };
-    } catch (error) {
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
+    };
+}
 
-  async getTableByNumber(branchId, tableNumber) {
-    try {
-      const table = await knex('tables')
+async function getTableByNumber(branchId, tableNumber) {
+    return tableRepository()
         .select(
-          'tables.*',
-          'branches.name as branch_name',
-          'floors.name as floor_name',
-          'floors.floor_number'
+            'tables.*',
+            'branches.name as branch_name',
+            'floors.name as floor_name',
+            'floors.floor_number'
         )
         .join('branches', 'tables.branch_id', 'branches.id')
         .join('floors', 'tables.floor_id', 'floors.id')
         .where('tables.branch_id', branchId)
         .where('tables.table_number', tableNumber)
         .first();
-
-      if (!table) {
-        throw new ApiError(404, 'Table not found');
-      }
-
-      return table;
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
 }
 
-module.exports = TableService;
+module.exports = {
+    createTable,
+    getManyTables,
+    getTableById,
+    updateTable,
+    updateTableStatus,
+    deleteTable,
+    deleteAllTables,
+    getTablesByStatus,
+    getAvailableTables,
+    getAllBranches,
+    getFloorsByBranch,
+    getTablesByBranchAndFloor,
+    getTableStatistics,
+    generateNextTableNumber,
+    getTableByNumber
+};

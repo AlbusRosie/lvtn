@@ -1,17 +1,17 @@
 <template>
   <div class="product-detail">
-    <!-- Loading -->
+    
     <LoadingSpinner v-if="loading" />
 
-    <!-- Product Details -->
+    
     <div v-else-if="product" class="container-fluid">
-      <!-- Header -->
+      
       <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
           <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
               <li class="breadcrumb-item">
-                <router-link to="/admin/products">Products</router-link>
+                <router-link to="/admin/products/branch-menu">Menu Chi nhánh</router-link>
               </li>
               <li class="breadcrumb-item active" aria-current="page">
                 {{ product.name }}
@@ -38,7 +38,7 @@
         </div>
       </div>
 
-      <!-- Product Info -->
+      
       <div class="row">
         <div class="col-lg-8">
           <div class="card">
@@ -110,7 +110,7 @@
         </div>
 
         <div class="col-lg-4">
-          <!-- Quick Stats -->
+          
           <div class="card mb-3">
             <div class="card-header">
               <h6 class="card-title mb-0">
@@ -133,7 +133,7 @@
             </div>
           </div>
 
-          <!-- Actions -->
+          
           <div class="card">
             <div class="card-header">
               <h6 class="card-title mb-0">
@@ -167,17 +167,17 @@
       </div>
     </div>
 
-    <!-- Not Found -->
+    
     <div v-else class="text-center py-5">
       <i class="bi bi-exclamation-triangle display-1 text-warning"></i>
       <h4 class="mt-3 text-muted">Product not found</h4>
       <p class="text-muted">The product you're looking for doesn't exist or has been deleted.</p>
-      <router-link to="/admin/products" class="btn btn-primary">
+      <router-link to="/admin/products/branch-menu" class="btn btn-primary">
         <i class="bi bi-arrow-left"></i> Back to Products
       </router-link>
     </div>
 
-    <!-- Edit Modal -->
+    
     <div
       v-if="showEditModal"
       class="modal fade show d-block"
@@ -207,7 +207,7 @@
       </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
+    
     <div
       v-if="showDeleteModal"
       class="modal fade show d-block"
@@ -250,7 +250,7 @@
       </div>
     </div>
 
-    <!-- Toast Notifications -->
+    
     <div class="toast-container position-fixed bottom-0 end-0 p-3">
       <div
         v-for="toast in toasts"
@@ -396,7 +396,7 @@ const confirmDelete = async () => {
     await ProductService.deleteProduct(product.value.id);
     showToast('Success', 'Product deleted successfully', 'success');
     showDeleteModal.value = false;
-    router.push('/admin/products');
+    router.push('/admin/products/branch-menu');
   } catch (error) {
     showToast('Error', error.message, 'danger');
   } finally {

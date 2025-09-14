@@ -5,11 +5,13 @@ const cors = require('cors');
 const JSend = require('./jsend');
 const UserRouter = require('./routes/UserRouter');
 const ProductRouter = require('./routes/ProductRouter');
+
 const CategoryRouter = require('./routes/CategoryRouter');
 const TableRouter = require('./routes/TableRouter');
 const BranchRouter = require('./routes/BranchRouter');
 const FloorRouter = require('./routes/FloorRouter');
 const ProvinceRouter = require('./routes/ProvinceRouter');
+
 const {
     resourceNotFound,
     handleError,

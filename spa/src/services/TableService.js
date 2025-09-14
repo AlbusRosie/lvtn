@@ -1,8 +1,10 @@
 import axios from 'axios';
+import { API_BASE_URL } from '@/constants';
 
-const API_URL = 'http://localhost:3000/api/tables';
+const API_URL = `${API_BASE_URL}/tables`;
 
-class TableService {
+class TableService {
+
   async getAllTables() {
     try {
       const response = await axios.get(API_URL);
@@ -18,7 +20,8 @@ class TableService {
         throw new Error('Có lỗi xảy ra khi tải danh sách bàn');
       }
     }
-  }
+  }
+
   async getAvailableTables() {
     try {
       const response = await axios.get(`${API_URL}/available`);
@@ -26,7 +29,8 @@ class TableService {
     } catch (error) {
       throw error.response?.data || error.message;
     }
-  }
+  }
+
   async getTablesByStatus(status) {
     try {
       const response = await axios.get(`${API_URL}/status/${status}`);
@@ -34,7 +38,8 @@ class TableService {
     } catch (error) {
       throw error.response?.data || error.message;
     }
-  }
+  }
+
   async getTableById(id) {
     try {
       const response = await axios.get(`${API_URL}/${id}`);
@@ -42,7 +47,8 @@ class TableService {
     } catch (error) {
       throw error.response?.data || error.message;
     }
-  }
+  }
+
   async getAllBranches() {
     try {
       const response = await axios.get(`${API_URL}/branches`);
@@ -50,7 +56,8 @@ class TableService {
     } catch (error) {
       throw error.response?.data || error.message;
     }
-  }
+  }
+
   async getFloorsByBranch(branchId) {
     try {
       const response = await axios.get(`${API_URL}/branches/${branchId}/floors`);
@@ -58,7 +65,8 @@ class TableService {
     } catch (error) {
       throw error.response?.data || error.message;
     }
-  }
+  }
+
   async getTablesByBranchAndFloor(branchId, floorId) {
     try {
       const response = await axios.get(`${API_URL}/branches/${branchId}/floors/${floorId}/tables`);
@@ -66,10 +74,12 @@ class TableService {
     } catch (error) {
       throw error.response?.data || error.message;
     }
-  }
+  }
+
   async generateNextTableNumber(branchId, floorId) {
     try {
-      const tables = await this.getTablesByBranchAndFloor(branchId, floorId);
+      const tables = await this.getTablesByBranchAndFloor(branchId, floorId);
+
       let maxNumber = 0;
       tables.forEach(table => {
         const tableNumber = table.table_number;
@@ -79,7 +89,8 @@ class TableService {
             maxNumber = numberPart;
           }
         }
-      });
+      });
+
       const nextNumber = maxNumber + 1;
       return {
         nextTableNumber: `T${String(nextNumber).padStart(2, '0')}`,
@@ -89,7 +100,8 @@ class TableService {
     } catch (error) {
       throw error.response?.data || error.message;
     }
-  }
+  }
+
   async createTable(tableData, token) {
     try {
       const response = await axios.post(API_URL, tableData, {
@@ -109,7 +121,8 @@ class TableService {
         throw new Error('Có lỗi xảy ra khi tạo bàn');
       }
     }
-  }
+  }
+
   async updateTable(id, tableData, token) {
     try {
       const response = await axios.put(`${API_URL}/${id}`, tableData, {
@@ -129,7 +142,8 @@ class TableService {
         throw new Error('Có lỗi xảy ra khi cập nhật bàn');
       }
     }
-  }
+  }
+
   async updateTableStatus(id, status, token) {
     try {
       const response = await axios.patch(`${API_URL}/${id}/status`, { status }, {
@@ -149,7 +163,8 @@ class TableService {
         throw new Error('Có lỗi xảy ra khi cập nhật trạng thái bàn');
       }
     }
-  }
+  }
+
   async deleteTable(id, token) {
     try {
       const response = await axios.delete(`${API_URL}/${id}`, {
@@ -169,7 +184,8 @@ class TableService {
         throw new Error('Có lỗi xảy ra khi xóa bàn');
       }
     }
-  }
+  }
+
   getStatusOptions() {
     return [
       { value: 'available', label: 'Có sẵn', color: 'green' },
@@ -177,12 +193,14 @@ class TableService {
       { value: 'reserved', label: 'Đã đặt trước', color: 'orange' },
       { value: 'maintenance', label: 'Bảo trì', color: 'gray' }
     ];
-  }
+  }
+
   getStatusLabel(status) {
     const options = this.getStatusOptions();
     const option = options.find(opt => opt.value === status);
     return option ? option.label : status;
-  }
+  }
+
   getStatusColor(status) {
     const options = this.getStatusOptions();
     const option = options.find(opt => opt.value === status);

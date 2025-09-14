@@ -109,6 +109,15 @@ class BranchService {
       throw error.response?.data || error.message;
     }
   }
+
+  async getActiveBranchesForProduct() {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/branches/active`);
+      return response.data.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
 }
 
 export default new BranchService();

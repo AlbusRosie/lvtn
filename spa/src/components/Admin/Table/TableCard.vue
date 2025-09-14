@@ -37,7 +37,6 @@
       </div>
     </div>
 
-    <!-- Action Menu -->
     <div class="table-actions" v-if="isAdmin">
       <TableActionMenu
         :table="table"
@@ -81,15 +80,12 @@ export default {
       return new Date(dateString).toLocaleDateString('vi-VN');
     },
     getTableLocationShort() {
-      // Tạo tên viết tắt cho chi nhánh và tầng
       let branchShort = '';
       let floorShort = '';
 
-      // Viết tắt tên chi nhánh với logic cải thiện
       if (this.table.branch_name) {
         const branchName = this.table.branch_name.toLowerCase();
         
-        // Xử lý các trường hợp đặc biệt
         if (branchName.includes('quận 1')) {
           branchShort = 'Q1';
         } else if (branchName.includes('quận 7')) {
@@ -99,7 +95,6 @@ export default {
         } else if (branchName.includes('quận 2')) {
           branchShort = 'Q2';
         } else if (branchName.includes('quận')) {
-          // Lấy số quận
           const match = branchName.match(/quận (\d+)/);
           if (match) {
             branchShort = `Q${match[1]}`;
@@ -111,7 +106,6 @@ export default {
         } else if (branchName.includes('cần thơ')) {
           branchShort = 'CT';
         } else {
-          // Lấy 2-3 ký tự đầu của từ quan trọng nhất
           const words = this.table.branch_name.split(' ').filter(word => 
             !['chi', 'nhánh', 'của', 'tại', 'ở'].includes(word.toLowerCase())
           );
@@ -121,7 +115,6 @@ export default {
         }
       }
 
-      // Viết tắt tầng
       if (this.table.floor_number) {
         floorShort = `F${this.table.floor_number}`;
       }
@@ -129,7 +122,6 @@ export default {
       return branchShort && floorShort ? `${branchShort}${floorShort}` : '';
     },
     getBranchColorClass() {
-      // Trả về class màu sắc dựa trên chi nhánh
       if (!this.table.branch_name) return '';
       
       const branchName = this.table.branch_name.toLowerCase();

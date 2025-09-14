@@ -155,10 +155,10 @@ function handleLogout() {
 
 <template>
   <div class="auth-container">
-    <!-- Hiển thị thông tin user nếu đã đăng nhập -->
+    
     <UserInfo v-if="currentUser" @logout="handleLogout" />
 
-    <!-- Hiển thị form đăng nhập/đăng ký nếu chưa đăng nhập -->
+    
     <div v-else class="auth-card">
       <div class="auth-header">
         <h2 class="auth-title">{{ isLogin ? 'Đăng nhập' : 'Đăng ký' }}</h2>
@@ -168,7 +168,7 @@ function handleLogout() {
       </div>
 
       <Form :validation-schema="currentSchema" @submit="onSubmit" class="auth-form">
-        <!-- Username field -->
+        
         <div class="form-group">
           <label for="username" class="form-label">Tên đăng nhập</label>
           <Field
@@ -180,7 +180,7 @@ function handleLogout() {
           <ErrorMessage name="username" class="error-message" />
         </div>
 
-        <!-- Password field -->
+        
         <div class="form-group">
           <label for="password" class="form-label">Mật khẩu</label>
           <Field
@@ -192,7 +192,7 @@ function handleLogout() {
           <ErrorMessage name="password" class="error-message" />
         </div>
 
-        <!-- Register only fields -->
+        
         <template v-if="!isLogin">
           <div class="form-group">
             <label for="confirmPassword" class="form-label">Xác nhận mật khẩu</label>
@@ -239,7 +239,7 @@ function handleLogout() {
           </div>
         </template>
 
-        <!-- Submit button -->
+        
         <button
           type="submit"
           class="submit-btn"
@@ -249,13 +249,13 @@ function handleLogout() {
           <span v-else>{{ isLogin ? 'Đăng nhập' : 'Đăng ký' }}</span>
         </button>
 
-        <!-- Error message -->
+        
         <div v-if="message" class="error-alert">
           {{ message }}
         </div>
       </Form>
 
-      <!-- Toggle mode -->
+      
       <div class="auth-footer">
         <p class="toggle-text">
           {{ isLogin ? 'Chưa có tài khoản?' : 'Đã có tài khoản?' }}

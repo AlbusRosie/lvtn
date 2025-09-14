@@ -8,7 +8,7 @@
       </button>
     </div>
 
-    <!-- Search and Filter Section -->
+    
     <div class="search-filter-section">
       <div class="search-box">
         <i class="fas fa-search"></i>
@@ -91,7 +91,7 @@
       </div>
     </div>
 
-    <!-- Create/Edit Modal -->
+    
     <div v-if="showCreateForm || editingFloor" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
         <FloorForm
@@ -103,7 +103,7 @@
       </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
+    
     <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
       <div class="modal-content delete-modal" @click.stop>
         <div class="delete-header">

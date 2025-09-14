@@ -56,7 +56,7 @@
       </div>
     </div>
 
-    <!-- Create/Edit Modal -->
+    
     <div v-if="showCreateForm || editingTable" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
         <TableForm
@@ -68,7 +68,7 @@
       </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
+    
     <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
       <div class="modal-content delete-modal" @click.stop>
         <div class="delete-header">
@@ -141,7 +141,8 @@ export default {
       return AuthService.isAdmin();
     },
     filteredTables() {
-      let filtered = [...this.tables];
+      let filtered = [...this.tables];
+
       if (this.searchTerm) {
         const term = this.searchTerm.toLowerCase();
         filtered = filtered.filter(table =>
@@ -150,13 +151,16 @@ export default {
           (table.branch_name && table.branch_name.toLowerCase().includes(term)) ||
           (table.floor_name && table.floor_name.toLowerCase().includes(term))
         );
-      }
+      }
+
       if (this.branchFilter) {
         filtered = filtered.filter(table => table.branch_id == this.branchFilter);
-      }
+      }
+
       if (this.statusFilter) {
         filtered = filtered.filter(table => table.status === this.statusFilter);
-      }
+      }
+
       if (this.capacityFilter) {
         filtered = filtered.filter(table => {
           const capacity = table.capacity;
@@ -233,7 +237,8 @@ export default {
     async handleFormSubmit(formData) {
       this.formLoading = true;
 
-      try {
+      try {
+
         if (formData && formData.target && formData.target.tagName === 'FORM') {
           this.$toast.error('Lỗi: Dữ liệu form không hợp lệ');
           return;
@@ -258,7 +263,8 @@ export default {
 
         await this.loadTables();
         this.closeModal();
-      } catch (error) {
+      } catch (error) {
+
         let errorMessage = 'Có lỗi xảy ra';
         if (error.response && error.response.data) {
           errorMessage = error.response.data.message || error.response.data.error || errorMessage;

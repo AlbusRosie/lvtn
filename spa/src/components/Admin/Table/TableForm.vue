@@ -187,7 +187,8 @@ export default {
       } catch (error) {
       }
     },
-    handleFloorChange() {
+    handleFloorChange() {
+
       if (!this.isEditing && this.form.branch_id && this.form.floor_id) {
         this.generateTableNumber();
       }
@@ -220,20 +221,26 @@ export default {
 
       try {
         const TableService = await import('@/services/TableService');
-        const result = await TableService.default.generateNextTableNumber(this.form.branch_id, this.form.floor_id);
-        this.tableCount = result.currentTableCount;
-        this.form.table_number = result.nextTableNumber;
+        const result = await TableService.default.generateNextTableNumber(this.form.branch_id, this.form.floor_id);
+
+        this.tableCount = result.currentTableCount;
+
+        this.form.table_number = result.nextTableNumber;
+
         if (result.maxNumber === 0) {
-        }
+        }
+
         if (this.$toast) {
           this.$toast.success(`Đã tạo số bàn: ${result.nextTableNumber}`);
         }
-      } catch (error) {
+      } catch (error) {
+
         this.form.table_number = 'T01';
         this.tableCount = 0;
       }
     },
-    handleSubmit() {
+    handleSubmit() {
+
       if (!this.form.branch_id || !this.form.floor_id || !this.form.table_number || !this.form.capacity) {
         if (this.$toast) {
           this.$toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
@@ -241,7 +248,8 @@ export default {
         return;
       }
 
-      const formData = { ...this.form };
+      const formData = { ...this.form };
+
       if (!this.isEditing) {
         formData.status = 'available';
       }

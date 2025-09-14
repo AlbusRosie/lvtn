@@ -19,7 +19,8 @@ function readUser(payload) {
         favorite: payload.favorite !== undefined ? payload.favorite : 0,
         avatar: payload.avatar || null,
         role_id: payload.role_id
-    };
+    };
+
     if (payload.password) {
         user.password = bcrypt.hashSync(payload.password, 10);
     }
@@ -27,10 +28,12 @@ function readUser(payload) {
     return user;
 }
 
-async function createUser(payload) {
+async function createUser(payload) {
+
     if (!payload.username || !payload.password || !payload.email || !payload.name || !payload.role_id) {
         throw new Error('Missing required fields');
-    }
+    }
+
     const existingUser = await userRepository()
         .where('username', payload.username)
         .orWhere('email', payload.email)

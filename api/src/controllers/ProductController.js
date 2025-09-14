@@ -16,6 +16,23 @@ async function createProduct(req, res, next) {
         }
 
         const is_global_available = req.body.is_global_available === 'true' || req.body.is_global_available === true ? 1 : 0;
+        
+        let selected_branches = [];
+        if (req.body.selected_branches) {
+            if (typeof req.body.selected_branches === 'string') {
+                try {
+                    selected_branches = JSON.parse(req.body.selected_branches);
+                } catch (e) {
+                    selected_branches = req.body.selected_branches.split(',').map(id => parseInt(id.trim()));
+                }
+            } else if (Array.isArray(req.body.selected_branches)) {
+                selected_branches = req.body.selected_branches.map(id => parseInt(id));
+            }
+        }
+
+        if (is_global_available === 0 && selected_branches.length === 0) {
+            return next(new ApiError(400, 'Vui lòng chọn ít nhất một chi nhánh để thêm sản phẩm'));
+        }
 
         const product = await ProductService.createProduct({
             ...req.body,
@@ -23,6 +40,7 @@ async function createProduct(req, res, next) {
             base_price: parseFloat(req.body.base_price),
             is_global_available: is_global_available,
             image: req.file ? `/public/uploads/${req.file.filename}` : null,
+            selected_branches: selected_branches,
         });
 
         res.status(201).json(JSend.success(product, 'Product created successfully'));
@@ -138,6 +156,111 @@ async function getAvailableProducts(req, res, next) {
     }
 }
 
+async function addProductToBranch(req, res, next) {
+    try {
+        const { branchId, productId } = req.params;
+        const branchProductData = req.body;
+
+        if (!branchProductData.price || branchProductData.price <= 0) {
+            return next(new ApiError(400, 'Valid price is required'));
+        }
+
+        const result = await ProductService.addProductToBranch(
+            parseInt(branchId), 
+            parseInt(productId), 
+            branchProductData
+        );
+        
+        res.status(201).json(JSend.success(result, 'Product added to branch successfully'));
+    } catch (error) {
+        if (error.message === 'Branch not found' || error.message === 'Product not found') {
+            return next(new ApiError(404, error.message));
+        }
+        if (error.message === 'Product already exists in this branch') {
+            return next(new ApiError(409, error.message));
+        }
+        next(new ApiError(500, error.message));
+    }
+}
+
+async function updateBranchProduct(req, res, next) {
+    try {
+        const { branchProductId } = req.params;
+        const updateData = req.body;
+
+        if (updateData.price !== undefined && updateData.price <= 0) {
+            return next(new ApiError(400, 'Price must be positive'));
+        }
+
+        const result = await ProductService.updateBranchProduct(
+            parseInt(branchProductId), 
+            updateData
+        );
+        
+        res.json(JSend.success(result, 'Branch product updated successfully'));
+    } catch (error) {
+        if (error.message === 'Branch product not found') {
+            return next(new ApiError(404, error.message));
+        }
+        if (error.message === 'No valid fields to update') {
+            return next(new ApiError(400, error.message));
+        }
+        next(new ApiError(500, error.message));
+    }
+}
+
+async function removeProductFromBranch(req, res, next) {
+    try {
+        const { branchId, productId } = req.params;
+        
+        const result = await ProductService.removeProductFromBranch(
+            parseInt(branchId), 
+            parseInt(productId)
+        );
+        
+        res.json(JSend.success(result));
+    } catch (error) {
+        if (error.message === 'Product not found in this branch') {
+            return next(new ApiError(404, error.message));
+        }
+        next(new ApiError(500, error.message));
+    }
+}
+
+async function getProductsByBranch(req, res, next) {
+    try {
+        const { branchId } = req.params;
+        const result = await ProductService.getProductsByBranch(parseInt(branchId), req.query);
+        res.json(JSend.success(result));
+    } catch (error) {
+        next(new ApiError(500, error.message));
+    }
+}
+
+async function getBranchProduct(req, res, next) {
+    try {
+        const { branchProductId } = req.params;
+        const result = await ProductService.getBranchProductById(parseInt(branchProductId));
+        
+        if (!result) {
+            return next(new ApiError(404, 'Branch product not found'));
+        }
+        
+        res.json(JSend.success(result));
+    } catch (error) {
+        next(new ApiError(500, error.message));
+    }
+}
+
+async function getActiveBranches(req, res, next) {
+    try {
+        const branches = await ProductService.getActiveBranches();
+        res.json(JSend.success(branches));
+    } catch (error) {
+        next(new ApiError(500, error.message));
+    }
+}
+
 module.exports = {
     createProduct,
     getProducts,
@@ -147,4 +270,10 @@ module.exports = {
     deleteAllProducts,
     getProductsByCategory,
     getAvailableProducts,
+    addProductToBranch,
+    updateBranchProduct,
+    removeProductFromBranch,
+    getProductsByBranch,
+    getBranchProduct,
+    getActiveBranches,
 };

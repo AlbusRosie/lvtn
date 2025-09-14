@@ -3,22 +3,22 @@ const BranchController = require('../controllers/BranchController');
 const { verifyToken, requireRole } = require('../middlewares/AuthMiddleware');
 
 const router = express.Router();
-const branchController = new BranchController();
 
-router.get('/', branchController.getAllBranches.bind(branchController));
 
-router.get('/:id', branchController.getBranchById.bind(branchController));
+router.get('/', BranchController.getAllBranches);
+router.get('/active', BranchController.getActiveBranches);
+router.get('/statistics', BranchController.getBranchStatistics);
+router.get('/:id', BranchController.getBranchById);
 
-router.get('/statistics', branchController.getBranchStatistics.bind(branchController));
 
-router.get('/active', branchController.getActiveBranches.bind(branchController));
+router.get('/managers', verifyToken, BranchController.getManagers);
+
+
 router.use(verifyToken);
 router.use(requireRole(['admin']));
 
-router.post('/', branchController.createBranch.bind(branchController));
-
-router.put('/:id', branchController.updateBranch.bind(branchController));
-
-router.delete('/:id', branchController.deleteBranch.bind(branchController));
+router.post('/', BranchController.createBranch);
+router.put('/:id', BranchController.updateBranch);
+router.delete('/:id', BranchController.deleteBranch);
 
 module.exports = router;

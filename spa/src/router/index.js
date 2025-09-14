@@ -16,12 +16,6 @@ const routes = [
   },
 
   {
-    path: '/admin/products',
-    name: 'admin.products',
-    component: () => import('@/views/Admin/Product/ProductList.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
     path: '/admin/products/:id',
     name: 'admin.product.detail',
     component: () => import('@/views/Admin/Product/ProductDetail.vue'),
@@ -31,6 +25,12 @@ const routes = [
     path: '/admin/products/create',
     name: 'admin.product.create',
     component: () => import('@/views/Admin/Product/ProductCreate.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/admin/products/branch-menu',
+    name: 'admin.products.branch-menu',
+    component: () => import('@/views/Admin/Product/BranchMenuManagement.vue'),
     meta: { requiresAuth: true }
   },
 

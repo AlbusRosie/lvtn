@@ -1,6 +1,6 @@
 <template>
   <div class="table-action-menu" ref="menuContainer">
-    <!-- Main Action Button -->
+    
     <button 
       @click="toggleMenu"
       class="btn btn-action-toggle"
@@ -12,9 +12,9 @@
       <i class="fas fa-chevron-down chevron" :class="{ 'rotated': isMenuOpen }"></i>
     </button>
 
-    <!-- Dropdown Menu -->
+    
     <div v-if="isMenuOpen" class="action-dropdown">
-      <!-- Primary Actions -->
+      
       <div class="action-group">
         <button
           @click="handleEdit"
@@ -38,7 +38,7 @@
         </button>
       </div>
 
-      <!-- Status Actions -->
+      
       <div class="action-group" v-if="availableStatuses.length > 0">
         <div class="group-title">Đổi trạng thái</div>
         <button
@@ -55,7 +55,7 @@
       </div>
     </div>
 
-    <!-- Backdrop -->
+    
     <div v-if="isMenuOpen" class="menu-backdrop" @click="closeMenu"></div>
   </div>
 </template>

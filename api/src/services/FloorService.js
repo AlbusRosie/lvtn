@@ -1,256 +1,217 @@
 const knex = require('../database/knex');
-const ApiError = require('../api-error');
+const Paginator = require('./Paginator');
 
-class FloorService {
+function floorRepository() {
+    return knex('floors');
+}
 
-  async getAllFloors(status = null, branchId = null) {
-    try {
-      let query = knex('floors')
+function readFloor(payload) {
+    return {
+        branch_id: payload.branch_id,
+        floor_number: payload.floor_number,
+        name: payload.name,
+        description: payload.description || null,
+        capacity: payload.capacity || 0,
+        status: payload.status || 'active',
+        design_data: payload.design_data || null
+    };
+}
+
+async function createFloor(payload) {
+    if (!payload.branch_id || !payload.floor_number || !payload.name) {
+        throw new Error('Branch ID, floor number and name are required');
+    }
+
+    const existingFloor = await floorRepository()
+        .where('branch_id', payload.branch_id)
+        .where('floor_number', payload.floor_number)
+        .where('status', 'active')
+        .first();
+
+    if (existingFloor) {
+        throw new Error('Active floor with this number already exists in this branch');
+    }
+
+    const branch = await knex('branches').where('id', payload.branch_id).first();
+    if (!branch) {
+        throw new Error('Branch not found');
+    }
+
+    const floor = readFloor(payload);
+    const [id] = await floorRepository().insert(floor);
+    return { id, ...floor };
+}
+
+async function getAllFloors(status, branchId) {
+    let query = floorRepository()
         .select('floors.*', 'branches.name as branch_name')
-        .join('branches', 'floors.branch_id', 'branches.id')
+        .join('branches', 'floors.branch_id', 'branches.id');
+
+    if (status) {
+        query = query.where('floors.status', status);
+    }
+    if (branchId) {
+        query = query.where('floors.branch_id', branchId);
+    }
+
+    return await query
         .orderBy('branches.name', 'asc')
         .orderBy('floors.floor_number', 'asc');
+}
 
-      if (status) {
-        query = query.where('floors.status', status);
-      }
-
-      if (branchId) {
-        query = query.where('floors.branch_id', branchId);
-      }
-
-      const floors = await query;
-      return floors;
-    } catch (error) {
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
-
-  async getFloorById(id) {
-    try {
-      const floor = await knex('floors')
+async function getFloorById(id) {
+    return floorRepository()
         .select('floors.*', 'branches.name as branch_name')
         .join('branches', 'floors.branch_id', 'branches.id')
         .where('floors.id', id)
         .first();
+}
 
-      if (!floor) {
-        throw new ApiError(404, 'Floor not found');
-      }
-
-      return floor;
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
-
-  async getFloorsByBranch(branchId) {
-    try {
-      const floors = await knex('floors')
-        .select('*')
-        .where('branch_id', branchId)
-        .orderBy('floor_number', 'asc');
-
-      return floors;
-    } catch (error) {
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
-
-  async createFloor(floorData) {
-    try {
-      const existingFloor = await knex('floors')
-        .where('branch_id', floorData.branch_id)
-        .where('floor_number', floorData.floor_number)
-        .where('status', 'active')
-        .first();
-
-      if (existingFloor) {
-        throw new ApiError(400, 'Active floor with this number already exists in this branch');
-      }
-
-      const branch = await knex('branches').where('id', floorData.branch_id).first();
-      if (!branch) {
-        throw new ApiError(400, 'Branch not found');
-      }
-
-      const [floorId] = await knex('floors')
-        .insert(floorData)
-        .returning('id');
-
-      return this.getFloorById(floorId);
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
-
-  async updateFloor(id, floorData) {
-    try {
-
-      const existingFloor = await knex('floors')
+async function updateFloor(id, payload) {
+    const updatedFloor = await floorRepository()
         .where('id', id)
+        .select('*')
         .first();
 
-      if (!existingFloor) {
-        throw new ApiError(404, 'Floor not found');
-      }
+    if (!updatedFloor) {
+        return null;
+    }
 
-      if (floorData.floor_number && floorData.floor_number !== existingFloor.floor_number) {
-        const branchId = floorData.branch_id || existingFloor.branch_id;
-        const numberConflict = await knex('floors')
-          .where('branch_id', branchId)
-          .where('floor_number', floorData.floor_number)
-          .where('status', 'active')
-          .whereNot('id', id)
-          .first();
+    if (payload.floor_number && payload.floor_number !== updatedFloor.floor_number) {
+        const branchId = payload.branch_id || updatedFloor.branch_id;
+        const numberConflict = await floorRepository()
+            .where('branch_id', branchId)
+            .where('floor_number', payload.floor_number)
+            .where('status', 'active')
+            .whereNot('id', id)
+            .first();
 
         if (numberConflict) {
-          throw new ApiError(400, 'Active floor with this number already exists in this branch');
+            throw new Error('Active floor with this number already exists in this branch');
         }
-      }
-
-      if (floorData.branch_id) {
-        const branch = await knex('branches').where('id', floorData.branch_id).first();
-        if (!branch) {
-          throw new ApiError(400, 'Branch not found');
-        }
-      }
-
-      await knex('floors')
-        .where('id', id)
-        .update(floorData);
-
-      return this.getFloorById(id);
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(500, 'Database error: ' + error.message);
     }
-  }
 
-  async deleteFloor(id) {
-    try {
-      const existingFloor = await knex('floors')
+    if (payload.branch_id) {
+        const branch = await knex('branches').where('id', payload.branch_id).first();
+        if (!branch) {
+            throw new Error('Branch not found');
+        }
+    }
+
+    const update = readFloor(payload);
+    await floorRepository().where('id', id).update(update);
+    return { ...updatedFloor, ...update };
+}
+
+async function deleteFloor(id) {
+    const deletedFloor = await floorRepository()
         .where('id', id)
+        .select('*')
         .first();
 
-      if (!existingFloor) {
-        throw new ApiError(404, 'Floor not found');
-      }
+    if (!deletedFloor) {
+        return null;
+    }
 
-      const activeTables = await knex('tables')
+    const activeTables = await knex('tables')
         .where('floor_id', id)
         .whereIn('status', ['occupied', 'reserved'])
         .first();
 
-      if (activeTables) {
-        throw new ApiError(400, 'Không thể xóa tầng có bàn đang sử dụng hoặc đã đặt!');
-      }
+    if (activeTables) {
+        throw new Error('Cannot delete floor that has occupied or reserved tables');
+    }
 
-      const maxFloorNumber = await knex('floors')
-        .where('branch_id', existingFloor.branch_id)
+    const maxFloorNumber = await floorRepository()
+        .where('branch_id', deletedFloor.branch_id)
         .max('floor_number as max_floor')
         .first();
 
-      if (maxFloorNumber && existingFloor.floor_number < maxFloorNumber.max_floor) {
-        throw new ApiError(400, `Không thể xóa tầng ${existingFloor.floor_number}. Bạn chỉ có thể xóa tầng có số tầng lớn nhất (${maxFloorNumber.max_floor}) trong chi nhánh này. Vui lòng xóa từ tầng cao nhất xuống tầng thấp nhất.`);
-      }
-
-      await knex('floors')
-        .where('id', id)
-        .del();
-
-      return { 
-        message: 'Floor deleted successfully',
-        deletedFloorNumber: existingFloor.floor_number,
-        branchId: existingFloor.branch_id
-      };
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(500, 'Database error: ' + error.message);
+    if (maxFloorNumber && deletedFloor.floor_number < maxFloorNumber.max_floor) {
+        throw new Error(`Cannot delete floor ${deletedFloor.floor_number}. You can only delete the highest floor number (${maxFloorNumber.max_floor}) in this branch. Please delete from highest to lowest floor.`);
     }
-  }
 
-  async getFloorStatistics(branchId = null) {
-    try {
-      let query = knex('floors')
-        .select('status')
-        .count('* as count')
-        .groupBy('status');
+    await floorRepository().where('id', id).del();
+    return { 
+        ...deletedFloor,
+        message: 'Floor deleted successfully'
+    };
+}
 
-      if (branchId) {
-        query = query.where('branch_id', branchId);
-      }
+async function getFloorsByBranch(branchId) {
+    return floorRepository()
+        .select('*')
+        .where('branch_id', branchId)
+        .orderBy('floor_number', 'asc');
+}
 
-      const stats = await query;
-
-      const result = {
-        total: 0,
-        active: 0,
-        inactive: 0,
-        maintenance: 0
-      };
-
-      stats.forEach(stat => {
-        result[stat.status] = parseInt(stat.count);
-        result.total += parseInt(stat.count);
-      });
-
-      return result;
-    } catch (error) {
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
-
-  async getActiveFloors(branchId = null) {
-    try {
-      let query = knex('floors')
+async function getActiveFloors(branchId = null) {
+    let query = floorRepository()
         .select('*')
         .where('status', 'active')
         .orderBy('floor_number', 'asc');
 
-      if (branchId) {
+    if (branchId) {
         query = query.where('branch_id', branchId);
-      }
-
-      const floors = await query;
-      return floors;
-    } catch (error) {
-      throw new ApiError(500, 'Database error: ' + error.message);
     }
-  }
 
-  async generateNextFloorNumber(branchId) {
-    try {
-      const floors = await this.getFloorsByBranch(branchId);
+    return await query;
+}
 
-      let maxNumber = 0;
-      floors.forEach(floor => {
+async function getFloorStatistics(branchId = null) {
+    let query = floorRepository()
+        .select('status')
+        .count('* as count')
+        .groupBy('status');
+
+    if (branchId) {
+        query = query.where('branch_id', branchId);
+    }
+
+    const stats = await query;
+
+    const result = {
+        total: 0,
+        active: 0,
+        inactive: 0,
+        maintenance: 0
+    };
+
+    stats.forEach(stat => {
+        result[stat.status] = parseInt(stat.count);
+        result.total += parseInt(stat.count);
+    });
+
+    return result;
+}
+
+async function generateNextFloorNumber(branchId) {
+    const floors = await getFloorsByBranch(branchId);
+
+    let maxNumber = 0;
+    floors.forEach(floor => {
         const floorNumber = floor.floor_number;
         if (floorNumber && floorNumber > maxNumber) {
-          maxNumber = floorNumber;
+            maxNumber = floorNumber;
         }
-      });
+    });
 
-      const nextNumber = maxNumber + 1;
-      return {
+    const nextNumber = maxNumber + 1;
+    return {
         nextFloorNumber: nextNumber,
         currentFloorCount: floors.length,
         maxNumber: maxNumber
-      };
-    } catch (error) {
-      throw new ApiError(500, 'Database error: ' + error.message);
-    }
-  }
+    };
 }
 
-module.exports = FloorService;
+module.exports = {
+    createFloor,
+    getAllFloors,
+    getFloorById,
+    updateFloor,
+    deleteFloor,
+    getFloorsByBranch,
+    getActiveFloors,
+    getFloorStatistics,
+    generateNextFloorNumber
+};
