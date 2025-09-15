@@ -32,11 +32,11 @@ app.use('/public', express.static('public'));
 
 UserRouter.setup(app);
 ProductRouter.setup(app);
-app.use('/api/categories', CategoryRouter);
-app.use('/api/tables', TableRouter);
-app.use('/api/branches', BranchRouter);
-app.use('/api/floors', FloorRouter);
-app.use('/api/provinces', ProvinceRouter);
+CategoryRouter.setup(app);
+TableRouter.setup(app);
+BranchRouter.setup(app);
+FloorRouter.setup(app);
+ProvinceRouter.setup(app);
 
 app.use(resourceNotFound);
 app.use(handleError);
