@@ -1,131 +1,93 @@
-import axios from 'axios';
-import { API_BASE_URL } from '@/constants';
+import { efetch, buildQueryString } from './BaseService';
 
-const API_URL = `${API_BASE_URL}/floors`;
+function makeFloorService() {
+    const baseUrl = '/api/floors';
 
-class FloorService {
-  async getAllFloors() {
-    try {
-      const response = await axios.get(API_URL);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    async function getAllFloors(params = {}) {
+        const queryString = buildQueryString(params);
+        const url = queryString ? `${baseUrl}?${queryString}` : baseUrl;
+        return efetch(url);
     }
-  }
-  async getFloorById(id) {
-    try {
-      const response = await axios.get(`${API_URL}/${id}`);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+
+    async function getFloorById(id) {
+        const { floor } = await efetch(`${baseUrl}/${id}`);
+        return floor;
     }
-  }
-  async getFloorsByBranch(branchId) {
-    try {
-      const response = await axios.get(`${API_URL}/branch/${branchId}`);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+
+    async function getFloorsByBranch(branchId) {
+        return efetch(`${baseUrl}/branch/${branchId}`);
     }
-  }
-  async createFloor(floorData, token) {
-    try {
-      const response = await axios.post(API_URL, floorData, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      return response.data.data;
-    } catch (error) {
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
-      } else if (error.message) {
-        throw new Error(error.message);
-      } else {
-        throw new Error('Có lỗi xảy ra khi tạo tầng');
-      }
+
+    async function createFloor(floorData) {
+        return efetch(baseUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(floorData)
+        });
     }
-  }
-  async updateFloor(id, floorData, token) {
-    try {
-      const response = await axios.put(`${API_URL}/${id}`, floorData, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      return response.data.data;
-    } catch (error) {
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
-      } else if (error.message) {
-        throw new Error(error.message);
-      } else {
-        throw new Error('Có lỗi xảy ra khi cập nhật tầng');
-      }
+
+    async function updateFloor(id, floorData) {
+        return efetch(`${baseUrl}/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(floorData)
+        });
     }
-  }
-  async deleteFloor(id, token) {
-    try {
-      const response = await axios.delete(`${API_URL}/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      return response.data.data;
-    } catch (error) {
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
-      } else if (error.message) {
-        throw new Error(error.message);
-      } else {
-        throw new Error('Có lỗi xảy ra khi xóa tầng');
-      }
+
+    async function deleteFloor(id) {
+        return efetch(`${baseUrl}/${id}`, {
+            method: 'DELETE'
+        });
     }
-  }
-  async getFloorStatistics(branchId = null) {
-    try {
-      const url = branchId ? `${API_URL}/statistics?branch_id=${branchId}` : `${API_URL}/statistics`;
-      const response = await axios.get(url);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+
+    async function getFloorStatistics(branchId = null) {
+        const params = branchId ? { branch_id: branchId } : {};
+        const queryString = buildQueryString(params);
+        const url = queryString ? `${baseUrl}/statistics?${queryString}` : `${baseUrl}/statistics`;
+        return efetch(url);
     }
-  }
-  async getActiveFloors(branchId = null) {
-    try {
-      const url = branchId ? `${API_URL}/active?branch_id=${branchId}` : `${API_URL}/active`;
-      const response = await axios.get(url);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+
+    async function getActiveFloors(branchId = null) {
+        const params = branchId ? { branch_id: branchId } : {};
+        const queryString = buildQueryString(params);
+        const url = queryString ? `${baseUrl}/active?${queryString}` : `${baseUrl}/active`;
+        return efetch(url);
     }
-  }
-  async generateNextFloorNumber(branchId) {
-    try {
-      const floors = await this.getFloorsByBranch(branchId);
-      let maxNumber = 0;
-      floors.forEach(floor => {
-        const floorNumber = floor.floor_number;
-        if (floorNumber && floorNumber > maxNumber) {
-          maxNumber = floorNumber;
-        }
-      });
-      const nextNumber = maxNumber + 1;
-      return {
-        nextFloorNumber: nextNumber,
-        currentFloorCount: floors.length,
-        maxNumber: maxNumber
-      };
-    } catch (error) {
-      throw error.response?.data || error.message;
+
+    async function generateNextFloorNumber(branchId) {
+        const floors = await getFloorsByBranch(branchId);
+
+        let maxNumber = 0;
+        floors.forEach(floor => {
+            const floorNumber = floor.floor_number;
+            if (floorNumber && floorNumber > maxNumber) {
+                maxNumber = floorNumber;
+            }
+        });
+
+        const nextNumber = maxNumber + 1;
+        return {
+            nextFloorNumber: nextNumber,
+            currentFloorCount: floors.length,
+            maxNumber: maxNumber
+        };
     }
-  }
+
+    return {
+        getAllFloors,
+        getFloorById,
+        getFloorsByBranch,
+        createFloor,
+        updateFloor,
+        deleteFloor,
+        getFloorStatistics,
+        getActiveFloors,
+        generateNextFloorNumber
+    };
 }
 
-export default new FloorService();
+export default makeFloorService();

@@ -52,13 +52,9 @@ async function createTable(payload) {
     return { id, ...table };
 }
 
-async function getManyTables(query) {
-    const { branch_id, floor_id, status, page = 1, limit = 10 } = query;
-    const paginator = new Paginator(page, limit);
-
-    let results = await tableRepository()
+async function getAllTables() {
+    return tableRepository()
         .select(
-            knex.raw('count(tables.id) OVER() AS recordCount'),
             'tables.*',
             'branches.name as branch_name',
             'floors.name as floor_name',
@@ -66,34 +62,9 @@ async function getManyTables(query) {
         )
         .join('branches', 'tables.branch_id', 'branches.id')
         .join('floors', 'tables.floor_id', 'floors.id')
-        .where((builder) => {
-            if (branch_id) {
-                builder.where('tables.branch_id', branch_id);
-            }
-            if (floor_id) {
-                builder.where('tables.floor_id', floor_id);
-            }
-            if (status) {
-                builder.where('tables.status', status);
-            }
-        })
         .orderBy('branches.name', 'asc')
         .orderBy('floors.floor_number', 'asc')
-        .orderBy('tables.table_number', 'asc')
-        .limit(paginator.limit)
-        .offset(paginator.offset);
-
-    let totalRecords = 0;
-    results = results.map((result) => {
-        totalRecords = result.recordCount;
-        delete result.recordCount;
-        return result;
-    });
-
-    return {
-        metadata: paginator.getMetadata(totalRecords),
-        tables: results,
-    };
+        .orderBy('tables.table_number', 'asc');
 }
 
 async function getTableById(id) {
@@ -350,7 +321,7 @@ async function getTableByNumber(branchId, tableNumber) {
 
 module.exports = {
     createTable,
-    getManyTables,
+    getAllTables,
     getTableById,
     updateTable,
     updateTableStatus,

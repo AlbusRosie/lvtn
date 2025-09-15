@@ -15,6 +15,7 @@ module.exports.setup = (app) => {
     router.post('/register', avatarUpload, UserController.createUser);
 
     router.delete('/', verifyToken, UserController.deleteAllUsers);
+    
     router.all('/', methodNotAllowed);
 
     router.get('/:id', verifyToken, UserController.getUser);

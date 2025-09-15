@@ -1,94 +1,55 @@
-import axios from 'axios';
-import { API_BASE_URL } from '@/constants';
+import { efetch } from './BaseService';
 
-const API_URL = `${API_BASE_URL}/categories`;
+function makeCategoryService() {
+    const baseUrl = '/api/categories';
 
-class CategoryService {
-  async getAllCategories() {
-    try {
-      const response = await axios.get(API_URL);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    async function getAllCategories() {
+        return efetch(baseUrl);
     }
-  }
-  async getCategoriesWithProductCount() {
-    try {
-      const response = await axios.get(`${API_URL}/with-count`);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  }
-  async getCategoryById(id) {
-    try {
-      const response = await axios.get(`${API_URL}/${id}`);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  }
-  async createCategory(categoryData, token) {
-    try {
-      const response = await axios.post(API_URL, categoryData, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      return response.data.data;
-    } catch (error) {
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
-      } else if (error.message) {
-        throw new Error(error.message);
-      } else {
-        throw new Error('Có lỗi xảy ra khi tạo danh mục');
-      }
-    }
-  }
-  async updateCategory(id, categoryData, token) {
-    try {
-      const response = await axios.put(`${API_URL}/${id}`, categoryData, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      return response.data.data;
-    } catch (error) {
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
-      } else if (error.message) {
-        throw new Error(error.message);
-      } else {
-        throw new Error('Có lỗi xảy ra khi cập nhật danh mục');
-      }
-    }
-  }
-  async deleteCategory(id, token) {
-    try {
-      const response = await axios.delete(`${API_URL}/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      return response.data.data;
-    } catch (error) {
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
-      } else if (error.message) {
-        throw new Error(error.message);
-      } else {
-        throw new Error('Có lỗi xảy ra khi xóa danh mục');
-      }
-    }
-  }
 
+    async function getCategoriesWithProductCount() {
+        return efetch(`${baseUrl}/with-count`);
+    }
+
+    async function getCategoryById(id) {
+        const { category } = await efetch(`${baseUrl}/${id}`);
+        return category;
+    }
+
+    async function createCategory(categoryData) {
+        return efetch(baseUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(categoryData)
+        });
+    }
+
+    async function updateCategory(id, categoryData) {
+        return efetch(`${baseUrl}/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(categoryData)
+        });
+    }
+
+    async function deleteCategory(id) {
+        return efetch(`${baseUrl}/${id}`, {
+            method: 'DELETE'
+        });
+    }
+
+    return {
+        getAllCategories,
+        getCategoriesWithProductCount,
+        getCategoryById,
+        createCategory,
+        updateCategory,
+        deleteCategory
+    };
 }
 
-export default new CategoryService();
+export default makeCategoryService();

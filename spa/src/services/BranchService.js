@@ -1,123 +1,74 @@
-import axios from 'axios';
-import { API_BASE_URL } from '@/constants';
+import { efetch, buildQueryString } from './BaseService';
 
-const API_URL = `${API_BASE_URL}/branches`;
+function makeBranchService() {
+    const baseUrl = '/api/branches';
 
-class BranchService {
+    async function getAllBranches(searchTerm = null, provinceId = null, districtId = null, status = null) {
+        const params = {};
+        if (searchTerm) params.search = searchTerm;
+        if (provinceId) params.province_id = provinceId;
+        if (districtId) params.district_id = districtId;
+        if (status) params.status = status;
 
-  async getAllBranches(searchTerm = null, provinceId = null, districtId = null, status = null) {
-    try {
-      const params = {};
-      if (searchTerm) params.search = searchTerm;
-      if (provinceId) params.province_id = provinceId;
-      if (districtId) params.district_id = districtId;
-      if (status) params.status = status;
-
-      const response = await axios.get(API_URL, { params });
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+        const queryString = buildQueryString(params);
+        const url = queryString ? `${baseUrl}?${queryString}` : baseUrl;
+        
+        return efetch(url);
     }
-  }
 
-  async getBranchById(id) {
-    try {
-      const response = await axios.get(`${API_URL}/${id}`);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    async function getBranchById(id) {
+        const { branch } = await efetch(`${baseUrl}/${id}`);
+        return branch;
     }
-  }
 
-  async createBranch(branchData, token) {
-    try {
-      const response = await axios.post(API_URL, branchData, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      return response.data.data;
-    } catch (error) {
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
-      } else if (error.message) {
-        throw new Error(error.message);
-      } else {
-        throw new Error('Có lỗi xảy ra khi tạo chi nhánh');
-      }
+    async function createBranch(branchData) {
+        return efetch(baseUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(branchData)
+        });
     }
-  }
 
-  async updateBranch(id, branchData, token) {
-    try {
-      const response = await axios.put(`${API_URL}/${id}`, branchData, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      return response.data.data;
-    } catch (error) {
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
-      } else if (error.message) {
-        throw new Error(error.message);
-      } else {
-        throw new Error('Có lỗi xảy ra khi cập nhật chi nhánh');
-      }
+    async function updateBranch(id, branchData) {
+        return efetch(`${baseUrl}/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(branchData)
+        });
     }
-  }
 
-  async deleteBranch(id, token) {
-    try {
-      const response = await axios.delete(`${API_URL}/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      return response.data.data;
-    } catch (error) {
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
-      } else if (error.message) {
-        throw new Error(error.message);
-      } else {
-        throw new Error('Có lỗi xảy ra khi xóa chi nhánh');
-      }
+    async function deleteBranch(id) {
+        return efetch(`${baseUrl}/${id}`, {
+            method: 'DELETE'
+        });
     }
-  }
 
-  async getBranchStatistics() {
-    try {
-      const response = await axios.get(`${API_URL}/statistics`);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    async function getBranchStatistics() {
+        return efetch(`${baseUrl}/statistics`);
     }
-  }
 
-  async getActiveBranches() {
-    try {
-      const response = await axios.get(`${API_URL}/active`);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    async function getActiveBranches() {
+        return efetch(`${baseUrl}/active`);
     }
-  }
 
-  async getActiveBranchesForProduct() {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/branches/active`);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    async function getActiveBranchesForProduct() {
+        return efetch(`${baseUrl}/active`);
     }
-  }
+
+    return {
+        getAllBranches,
+        getBranchById,
+        createBranch,
+        updateBranch,
+        deleteBranch,
+        getBranchStatistics,
+        getActiveBranches,
+        getActiveBranchesForProduct
+    };
 }
 
-export default new BranchService();
+export default makeBranchService();

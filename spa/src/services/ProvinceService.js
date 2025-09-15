@@ -1,69 +1,53 @@
-import axios from 'axios';
-import { API_BASE_URL } from '@/constants';
+import { efetch, buildQueryString } from './BaseService';
 
-const API_URL = `${API_BASE_URL}/provinces`;
+function makeProvinceService() {
+    const baseUrl = '/api/provinces';
 
-class ProvinceService {
-
-  async getAllProvinces() {
-    try {
-      const response = await axios.get(API_URL);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    async function getAllProvinces(params = {}) {
+        const queryString = buildQueryString(params);
+        const url = queryString ? `${baseUrl}?${queryString}` : baseUrl;
+        return efetch(url);
     }
-  }
 
-  async getProvinceById(id) {
-    try {
-      const response = await axios.get(`${API_URL}/${id}`);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    async function getProvinceById(id) {
+        const { province } = await efetch(`${baseUrl}/${id}`);
+        return province;
     }
-  }
 
-  async getDistrictsByProvinceId(provinceId) {
-    try {
-      const response = await axios.get(`${API_URL}/${provinceId}/districts`);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    async function getDistrictsByProvinceId(provinceId) {
+        return efetch(`${baseUrl}/${provinceId}/districts`);
     }
-  }
 
-  async getDistrictById(id) {
-    try {
-      const response = await axios.get(`${API_URL}/districts/${id}`);
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    async function getDistrictById(id) {
+        const { district } = await efetch(`${baseUrl}/districts/${id}`);
+        return district;
     }
-  }
 
-  async searchProvinces(searchTerm) {
-    try {
-      const response = await axios.get(`${API_URL}/search`, {
-        params: { q: searchTerm }
-      });
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    async function searchProvinces(searchTerm) {
+        const params = { q: searchTerm };
+        const queryString = buildQueryString(params);
+        const url = `${baseUrl}/search?${queryString}`;
+        return efetch(url);
     }
-  }
 
-  async searchDistricts(searchTerm, provinceId = null) {
-    try {
-      const params = { q: searchTerm };
-      if (provinceId) {
-        params.province_id = provinceId;
-      }
-      const response = await axios.get(`${API_URL}/districts/search`, { params });
-      return response.data.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    async function searchDistricts(searchTerm, provinceId = null) {
+        const params = { q: searchTerm };
+        if (provinceId) {
+            params.province_id = provinceId;
+        }
+        const queryString = buildQueryString(params);
+        const url = `${baseUrl}/districts/search?${queryString}`;
+        return efetch(url);
     }
-  }
+
+    return {
+        getAllProvinces,
+        getProvinceById,
+        getDistrictsByProvinceId,
+        getDistrictById,
+        searchProvinces,
+        searchDistricts
+    };
 }
 
-export default new ProvinceService();
+export default makeProvinceService();

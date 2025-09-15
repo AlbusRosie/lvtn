@@ -1,89 +1,56 @@
-import { DEFAULT_AVATAR } from '@/constants';
+import { efetch, buildQueryString, transformData, transformDataArray } from './BaseService';
 
-async function efetch(url, options = {}) {
-    let result = {};
-    let json = {};
-    const token = localStorage.getItem('auth_token');
-    const headers = {
-        ...(options.headers || {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-    try {
-        result = await fetch(url, { ...options, headers });
-        json = await result.json();
-
-    } catch (error) {
-
-        throw new Error(error.message);
-    }
-    if (!result.ok || json.status !== 'success') {
-        throw new Error(json.message);
-    }
-    return json.data;
-}
-
-function makeUsersService() {
+function makeUserService() {
     const baseUrl = '/api/users';
 
     async function fetchUsers(page, limit = 10, filters = {}) {
-        let url = `${baseUrl}?page=${page}&limit=${limit}`;
-
-        if (filters.name) {
-            url += `&name=${encodeURIComponent(filters.name)}`;
-        }
-        if (filters.phone) {
-            url += `&phone=${encodeURIComponent(filters.phone)}`;
-        }
-        if (filters.role_id) {
-            url += `&role_id=${filters.role_id}`;
-        }
-        if (filters.favorite !== undefined) {
-            url += `&favorite=${filters.favorite}`;
-        }
-
+        const params = { page, limit, ...filters };
+        const queryString = buildQueryString(params);
+        const url = queryString ? `${baseUrl}?${queryString}` : baseUrl;
+        
         const data = await efetch(url);
-        data.users = data.users.map((user) => {
-        return {
-            ...user,
-            avatar: user.avatar ?? DEFAULT_AVATAR
-        };
-        });
+        data.users = transformDataArray(data.users);
         return data;
     }
 
     async function fetchUser(id) {
         const { user } = await efetch(`${baseUrl}/${id}`);
-        return {
-        ...user,
-        avatar: user.avatar ?? DEFAULT_AVATAR
-        };
+        return transformData(user);
     }
 
-    async function createUser(user) {
+    async function createUser(userData) {
+        const formData = new FormData();
+        Object.entries(userData).forEach(([key, value]) => {
+            formData.append(key, value);
+        });
 
         return efetch(`${baseUrl}/register`, {
             method: 'POST',
-            body: user
+            body: formData
         });
     }
 
-    async function deleteAllUsers() {
-        return efetch(baseUrl, {
-        method: 'DELETE'
+    async function updateUser(id, userData) {
+        const formData = new FormData();
+        Object.entries(userData).forEach(([key, value]) => {
+            formData.append(key, value);
         });
-    }
-
-    async function updateUser(id, user) {
 
         return efetch(`${baseUrl}/${id}`, {
-        method: 'PUT',
-        body: user
+            method: 'PUT',
+            body: formData
         });
     }
 
     async function deleteUser(id) {
         return efetch(`${baseUrl}/${id}`, {
-        method: 'DELETE'
+            method: 'DELETE'
+        });
+    }
+
+    async function deleteAllUsers() {
+        return efetch(baseUrl, {
+            method: 'DELETE'
         });
     }
 
@@ -113,4 +80,4 @@ function makeUsersService() {
     };
 }
 
-export default makeUsersService();
+export default makeUserService();

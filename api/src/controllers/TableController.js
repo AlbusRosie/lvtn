@@ -4,8 +4,7 @@ const { success } = require('../jsend');
 
 async function getAllTables(req, res, next) {
   try {
-    const { branch_id } = req.query;
-    const tables = await TableService.getAllTables(branch_id);
+    const tables = await TableService.getAllTables();
     res.json(success(tables));
   } catch (error) {
     next(error);

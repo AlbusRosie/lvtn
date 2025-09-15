@@ -1,267 +1,160 @@
-import axios from 'axios';
-import { API_BASE_URL } from '@/constants';
+import { efetch, buildQueryString, transformData, transformDataArray } from './BaseService';
+import { DEFAULT_PRODUCT_IMAGE } from '@/constants';
 
-class ProductService {
-  constructor() {
-    this.api = axios.create({
-      baseURL: `${API_BASE_URL}/products`,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+function makeProductService() {
+    const baseUrl = '/api/products';
 
-    this.api.interceptors.request.use((config) => {
-      const token = localStorage.getItem('auth_token');
-      console.log('ProductService token:', token ? 'exists' : 'missing');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    });
-  }
-
-  async getProducts(params = {}) {
-    try {
-      console.log('Getting products with params:', params);
-      const response = await this.api.get('', { params });
-      console.log('Products API response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Products API error:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  async getAvailableProducts(params = {}) {
-    try {
-      const response = await this.api.get('/available', { params });
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
-  async getCategories() {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/categories`);
-      return response.data.data || response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
-  async getProduct(id) {
-    try {
-      const response = await this.api.get(`/${id}`);
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
-  async createProduct(productData) {
-    try {
-      if (productData instanceof FormData) {
-      } else {
-      }
-
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE_URL}/products`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: productData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create product');
-      }
-
-      const result = await response.json();
-      return result;
-    } catch (error) {
-
-      throw error;
-    }
-  }
-
-  async updateProduct(id, productData) {
-    try {
-
-      const formData = new FormData();
-
-      for (const [key, value] of Object.entries(productData)) {
-        if (key === 'imageFile' && value instanceof File) {
-          formData.append(key, value);
-        } else if (key !== 'imageFile') {
-          formData.append(key, value);
+    async function getProducts(params = {}) {
+        const queryString = buildQueryString(params);
+        const url = queryString ? `${baseUrl}?${queryString}` : baseUrl;
+        
+        const data = await efetch(url);
+        if (data.products) {
+            data.products = transformDataArray(data.products, DEFAULT_PRODUCT_IMAGE);
         }
-      }
-
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update product');
-      }
-
-      const result = await response.json();
-      return result;
-    } catch (error) {
-
-      throw error;
+        return data;
     }
-  }
 
-  async deleteProduct(id) {
-    try {
-      const response = await this.api.delete(`/${id}`);
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    async function getAvailableProducts(params = {}) {
+        const queryString = buildQueryString(params);
+        const url = queryString ? `${baseUrl}/available?${queryString}` : `${baseUrl}/available`;
+        
+        const data = await efetch(url);
+        if (data.products) {
+            data.products = transformDataArray(data.products, DEFAULT_PRODUCT_IMAGE);
+        }
+        return data;
     }
-  }
 
-  async getProductsByCategory(categoryId) {
-    try {
-      const response = await this.api.get(`/category/${categoryId}`);
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    async function getProduct(id) {
+        const { product } = await efetch(`${baseUrl}/${id}`);
+        return transformData(product, DEFAULT_PRODUCT_IMAGE);
     }
-  }
 
-  async deleteAllProducts() {
-    try {
-      const response = await this.api.delete('');
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    async function createProduct(productData) {
+        const formData = new FormData();
+        Object.entries(productData).forEach(([key, value]) => {
+            formData.append(key, value);
+        });
+
+        return efetch(baseUrl, {
+            method: 'POST',
+            body: formData
+        });
     }
-  }
 
-  async searchProducts(name, params = {}) {
-    try {
-      const searchParams = { ...params, name };
-      const response = await this.api.get('', { params: searchParams });
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    async function updateProduct(id, productData) {
+        const formData = new FormData();
+        Object.entries(productData).forEach(([key, value]) => {
+            formData.append(key, value);
+        });
+
+        return efetch(`${baseUrl}/${id}`, {
+            method: 'PUT',
+            body: formData
+        });
     }
-  }
 
-  async filterProductsByPrice(minPrice, maxPrice, params = {}) {
-    try {
-      const filterParams = { ...params, min_price: minPrice, max_price: maxPrice };
-      const response = await this.api.get('', { params: filterParams });
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    async function deleteProduct(id) {
+        return efetch(`${baseUrl}/${id}`, {
+            method: 'DELETE'
+        });
     }
-  }
 
-  async filterProductsByAvailability(isAvailable, params = {}) {
-    try {
-      const filterParams = { ...params, is_available: isAvailable };
-      const response = await this.api.get('', { params: filterParams });
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    async function deleteAllProducts() {
+        return efetch(baseUrl, {
+            method: 'DELETE'
+        });
     }
-  }
 
-  async addProductToBranch(branchId, productId, branchProductData) {
-    try {
-      const response = await this.api.post(`/branches/${branchId}/products/${productId}`, branchProductData);
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    async function getProductsByCategory(categoryId) {
+        const data = await efetch(`${baseUrl}/category/${categoryId}`);
+        if (data.products) {
+            data.products = transformDataArray(data.products, DEFAULT_PRODUCT_IMAGE);
+        }
+        return data;
     }
-  }
 
-  async updateBranchProduct(branchProductId, updateData) {
-    try {
-      const response = await this.api.put(`/branch-products/${branchProductId}`, updateData);
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    async function searchProducts(name, params = {}) {
+        const searchParams = { ...params, name };
+        return getProducts(searchParams);
     }
-  }
 
-  async removeProductFromBranch(branchId, productId) {
-    try {
-      const response = await this.api.delete(`/branches/${branchId}/products/${productId}`);
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    async function filterProductsByPrice(minPrice, maxPrice, params = {}) {
+        const filterParams = { ...params, min_price: minPrice, max_price: maxPrice };
+        return getProducts(filterParams);
     }
-  }
 
-  async getProductsByBranch(branchId, params = {}) {
-    try {
-      const response = await this.api.get(`/branches/${branchId}/products`, { params });
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    async function filterProductsByAvailability(isAvailable, params = {}) {
+        const filterParams = { ...params, is_available: isAvailable };
+        return getProducts(filterParams);
     }
-  }
 
-  async getBranchProduct(branchProductId) {
-    try {
-      const response = await this.api.get(`/branch-products/${branchProductId}`);
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    async function addProductToBranch(branchId, productId, branchProductData) {
+        return efetch(`${baseUrl}/branches/${branchId}/products/${productId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(branchProductData)
+        });
     }
-  }
 
-  async getActiveBranches() {
-    try {
-      const response = await this.api.get('/branches/active');
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    async function updateBranchProduct(branchProductId, updateData) {
+        return efetch(`${baseUrl}/branch-products/${branchProductId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
     }
-  }
 
-  handleError(error) {
-    if (error.response) {
-
-      const { status, data } = error.response;
-
-      switch (status) {
-        case 400:
-          return new Error(data.message || 'Invalid request data');
-        case 401:
-          return new Error('Unauthorized. Please login again.');
-        case 403:
-          return new Error('Forbidden. You do not have permission.');
-        case 404:
-          return new Error('Product not found');
-        case 422:
-          return new Error(data.message || 'Validation error');
-        case 500:
-          return new Error('Server error. Please try again later.');
-        default:
-          return new Error(data.message || 'An error occurred');
-      }
-    } else if (error.request) {
-
-      return new Error('Network error. Please check your connection.');
-    } else {
-
-      return new Error('An unexpected error occurred');
+    async function removeProductFromBranch(branchId, productId) {
+        return efetch(`${baseUrl}/branches/${branchId}/products/${productId}`, {
+            method: 'DELETE'
+        });
     }
-  }
+
+    async function getProductsByBranch(branchId, params = {}) {
+        const queryString = buildQueryString(params);
+        const url = queryString ? `${baseUrl}/branches/${branchId}/products?${queryString}` : `${baseUrl}/branches/${branchId}/products`;
+        
+        const data = await efetch(url);
+        if (data.products) {
+            data.products = transformDataArray(data.products, DEFAULT_PRODUCT_IMAGE);
+        }
+        return data;
+    }
+
+    async function getBranchProduct(branchProductId) {
+        const { branchProduct } = await efetch(`${baseUrl}/branch-products/${branchProductId}`);
+        return transformData(branchProduct, DEFAULT_PRODUCT_IMAGE);
+    }
+
+    async function getActiveBranches() {
+        return efetch(`${baseUrl}/branches/active`);
+    }
+
+    return {
+        getProducts,
+        getAvailableProducts,
+        getProduct,
+        createProduct,
+        updateProduct,
+        deleteProduct,
+        deleteAllProducts,
+        getProductsByCategory,
+        searchProducts,
+        filterProductsByPrice,
+        filterProductsByAvailability,
+        addProductToBranch,
+        updateBranchProduct,
+        removeProductFromBranch,
+        getProductsByBranch,
+        getBranchProduct,
+        getActiveBranches
+    };
 }
 
-export default new ProductService();
+export default makeProductService();

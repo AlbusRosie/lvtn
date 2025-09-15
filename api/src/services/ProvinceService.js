@@ -77,6 +77,12 @@ async function getManyProvinces(query) {
     };
 }
 
+async function getAllProvinces() {
+    return provinceRepository()
+        .select('*')
+        .orderBy('name', 'asc');
+}
+
 async function getProvinceById(id) {
     return provinceRepository().where('id', id).select('*').first();
 }
@@ -322,6 +328,7 @@ async function searchDistricts(searchTerm, provinceId = null) {
 module.exports = {
     createProvince,
     getManyProvinces,
+    getAllProvinces,
     getProvinceById,
     updateProvince,
     deleteProvince,

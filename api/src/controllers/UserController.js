@@ -62,11 +62,15 @@ async function login(req, res, next) {
         }
 
         const result = await UserService.login(username, password);
-        const token = jwt.sign(
-            { id: result.user.id, username: result.user.username, role_id: result.user.role_id },
+        const token = jwt.sign({ 
+            id: result.user.id, 
+            username: result.user.username, 
+            role_id: result.user.role_id
+        },
             SECRET_KEY,
-            { expiresIn: EXPIRES_IN }
-        );
+        { 
+            expiresIn: EXPIRES_IN 
+        });
         return res.json({
             status: 'success',
             data: { token, user: result.user }
