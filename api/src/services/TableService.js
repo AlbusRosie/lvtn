@@ -162,30 +162,11 @@ async function deleteAllTables() {
     };
 }
 
-
-
-async function getTablesByBranchAndFloor(branchId, floorId) {
-    return tableRepository()
-        .select(
-            'tables.*',
-            'branches.name as branch_name',
-            'floors.name as floor_name',
-            'floors.floor_number'
-        )
-        .join('branches', 'tables.branch_id', 'branches.id')
-        .join('floors', 'tables.floor_id', 'floors.id')
-        .where('tables.branch_id', branchId)
-        .where('tables.floor_id', floorId)
-        .orderBy('tables.table_number', 'asc');
-}
-
-
 module.exports = {
     createTable,
     getAllTables,
     updateTable,
     updateTableStatus,
     deleteTable,
-    deleteAllTables,
-    getTablesByBranchAndFloor
+    deleteAllTables
 };

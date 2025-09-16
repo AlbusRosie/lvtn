@@ -114,24 +114,10 @@ async function deleteTable(req, res, next) {
   }
 }
 
-
-
-async function getTablesByBranchAndFloor(req, res, next) {
-  try {
-    const { branch_id, floor_id } = req.params;
-    const tables = await TableService.getTablesByBranchAndFloor(branch_id, floor_id);
-    res.json(success(tables));
-  } catch (error) {
-    next(error);
-  }
-}
-
-
 module.exports = {
   getAllTables,
   createTable,
   updateTable,
   updateTableStatus,
-  deleteTable,
-  getTablesByBranchAndFloor
+  deleteTable
 };

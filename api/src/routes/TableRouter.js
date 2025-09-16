@@ -10,13 +10,9 @@ module.exports.setup = (app) => {
 
     // Public 
     router.get('/', TableController.getAllTables);
-    router.get('/branches/:branch_id/floors/:floor_id/tables', TableController.getTablesByBranchAndFloor);
-    
+
     router.all('/', methodNotAllowed);
-    router.all('/branches', methodNotAllowed);
-    router.all('/branches/:branch_id/floors', methodNotAllowed);
-    router.all('/branches/:branch_id/floors/:floor_id/tables', methodNotAllowed);
-    
+
     // Admin
     router.use(verifyToken);
     router.use(requireRole(['admin']));
