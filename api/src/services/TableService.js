@@ -67,7 +67,6 @@ async function getAllTables() {
         .orderBy('tables.table_number', 'asc');
 }
 
-
 async function updateTable(id, payload) {
     const updatedTable = await tableRepository()
         .where('id', id)
@@ -153,20 +152,10 @@ async function deleteTable(id) {
     return { ...deletedTable, message: 'Table deleted successfully' };
 }
 
-async function deleteAllTables() {
-    const tables = await tableRepository().select('*');
-    await tableRepository().del();
-    return { 
-        message: 'All tables deleted successfully',
-        deletedTablesCount: tables.length
-    };
-}
-
 module.exports = {
     createTable,
     getAllTables,
     updateTable,
     updateTableStatus,
-    deleteTable,
-    deleteAllTables
+    deleteTable
 };

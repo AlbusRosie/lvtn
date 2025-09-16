@@ -11,7 +11,6 @@ async function getAllTables(req, res, next) {
   }
 }
 
-
 async function createTable(req, res, next) {
   try {
     const { branch_id, floor_id, table_number, capacity, location, status } = req.body;
