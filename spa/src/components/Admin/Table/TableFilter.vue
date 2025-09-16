@@ -101,8 +101,8 @@ export default {
   methods: {
     async loadBranches() {
       try {
-        const TableService = await import('@/services/TableService');
-        const branches = await TableService.default.getAllBranches();
+        const BranchService = await import('@/services/BranchService');
+        const branches = await BranchService.default.getAllBranches();
         this.branches = branches || [];
       } catch (error) {
         this.branches = [];

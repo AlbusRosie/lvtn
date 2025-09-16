@@ -171,8 +171,8 @@ export default {
   methods: {
     async loadBranches() {
       try {
-        const TableService = await import('@/services/TableService');
-        this.branches = await TableService.default.getAllBranches();
+        const BranchService = await import('@/services/BranchService');
+        this.branches = await BranchService.default.getAllBranches();
       } catch (error) {
       }
     },
@@ -182,8 +182,8 @@ export default {
         return;
       }
       try {
-        const TableService = await import('@/services/TableService');
-        this.floors = await TableService.default.getFloorsByBranch(branchId);
+        const FloorService = await import('@/services/FloorService');
+        this.floors = await FloorService.default.getFloorsByBranch(branchId);
       } catch (error) {
       }
     },

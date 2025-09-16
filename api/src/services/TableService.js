@@ -67,19 +67,6 @@ async function getAllTables() {
         .orderBy('tables.table_number', 'asc');
 }
 
-async function getTableById(id) {
-    return tableRepository()
-        .select(
-            'tables.*',
-            'branches.name as branch_name',
-            'floors.name as floor_name',
-            'floors.floor_number'
-        )
-        .join('branches', 'tables.branch_id', 'branches.id')
-        .join('floors', 'tables.floor_id', 'floors.id')
-        .where('tables.id', id)
-        .first();
-}
 
 async function updateTable(id, payload) {
     const updatedTable = await tableRepository()
@@ -175,69 +162,7 @@ async function deleteAllTables() {
     };
 }
 
-async function getTablesByStatus(status, branchId = null) {
-    const validStatuses = ['available', 'occupied', 'reserved', 'maintenance'];
-    if (!validStatuses.includes(status)) {
-        throw new Error('Invalid status value');
-    }
 
-    let query = tableRepository()
-        .select(
-            'tables.*',
-            'branches.name as branch_name',
-            'floors.name as floor_name',
-            'floors.floor_number'
-        )
-        .join('branches', 'tables.branch_id', 'branches.id')
-        .join('floors', 'tables.floor_id', 'floors.id')
-        .where('tables.status', status)
-        .orderBy('branches.name', 'asc')
-        .orderBy('floors.floor_number', 'asc')
-        .orderBy('tables.table_number', 'asc');
-
-    if (branchId) {
-        query = query.where('tables.branch_id', branchId);
-    }
-
-    return await query;
-}
-
-async function getAvailableTables(branchId = null) {
-    let query = tableRepository()
-        .select(
-            'tables.*',
-            'branches.name as branch_name',
-            'floors.name as floor_name',
-            'floors.floor_number'
-        )
-        .join('branches', 'tables.branch_id', 'branches.id')
-        .join('floors', 'tables.floor_id', 'floors.id')
-        .where('tables.status', 'available')
-        .orderBy('branches.name', 'asc')
-        .orderBy('floors.floor_number', 'asc')
-        .orderBy('tables.table_number', 'asc');
-
-    if (branchId) {
-        query = query.where('tables.branch_id', branchId);
-    }
-
-    return await query;
-}
-
-async function getAllBranches() {
-    return knex('branches')
-        .select('*')
-        .where('status', 'active')
-        .orderBy('name', 'asc');
-}
-
-async function getFloorsByBranch(branchId) {
-    return knex('floors')
-        .select('*')
-        .where('branch_id', branchId)
-        .where('status', 'active')
-        .orderBy('floor_number', 'asc');
-}
 
 async function getTablesByBranchAndFloor(branchId, floorId) {
     return tableRepository()
@@ -254,85 +179,13 @@ async function getTablesByBranchAndFloor(branchId, floorId) {
         .orderBy('tables.table_number', 'asc');
 }
 
-async function getTableStatistics(branchId = null) {
-    let query = tableRepository()
-        .select('status')
-        .count('* as count')
-        .groupBy('status');
-
-    if (branchId) {
-        query = query.where('branch_id', branchId);
-    }
-
-    const stats = await query;
-
-    const result = {
-        total: 0,
-        available: 0,
-        occupied: 0,
-        reserved: 0,
-        maintenance: 0
-    };
-
-    stats.forEach(stat => {
-        result[stat.status] = parseInt(stat.count);
-        result.total += parseInt(stat.count);
-    });
-
-    return result;
-}
-
-async function generateNextTableNumber(branchId, floorId) {
-    const tables = await getTablesByBranchAndFloor(branchId, floorId);
-
-    let maxNumber = 0;
-    tables.forEach(table => {
-        const tableNumber = table.table_number;
-        if (tableNumber.startsWith('T')) {
-            const numberPart = parseInt(tableNumber.substring(1));
-            if (!isNaN(numberPart) && numberPart > maxNumber) {
-                maxNumber = numberPart;
-            }
-        }
-    });
-
-    const nextNumber = maxNumber + 1;
-    return {
-        nextTableNumber: `T${String(nextNumber).padStart(2, '0')}`,
-        currentTableCount: tables.length,
-        maxNumber: maxNumber
-    };
-}
-
-async function getTableByNumber(branchId, tableNumber) {
-    return tableRepository()
-        .select(
-            'tables.*',
-            'branches.name as branch_name',
-            'floors.name as floor_name',
-            'floors.floor_number'
-        )
-        .join('branches', 'tables.branch_id', 'branches.id')
-        .join('floors', 'tables.floor_id', 'floors.id')
-        .where('tables.branch_id', branchId)
-        .where('tables.table_number', tableNumber)
-        .first();
-}
 
 module.exports = {
     createTable,
     getAllTables,
-    getTableById,
     updateTable,
     updateTableStatus,
     deleteTable,
     deleteAllTables,
-    getTablesByStatus,
-    getAvailableTables,
-    getAllBranches,
-    getFloorsByBranch,
-    getTablesByBranchAndFloor,
-    getTableStatistics,
-    generateNextTableNumber,
-    getTableByNumber
+    getTablesByBranchAndFloor
 };

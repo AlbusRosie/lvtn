@@ -11,26 +11,6 @@ async function getAllTables(req, res, next) {
   }
 }
 
-async function getTablesByStatus(req, res, next) {
-  try {
-    const { status } = req.params;
-    const { branch_id } = req.query;
-    const tables = await TableService.getTablesByStatus(status, branch_id);
-    res.json(success(tables));
-  } catch (error) {
-    next(error);
-  }
-}
-
-async function getTableById(req, res, next) {
-  try {
-    const { id } = req.params;
-    const table = await TableService.getTableById(id);
-    res.json(success(table));
-  } catch (error) {
-    next(error);
-  }
-}
 
 async function createTable(req, res, next) {
   try {
@@ -134,34 +114,7 @@ async function deleteTable(req, res, next) {
   }
 }
 
-async function getAvailableTables(req, res, next) {
-  try {
-    const { branch_id } = req.query;
-    const tables = await TableService.getAvailableTables(branch_id);
-    res.json(success(tables));
-  } catch (error) {
-    next(error);
-  }
-}
 
-async function getAllBranches(req, res, next) {
-  try {
-    const branches = await TableService.getAllBranches();
-    res.json(success(branches));
-  } catch (error) {
-    next(error);
-  }
-}
-
-async function getFloorsByBranch(req, res, next) {
-  try {
-    const { branch_id } = req.params;
-    const floors = await TableService.getFloorsByBranch(branch_id);
-    res.json(success(floors));
-  } catch (error) {
-    next(error);
-  }
-}
 
 async function getTablesByBranchAndFloor(req, res, next) {
   try {
@@ -173,59 +126,12 @@ async function getTablesByBranchAndFloor(req, res, next) {
   }
 }
 
-async function getTableStatistics(req, res, next) {
-  try {
-    const { branch_id } = req.query;
-    const stats = await TableService.getTableStatistics(branch_id);
-    res.json(success(stats));
-  } catch (error) {
-    next(error);
-  }
-}
-
-async function generateNextTableNumber(req, res, next) {
-  try {
-    const { branch_id, floor_id } = req.params;
-
-    if (!branch_id || !floor_id) {
-      throw new ApiError(400, 'Branch ID and Floor ID are required');
-    }
-
-    const result = await TableService.generateNextTableNumber(branch_id, floor_id);
-    res.json(success(result));
-  } catch (error) {
-    next(error);
-  }
-}
-
-async function getTableByNumber(req, res, next) {
-  try {
-    const { branch_id, table_number } = req.params;
-
-    if (!branch_id || !table_number) {
-      throw new ApiError(400, 'Branch ID and Table Number are required');
-    }
-
-    const table = await TableService.getTableByNumber(branch_id, table_number);
-    res.json(success(table));
-  } catch (error) {
-    next(error);
-  }
-}
 
 module.exports = {
   getAllTables,
-  getTablesByStatus,
-  getTableById,
   createTable,
   updateTable,
   updateTableStatus,
   deleteTable,
-  getAvailableTables,
-  getAllBranches,
-  getFloorsByBranch,
-  getTablesByBranchAndFloor,
-  getTableStatistics,
-  generateNextTableNumber,
-  getTableByNumber
+  getTablesByBranchAndFloor
 };

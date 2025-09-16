@@ -26,13 +26,6 @@ function makeTableService() {
         return table;
     }
 
-    async function getAllBranches() {
-        return efetch(`${baseUrl}/branches`);
-    }
-
-    async function getFloorsByBranch(branchId) {
-        return efetch(`${baseUrl}/branches/${branchId}/floors`);
-    }
 
     async function getTablesByBranchAndFloor(branchId, floorId) {
         return efetch(`${baseUrl}/branches/${branchId}/floors/${floorId}/tables`);
@@ -122,8 +115,6 @@ function makeTableService() {
         getAvailableTables,
         getTablesByStatus,
         getTableById,
-        getAllBranches,
-        getFloorsByBranch,
         getTablesByBranchAndFloor,
         generateNextTableNumber,
         createTable,
