@@ -389,7 +389,8 @@ const loadBranches = async () => {
 
 const loadCategories = async () => {
   try {
-    const data = await ProductService.getCategories()
+    const CategoryService = await import('@/services/CategoryService')
+    const data = await CategoryService.default.getAllCategories()
     categories.value = data
   } catch (error) {
     showToast('Lỗi', 'Không thể tải danh mục sản phẩm', 'danger')

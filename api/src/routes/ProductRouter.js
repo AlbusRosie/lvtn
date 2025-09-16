@@ -11,19 +11,9 @@ module.exports.setup = (app) => {
 
     // Public
     router.get('/', ProductController.getProducts);
-    router.get('/available', ProductController.getAvailableProducts);
-    router.get('/category/:categoryId', ProductController.getProductsByCategory);
-    router.get('/branches/active', ProductController.getActiveBranches);
-    router.get('/branches/:branchId/products', ProductController.getProductsByBranch);
-    router.get('/branch-products/:branchProductId', ProductController.getBranchProduct);
     router.get('/:id', ProductController.getProduct);
     
     router.all('/', methodNotAllowed);
-    router.all('/available', methodNotAllowed);
-    router.all('/category/:categoryId', methodNotAllowed);
-    router.all('/branches/active', methodNotAllowed);
-    router.all('/branches/:branchId/products', methodNotAllowed);
-    router.all('/branch-products/:branchProductId', methodNotAllowed);
     router.all('/branches/:branchId/products/:productId', methodNotAllowed);
     router.all('/:id', methodNotAllowed);
 
@@ -33,7 +23,6 @@ module.exports.setup = (app) => {
     router.post('/', productUpload, ProductController.createProduct);
     router.put('/:id', productUpload, ProductController.updateProduct);
     router.delete('/:id', ProductController.deleteProduct);
-    router.delete('/', ProductController.deleteAllProducts);
     router.post('/branches/:branchId/products/:productId', ProductController.addProductToBranch);
     router.put('/branch-products/:branchProductId', ProductController.updateBranchProduct);
     router.delete('/branches/:branchId/products/:productId', ProductController.removeProductFromBranch);

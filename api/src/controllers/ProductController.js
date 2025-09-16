@@ -129,33 +129,6 @@ async function deleteProduct(req, res, next) {
     }
 }
 
-async function deleteAllProducts(req, res, next) {
-    try {
-        await ProductService.deleteAllProducts();
-        res.json(JSend.success(null, 'All products deleted successfully'));
-    } catch (error) {
-        next(new ApiError(500, error.message));
-    }
-}
-
-async function getProductsByCategory(req, res, next) {
-    try {
-        const products = await ProductService.getProductsByCategory(req.params.categoryId);
-        res.json(JSend.success(products));
-    } catch (error) {
-        next(new ApiError(500, error.message));
-    }
-}
-
-async function getAvailableProducts(req, res, next) {
-    try {
-        const products = await ProductService.getAvailableProducts(req.query);
-        res.json(JSend.success(products));
-    } catch (error) {
-        next(new ApiError(500, error.message));
-    }
-}
-
 async function addProductToBranch(req, res, next) {
     try {
         const { branchId, productId } = req.params;
@@ -227,39 +200,8 @@ async function removeProductFromBranch(req, res, next) {
     }
 }
 
-async function getProductsByBranch(req, res, next) {
-    try {
-        const { branchId } = req.params;
-        const result = await ProductService.getProductsByBranch(parseInt(branchId), req.query);
-        res.json(JSend.success(result));
-    } catch (error) {
-        next(new ApiError(500, error.message));
-    }
-}
 
-async function getBranchProduct(req, res, next) {
-    try {
-        const { branchProductId } = req.params;
-        const result = await ProductService.getBranchProductById(parseInt(branchProductId));
-        
-        if (!result) {
-            return next(new ApiError(404, 'Branch product not found'));
-        }
-        
-        res.json(JSend.success(result));
-    } catch (error) {
-        next(new ApiError(500, error.message));
-    }
-}
 
-async function getActiveBranches(req, res, next) {
-    try {
-        const branches = await ProductService.getActiveBranches();
-        res.json(JSend.success(branches));
-    } catch (error) {
-        next(new ApiError(500, error.message));
-    }
-}
 
 module.exports = {
     createProduct,
@@ -267,13 +209,7 @@ module.exports = {
     getProduct,
     updateProduct,
     deleteProduct,
-    deleteAllProducts,
-    getProductsByCategory,
-    getAvailableProducts,
     addProductToBranch,
     updateBranchProduct,
     removeProductFromBranch,
-    getProductsByBranch,
-    getBranchProduct,
-    getActiveBranches,
 };
