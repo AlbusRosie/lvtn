@@ -8,92 +8,75 @@
       </div>
     </div>
 
-    <div class="controls">
-      <div class="control-group">
-        <label>Chi nhánh:</label>
-        <select v-model="selectedBranchId" @change="onBranchChange" class="select">
+    <div class="search-section">
+      <div class="search-row">
+        <select v-model="selectedBranchId" @change="onBranchChange" class="filter-select">
           <option value="">-- Chọn chi nhánh --</option>
           <option v-for="branch in branches" :key="branch.id" :value="branch.id">
             {{ branch.name }}
           </option>
         </select>
-      </div>
-      
-      <div class="control-group">
-        <label>Danh mục:</label>
-        <select v-model="filters.category" class="select">
-          <option value="">Tất cả</option>
+        
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Tìm kiếm sản phẩm..."
+          class="search-input"
+        />
+        
+        <select v-model="filters.category" class="filter-select">
+          <option value="">Tất cả danh mục</option>
           <option v-for="category in categories" :key="category.id" :value="category.id">
             {{ category.name }}
           </option>
         </select>
-      </div>
-      
-      <div class="control-group">
-        <label>Trạng thái:</label>
-        <select v-model="filters.status" class="select">
-          <option value="">Tất cả</option>
+
+        <select v-model="filters.status" class="filter-select">
+          <option value="">Tất cả trạng thái</option>
           <option value="available">Có sẵn</option>
           <option value="out_of_stock">Hết hàng</option>
           <option value="temporarily_unavailable">Tạm ngừng</option>
           <option value="discontinued">Ngừng bán</option>
           <option value="not_added">Chưa thêm</option>
         </select>
+
+        <button @click="applyFilters" class="filter-btn">Lọc</button>
       </div>
-      
-      <button @click="applyFilters" class="btn-filter">Lọc</button>
     </div>
 
     <div class="products-section" v-if="selectedBranchId">
       <div class="section-header">
         <h3>Danh sách sản phẩm</h3>
-        <div class="search-box">
-          <input 
-            type="text" 
-            v-model="searchQuery"
-            placeholder="Tìm kiếm..."
-            class="search-input"
-          >
-          <button @click="applyFilters" class="btn-search">Tìm</button>
-        </div>
       </div>
       
       <div class="products-content">
         <div v-if="loading" class="loading">Đang tải...</div>
         <div v-else-if="products.length === 0" class="empty">Không có sản phẩm nào</div>
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <div class="btn-group" role="group">
+        <div class="product-controls">
+          <div class="view-toggle">
             <button 
-              type="button" 
-              class="btn btn-outline-primary"
               :class="{ 'active': viewMode === 'cards' }"
               @click="viewMode = 'cards'"
             >
-              <i class="bi bi-grid-3x3-gap"></i> Thẻ
+              Thẻ
             </button>
             <button 
-              type="button" 
-              class="btn btn-outline-primary"
               :class="{ 'active': viewMode === 'table' }"
               @click="viewMode = 'table'"
             >
-              <i class="bi bi-table"></i> Bảng
+              Bảng
             </button>
           </div>
-          <div class="d-flex align-items-center gap-2">
-            <span class="text-muted">Hiển thị {{ products.length }} sản phẩm</span>
-            <div class="form-check">
+          <div class="product-info">
+            <span>{{ products.length }} sản phẩm</span>
+            <label>
               <input 
                 type="checkbox" 
                 v-model="selectAll"
                 @change="toggleSelectAll"
-                class="form-check-input"
-                id="selectAll"
               >
-              <label class="form-check-label" for="selectAll">
-                Chọn tất cả
-              </label>
-            </div>
+              Chọn tất cả
+            </label>
           </div>
         </div>
 
@@ -631,8 +614,6 @@ onMounted(() => {
 <style scoped>
 .menu-page {
   padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
 }
 
 .header {
@@ -655,7 +636,7 @@ onMounted(() => {
   gap: 10px;
 }
 
-.btn-add, .btn-refresh, .btn-filter, .btn-search {
+.btn-add, .btn-refresh {
   padding: 8px 16px;
   border: 1px solid #ccc;
   background: white;
@@ -673,31 +654,57 @@ onMounted(() => {
   background: #0056b3;
 }
 
-.controls {
+.search-section {
+  margin-bottom: 20px;
+}
+
+.search-row {
   display: flex;
-  gap: 20px;
-  margin-bottom: 30px;
-  padding: 15px;
-  background: #f8f9fa;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 14px;
 }
 
-.control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+.search-input:focus {
+  outline: none;
+  border-color: #007bff;
 }
 
-.control-group label {
-  font-weight: bold;
-  color: #555;
-}
-
-.select {
-  padding: 8px;
-  border: 1px solid #ccc;
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 14px;
   background: white;
+  min-width: 150px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.filter-btn {
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.filter-btn:hover {
+  background: #0056b3;
 }
 
 .products-section {
@@ -720,20 +727,64 @@ onMounted(() => {
   color: #333;
 }
 
-.search-box {
-  display: flex;
-  gap: 10px;
-}
-
-.search-input {
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  width: 200px;
-}
 
 .products-content {
   padding: 15px;
+}
+
+.product-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 5px;
+}
+
+.view-toggle button {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.view-toggle button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.view-toggle button:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: none;
+}
+
+.view-toggle button.active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.product-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 14px;
+  color: #666;
+}
+
+.product-info label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
 }
 
 .loading, .empty {

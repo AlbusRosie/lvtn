@@ -1,74 +1,47 @@
 <template>
   <div class="branch-list">
-    <div class="page-header">
-      <div class="header-left">
-        <h1>Quản lý chi nhánh</h1>
-        <div class="search-container">
-          <div class="search-box">
-            <i class="fas fa-search"></i>
-            <input
-              v-model="searchTerm"
-              type="text"
-              placeholder="Tìm kiếm theo tên, địa chỉ, tỉnh, quận..."
-              class="search-input"
-            />
-            <button 
-              v-if="searchTerm" 
-              @click="clearSearch" 
-              class="clear-search"
-              title="Xóa tìm kiếm"
-            >
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          <div v-if="searchTerm" class="search-results-info">
-            <span class="results-count">
-              {{ filteredBranches.length }} kết quả cho "{{ searchTerm }}"
-            </span>
-          </div>
-        </div>
+    <div class="header">
+      <h1>Quản lý chi nhánh</h1>
+      <div class="actions">
+        <button @click="showCreateForm = true" class="btn-add">+ Thêm chi nhánh</button>
+        <button @click="loadBranches" class="btn-refresh" :disabled="loading">Làm mới</button>
       </div>
-      <button @click="showCreateForm = true" class="btn btn-primary">
-        <i class="fas fa-plus"></i>
-        Thêm chi nhánh mới
-      </button>
     </div>
 
-    <div class="filters-section">
-      <div class="filter-group">
-        <label for="province-filter">Tỉnh/Thành phố:</label>
-        <select id="province-filter" v-model="selectedProvinceId" @change="onProvinceFilterChange">
+    <div class="search-section">
+      <div class="search-row">
+        <input
+          v-model="searchTerm"
+          type="text"
+          placeholder="Tìm kiếm chi nhánh..."
+          class="search-input"
+        />
+        
+        <select v-model="selectedProvinceId" @change="onProvinceFilterChange" class="filter-select">
           <option value="">Tất cả tỉnh/thành phố</option>
           <option v-for="province in provinces" :key="province.id" :value="province.id">
             {{ province.name }}
           </option>
         </select>
-      </div>
 
-      <div class="filter-group">
-        <label for="district-filter">Quận/Huyện:</label>
-        <select id="district-filter" v-model="selectedDistrictId" :disabled="!selectedProvinceId">
+        <select v-model="selectedDistrictId" :disabled="!selectedProvinceId" class="filter-select">
           <option value="">Tất cả quận/huyện</option>
           <option v-for="district in filteredDistricts" :key="district.id" :value="district.id">
             {{ district.name }}
           </option>
         </select>
-      </div>
 
-      <div class="filter-group">
-        <label for="status-filter">Trạng thái:</label>
-        <select id="status-filter" v-model="statusFilter">
+        <select v-model="statusFilter" class="filter-select">
           <option value="">Tất cả trạng thái</option>
           <option value="active">Hoạt động</option>
           <option value="inactive">Không hoạt động</option>
           <option value="maintenance">Bảo trì</option>
         </select>
-      </div>
 
-      <button @click="clearFilters" class="btn btn-secondary btn-sm">
-        <i class="fas fa-times"></i>
-        Xóa bộ lọc
-      </button>
+        <button v-if="searchTerm || statusFilter || selectedProvinceId || selectedDistrictId" @click="clearFilters" class="clear-btn">
+          Xóa
+        </button>
+      </div>
     </div>
 
     <div class="content-area">
@@ -370,9 +343,6 @@ export default {
       }
     },
 
-    clearSearch() {
-      this.searchTerm = '';
-    },
 
     clearFilters() {
       this.searchTerm = '';
@@ -395,147 +365,101 @@ export default {
   padding: 20px;
 }
 
-.page-header {
+.header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 30px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ddd;
 }
 
-.page-header {
+.header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #333;
+}
+
+.actions {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
-  gap: 20px;
+  gap: 10px;
 }
 
-.header-left {
-  flex: 1;
-}
-
-.page-header h1 {
-  margin: 0 0 16px 0;
-  color: #1f2937;
-  font-size: 2rem;
-}
-
-.search-container {
-  max-width: 400px;
-}
-
-.search-box {
-  position: relative;
-  display: flex;
-  align-items: center;
+.btn-add, .btn-refresh {
+  padding: 8px 16px;
+  border: 1px solid #ccc;
   background: white;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 8px 12px;
-  transition: all 0.2s ease;
+  cursor: pointer;
+  border-radius: 4px;
 }
 
-.search-box:focus-within {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+.btn-add {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
 }
 
-.search-box i {
-  color: #9ca3af;
-  margin-right: 8px;
-  font-size: 0.9rem;
+.btn-add:hover {
+  background: #0056b3;
+}
+
+.search-section {
+  margin-bottom: 20px;
+}
+
+.search-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .search-input {
   flex: 1;
-  border: none;
-  outline: none;
-  font-size: 0.9rem;
-  color: #374151;
-  background: transparent;
-}
-
-.search-input::placeholder {
-  color: #9ca3af;
-}
-
-.clear-search {
-  background: none;
-  border: none;
-  color: #9ca3af;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.clear-search:hover {
-  background: #f3f4f6;
-  color: #6b7280;
-}
-
-.search-results-info {
-  margin-top: 8px;
-  font-size: 0.85rem;
-  color: #6b7280;
-}
-
-.results-count {
-  font-weight: 500;
-}
-
-.filters-section {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 24px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: end;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   min-width: 200px;
-}
-
-.filter-group label {
-  font-weight: 500;
-  color: #374151;
-  font-size: 0.85rem;
-}
-
-.filter-group select {
   padding: 8px 12px;
-  border: 2px solid #e5e7eb;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  background: white;
-  transition: border-color 0.2s ease;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
 }
 
-.filter-group select:focus {
+.search-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #007bff;
 }
 
-.filter-group select:disabled {
-  background: #f3f4f6;
-  color: #9ca3af;
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  min-width: 150px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.filter-select:disabled {
+  background: #f5f5f5;
+  color: #999;
   cursor: not-allowed;
 }
 
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 0.8rem;
+.clear-btn {
+  padding: 8px 16px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.clear-btn:hover {
+  background: #5a6268;
 }
 
 .btn {

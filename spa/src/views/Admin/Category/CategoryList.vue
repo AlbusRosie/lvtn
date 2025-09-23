@@ -1,37 +1,25 @@
 <template>
   <div class="category-list">
-    <div class="page-header">
-      <div class="header-left">
-        <h1>Quản lý danh mục</h1>
-        <div class="search-container">
-          <div class="search-box">
-            <i class="fas fa-search"></i>
-            <input
-              v-model="searchTerm"
-              type="text"
-              placeholder="Tìm kiếm danh mục theo tên..."
-              class="search-input"
-            />
-            <button 
-              v-if="searchTerm" 
-              @click="clearSearch" 
-              class="clear-search"
-              title="Xóa tìm kiếm"
-            >
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          <div v-if="searchTerm" class="search-results-info">
-            <span class="results-count">
-              {{ filteredCategories.length }} kết quả cho "{{ searchTerm }}"
-            </span>
-          </div>
-        </div>
+    <div class="header">
+      <h1>Quản lý danh mục</h1>
+      <div class="actions">
+        <button @click="showCreateForm = true" class="btn-add">+ Thêm danh mục</button>
+        <button @click="loadCategories" class="btn-refresh" :disabled="loading">Làm mới</button>
       </div>
-      <button @click="showCreateForm = true" class="btn btn-primary">
-        <i class="fas fa-plus"></i>
-        Thêm danh mục mới
-      </button>
+    </div>
+
+    <div class="search-section">
+      <div class="search-row">
+        <input
+          v-model="searchTerm"
+          type="text"
+          placeholder="Tìm kiếm danh mục..."
+          class="search-input"
+        />
+        <button v-if="searchTerm" @click="clearSearch" class="clear-btn">
+          Xóa
+        </button>
+      </div>
     </div>
 
     <div class="content-area">
@@ -299,89 +287,81 @@ export default {
   padding: 20px;
 }
 
-.page-header {
+.header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
-  gap: 20px;
-}
-
-.header-left {
-  flex: 1;
-}
-
-.page-header h1 {
-  margin: 0 0 16px 0;
-  color: #1f2937;
-  font-size: 2rem;
-}
-
-.search-container {
-  max-width: 400px;
-}
-
-.search-box {
-  position: relative;
-  display: flex;
   align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ddd;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #333;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-add, .btn-refresh {
+  padding: 8px 16px;
+  border: 1px solid #ccc;
   background: white;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 8px 12px;
-  transition: all 0.2s ease;
+  cursor: pointer;
+  border-radius: 4px;
 }
 
-.search-box:focus-within {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+.btn-add {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
 }
 
-.search-box i {
-  color: #9ca3af;
-  margin-right: 8px;
-  font-size: 0.9rem;
+.btn-add:hover {
+  background: #0056b3;
+}
+
+.search-section {
+  margin-bottom: 20px;
+}
+
+.search-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .search-input {
   flex: 1;
-  border: none;
-  outline: none;
-  font-size: 0.9rem;
-  color: #374151;
-  background: transparent;
-}
-
-.search-input::placeholder {
-  color: #9ca3af;
-}
-
-.clear-search {
-  background: none;
-  border: none;
-  color: #9ca3af;
-  cursor: pointer;
-  padding: 4px;
+  min-width: 200px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
   border-radius: 4px;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 14px;
 }
 
-.clear-search:hover {
-  background: #f3f4f6;
-  color: #6b7280;
+.search-input:focus {
+  outline: none;
+  border-color: #007bff;
 }
 
-.search-results-info {
-  margin-top: 8px;
-  font-size: 0.85rem;
-  color: #6b7280;
+.clear-btn {
+  padding: 8px 16px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
 }
 
-.results-count {
-  font-weight: 500;
+.clear-btn:hover {
+  background: #5a6268;
 }
 
 .btn {

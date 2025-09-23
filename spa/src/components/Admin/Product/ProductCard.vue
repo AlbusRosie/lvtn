@@ -2,45 +2,45 @@
   <div class="product-card" :class="{ 'selected': isSelected }">
     <div class="card">
       
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <div class="form-check">
+      <div class="card-header">
+        <div class="header-top">
           <input 
             type="checkbox" 
             :id="`product-${product.id}`"
             v-model="isSelected"
             @change="onSelectionChange"
-            class="form-check-input"
           >
-          <label :for="`product-${product.id}`" class="form-check-label">
-            <strong>{{ product.name }}</strong>
+          <label :for="`product-${product.id}`">
+            {{ product.name }}
           </label>
+          <div class="status-indicator" v-if="product.final_status === 'available'"></div>
         </div>
         <div class="product-actions">
           <button 
             v-if="!product.branch_product_id"
-            class="btn btn-success btn-sm"
             @click="$emit('add-to-branch', product)"
             :disabled="loading"
             title="Thêm vào chi nhánh"
+            class="btn-add"
           >
-            <i class="bi bi-plus"></i>
+            Thêm
           </button>
           <button 
             v-else
-            class="btn btn-warning btn-sm me-1"
             @click="$emit('edit', product)"
             title="Chỉnh sửa"
+            class="btn-edit"
           >
-            <i class="bi bi-pencil"></i>
+            Sửa
           </button>
           <button 
             v-if="product.branch_product_id"
-            class="btn btn-danger btn-sm"
             @click="$emit('remove', product)"
             :disabled="loading"
             title="Xóa khỏi chi nhánh"
+            class="btn-remove"
           >
-            <i class="bi bi-trash"></i>
+            Xóa
           </button>
         </div>
       </div>
@@ -54,64 +54,42 @@
             class="product-image"
             @error="handleImageError"
           >
-          <div class="product-status-badge">
-            <span 
-              class="badge"
-              :class="getStatusBadgeClass(product.final_status)"
-            >
-              {{ getStatusText(product.final_status) }}
-            </span>
+          <div class="status-badge">
+            {{ getStatusText(product.final_status) }}
           </div>
         </div>
 
         
         <div class="product-info">
-          <h6 class="product-name">{{ product.name }}</h6>
           <p class="product-description">{{ product.description || 'Không có mô tả' }}</p>
-          
           <div class="product-category">
-            <span class="badge bg-secondary">{{ product.category_name }}</span>
+            {{ product.category_name }}
           </div>
         </div>
 
         
         <div class="price-section">
           <div class="price-row">
-            <label class="price-label">Giá cơ bản:</label>
-            <span class="base-price">{{ formatPrice(product.base_price) }}</span>
+            <span>Giá cơ bản: {{ formatPrice(product.base_price) }}</span>
           </div>
           
           <div v-if="product.branch_product_id" class="price-row">
-            <label class="price-label">Giá chi nhánh:</label>
-            <div class="branch-price-input">
-              <input 
-                type="number" 
-                v-model="product.branch_price"
-                class="form-control form-control-sm"
-                @blur="updateBranchPrice"
-                :disabled="loading"
-                min="0"
-                step="1000"
-              >
-              <small class="price-display">{{ formatPrice(product.branch_price) }}</small>
-            </div>
+            <input 
+              type="number" 
+              v-model="product.branch_price"
+              @blur="updateBranchPrice"
+              :disabled="loading"
+              min="0"
+              step="1000"
+              placeholder="Giá chi nhánh"
+            >
           </div>
           <div v-else class="price-row">
-            <span class="text-muted">Chưa thêm vào chi nhánh</span>
+            <span>Chưa thêm vào chi nhánh</span>
           </div>
         </div>
 
         
-        <div v-if="product.branch_product_id" class="branch-details">
-          <div class="detail-row">
-            <i class="bi bi-calendar"></i>
-            <span>Thêm ngày: {{ formatDate(product.added_to_branch_at) }}</span>
-          </div>
-          <div v-if="product.branch_notes" class="detail-row">
-            <i class="bi bi-chat-text"></i>
-            <span>{{ product.branch_notes }}</span>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -192,222 +170,186 @@ const handleImageError = (event) => {
 
 <style scoped>
 .product-card {
-  transition: all 0.3s ease;
   margin-bottom: 1rem;
-}
-
-.product-card:hover {
-  transform: translateY(-2px);
 }
 
 .product-card.selected .card {
   border-color: #007bff;
-  box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
 }
 
 .card {
-  border-radius: 12px;
-  border: 2px solid #e9ecef;
-  transition: all 0.3s ease;
+  border-radius: 8px;
+  border: 1px solid #ddd;
   height: 100%;
 }
 
 .card-header {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-bottom: 1px solid #dee2e6;
-  padding: 0.75rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #ddd;
+  padding: 12px;
 }
 
 .card-body {
-  padding: 1rem;
+  padding: 12px;
 }
 
 .product-image-container {
   position: relative;
   text-align: center;
-  margin-bottom: 1rem;
+  margin-bottom: 12px;
 }
 
 .product-image {
   width: 100%;
-  height: 150px;
+  height: 120px;
   object-fit: cover;
-  border-radius: 8px;
-  border: 2px solid #e9ecef;
-  transition: all 0.3s ease;
+  border-radius: 4px;
+  border: 1px solid #ddd;
 }
 
-.product-image:hover {
-  border-color: #007bff;
-  transform: scale(1.02);
-}
-
-.product-status-badge {
+.status-badge {
   position: absolute;
   top: 8px;
   right: 8px;
+  background: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  border: 1px solid #ddd;
 }
 
 .product-info {
-  margin-bottom: 1rem;
-}
-
-.product-name {
-  font-weight: 600;
-  color: #212529;
-  margin-bottom: 0.5rem;
-  line-height: 1.3;
+  margin-bottom: 12px;
 }
 
 .product-description {
-  color: #6c757d;
-  font-size: 0.875rem;
-  margin-bottom: 0.75rem;
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 8px;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 .product-category {
-  margin-bottom: 0.5rem;
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 8px;
 }
 
 .price-section {
   background-color: #f8f9fa;
-  border-radius: 8px;
-  padding: 0.75rem;
-  margin-bottom: 1rem;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 12px;
 }
 
 .price-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 4px;
+  font-size: 14px;
 }
 
 .price-row:last-child {
   margin-bottom: 0;
 }
 
-.price-label {
-  font-weight: 500;
-  color: #495057;
-  font-size: 0.875rem;
+.price-row input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-top input {
   margin: 0;
 }
 
-.base-price {
-  font-weight: 600;
-  color: #6c757d;
-  font-size: 0.875rem;
+.header-top label {
+  flex: 1;
+  font-weight: bold;
+  font-size: 14px;
+  margin: 0;
+  cursor: pointer;
 }
 
-.branch-price-input {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.25rem;
-}
-
-.branch-price-input .form-control {
-  width: 120px;
-  text-align: right;
-}
-
-.price-display {
-  color: #28a745;
-  font-weight: 600;
-  font-size: 0.75rem;
-}
-
-.branch-details {
-  border-top: 1px solid #e9ecef;
-  padding-top: 0.75rem;
-}
-
-.detail-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: #6c757d;
-  margin-bottom: 0.25rem;
-}
-
-.detail-row:last-child {
-  margin-bottom: 0;
-}
-
-.detail-row i {
-  width: 12px;
-  text-align: center;
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  background: #28a745;
+  border-radius: 50%;
 }
 
 .product-actions {
   display: flex;
-  gap: 0.25rem;
+  gap: 4px;
 }
 
-.btn-sm {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  border-radius: 6px;
-}
-
-.badge {
-  font-size: 0.65rem;
-  padding: 0.35em 0.65em;
-  border-radius: 6px;
-  font-weight: 500;
-}
-
-.form-check-input {
-  margin-top: 0.125rem;
-}
-
-.form-check-label {
+.product-actions button {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 0.875rem;
-  margin-bottom: 0;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.product-actions button:hover {
+  background: #f5f5f5;
+}
+
+.btn-add {
+  background: #28a745;
+  color: white;
+  border-color: #28a745;
+}
+
+.btn-add:hover {
+  background: #218838;
+}
+
+.btn-edit {
+  background: #ffc107;
+  color: #212529;
+  border-color: #ffc107;
+}
+
+.btn-edit:hover {
+  background: #e0a800;
+}
+
+.btn-remove {
+  background: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}
+
+.btn-remove:hover {
+  background: #c82333;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
   .product-image {
-    height: 120px;
+    height: 100px;
   }
   
-  .price-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
+  .card-header {
+    padding: 8px;
   }
   
-  .branch-price-input {
-    align-items: flex-start;
-  }
-  
-  .branch-price-input .form-control {
-    width: 100px;
-  }
-}
-
-/* Animation */
-.product-card {
-  animation: fadeInUp 0.3s ease-out;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  .card-body {
+    padding: 8px;
   }
 }
 </style>

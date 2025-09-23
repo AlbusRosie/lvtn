@@ -1,52 +1,39 @@
 <template>
   <div class="floor-list">
-    <div class="page-header">
+    <div class="header">
       <h1>Quản lý tầng</h1>
-      <button @click="showCreateForm = true" class="btn btn-primary">
-        <i class="fas fa-plus"></i>
-        Thêm tầng mới
-      </button>
+      <div class="actions">
+        <button @click="showCreateForm = true" class="btn-add">+ Thêm tầng</button>
+        <button @click="loadFloors" class="btn-refresh" :disabled="loading">Làm mới</button>
+      </div>
     </div>
 
     
-    <div class="search-filter-section">
-      <div class="search-box">
-        <i class="fas fa-search"></i>
+    <div class="search-section">
+      <div class="search-row">
         <input
           v-model="searchTerm"
           type="text"
-          placeholder="Tìm kiếm theo tên tầng, mô tả hoặc chi nhánh..."
+          placeholder="Tìm kiếm tầng..."
           class="search-input"
         />
-        <button v-if="searchTerm" @click="searchTerm = ''" class="clear-search" title="Xóa tìm kiếm">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
+        
+        <select v-model="statusFilter" class="filter-select">
+          <option value="">Tất cả trạng thái</option>
+          <option value="active">Hoạt động</option>
+          <option value="inactive">Không hoạt động</option>
+          <option value="maintenance">Bảo trì</option>
+        </select>
 
-      <div class="filter-controls">
-        <div class="filter-group">
-          <label for="statusFilter">Trạng thái:</label>
-          <select v-model="statusFilter" id="statusFilter" class="filter-select">
-            <option value="">Tất cả</option>
-            <option value="active">Hoạt động</option>
-            <option value="inactive">Không hoạt động</option>
-            <option value="maintenance">Bảo trì</option>
-          </select>
-        </div>
+        <select v-model="branchFilter" class="filter-select">
+          <option value="">Tất cả chi nhánh</option>
+          <option v-for="branch in branches" :key="branch.id" :value="branch.id">
+            {{ branch.name }}
+          </option>
+        </select>
 
-        <div class="filter-group">
-          <label for="branchFilter">Chi nhánh:</label>
-          <select v-model="branchFilter" id="branchFilter" class="filter-select">
-            <option value="">Tất cả</option>
-            <option v-for="branch in branches" :key="branch.id" :value="branch.id">
-              {{ branch.name }}
-            </option>
-          </select>
-        </div>
-
-        <button @click="clearFilters" class="btn btn-secondary btn-sm">
-          <i class="fas fa-times"></i>
-          Xóa bộ lọc
+        <button v-if="searchTerm || statusFilter || branchFilter" @click="clearFilters" class="clear-btn">
+          Xóa
         </button>
       </div>
     </div>
@@ -338,111 +325,95 @@ export default {
   padding: 20px;
 }
 
-.page-header {
+.header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 30px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ddd;
 }
 
-.page-header h1 {
+.header h1 {
   margin: 0;
-  color: #1f2937;
-  font-size: 2rem;
+  font-size: 24px;
+  color: #333;
 }
 
-.search-filter-section {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 24px;
-}
-
-.search-box {
-  position: relative;
-  margin-bottom: 16px;
-}
-
-.search-box i {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #6b7280;
-  font-size: 0.9rem;
-}
-
-.search-input {
-  width: 100%;
-  padding: 10px 12px 10px 40px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  transition: border-color 0.2s ease;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.clear-search {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: #6b7280;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: color 0.2s ease;
-}
-
-.clear-search:hover {
-  color: #ef4444;
-}
-
-.filter-controls {
+.actions {
   display: flex;
-  gap: 16px;
+  gap: 10px;
+}
+
+.btn-add, .btn-refresh {
+  padding: 8px 16px;
+  border: 1px solid #ccc;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.btn-add {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.btn-add:hover {
+  background: #0056b3;
+}
+
+.search-section {
+  margin-bottom: 20px;
+}
+
+.search-row {
+  display: flex;
+  gap: 12px;
   align-items: center;
   flex-wrap: wrap;
 }
 
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.search-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
 }
 
-.filter-group label {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: #374151;
+.search-input:focus {
+  outline: none;
+  border-color: #007bff;
 }
 
 .filter-select {
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
   background: white;
   min-width: 150px;
 }
 
 .filter-select:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #007bff;
 }
 
-.btn-sm {
-  padding: 8px 12px;
-  font-size: 0.8rem;
+.clear-btn {
+  padding: 8px 16px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.clear-btn:hover {
+  background: #5a6268;
 }
 
 .btn {

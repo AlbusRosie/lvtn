@@ -1,11 +1,11 @@
 <template>
   <div class="table-list">
-    <div class="page-header">
+    <div class="header">
       <h1>Quản lý bàn</h1>
-      <button @click="showCreateForm = true" class="btn btn-primary">
-        <i class="fas fa-plus"></i>
-        Thêm bàn mới
-      </button>
+      <div class="actions">
+        <button @click="showCreateForm = true" class="btn-add">+ Thêm bàn</button>
+        <button @click="loadTables" class="btn-refresh" :disabled="loading">Làm mới</button>
+      </div>
     </div>
 
     <TableFilter
@@ -350,17 +350,42 @@ export default {
   padding: 20px;
 }
 
-.page-header {
+.header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 30px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ddd;
 }
 
-.page-header h1 {
+.header h1 {
   margin: 0;
-  color: #1f2937;
-  font-size: 2rem;
+  font-size: 24px;
+  color: #333;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-add, .btn-refresh {
+  padding: 8px 16px;
+  border: 1px solid #ccc;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.btn-add {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.btn-add:hover {
+  background: #0056b3;
 }
 
 .btn {
