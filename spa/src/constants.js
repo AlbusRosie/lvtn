@@ -1,5 +1,5 @@
 export const DEFAULT_AVATAR = '/public/images/blank-profile-picture.png';
-export const DEFAULT_PRODUCT_IMAGE = '/public/images/blank-profile-picture.png';
+export const DEFAULT_PRODUCT_IMAGE = '/public/images/blank-profile-picture.jpg';
 export const API_BASE_URL = 'http://localhost:3000/api';
 
 export const USER_ROLES = {

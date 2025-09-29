@@ -11,7 +11,6 @@ import 'screens/home/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize storage service
   await StorageService().initialize();
   
   runApp(const MyApp());

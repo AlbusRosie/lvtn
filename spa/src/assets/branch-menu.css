@@ -75,6 +75,16 @@
   font-weight: 500;
 }
 
+/* Override Bootstrap bg-secondary with higher specificity */
+.bg-secondary,
+.badge.bg-secondary,
+span.bg-secondary,
+div.bg-secondary {
+  background-color: transparent !important;
+  color: #333 !important;
+  background: transparent !important;
+}
+
 .bg-success {
   background-color: #28a745 !important;
 }
@@ -88,17 +98,12 @@
   color: #212529 !important;
 }
 
-.bg-secondary {
-  background-color: #6c757d !important;
-}
-
 .bg-light {
   background-color: #f8f9fa !important;
   color: #6c757d !important;
   border: 1px solid #dee2e6;
 }
 
-/* Button Styles */
 .btn {
   border-radius: 8px;
   font-weight: 500;

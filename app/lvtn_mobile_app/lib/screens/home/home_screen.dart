@@ -126,7 +126,6 @@ class ProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                // User Avatar
                 CircleAvatar(
                   radius: 50,
                   backgroundColor: Colors.orange,
@@ -141,7 +140,6 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // User Info
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),

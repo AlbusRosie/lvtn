@@ -21,17 +21,9 @@ class BranchService {
 
     Future<List<Branch>> getActiveBranches() async {
         try {
-        print('BranchService: Fetching active branches...');
         final response = await _apiService.get(ApiConstants.activeBranches);
-        print('BranchService: API response type: ${response.runtimeType}');
-        print('BranchService: API response: $response');
-        
-        // API trả về List trực tiếp
         final List<dynamic> branchesData = response is List ? response : [];
-        print('BranchService: Branches data: $branchesData');
-        
         final branches = branchesData.map((json) => Branch.fromJson(json)).toList();
-        print('BranchService: Parsed ${branches.length} branches');
         return branches;
         } catch (e) {
         print('BranchService: Error: $e');

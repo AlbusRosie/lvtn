@@ -1,7 +1,6 @@
 <template>
   <div class="product-card" :class="{ 'selected': isSelected }">
     <div class="card">
-      
       <div class="card-header">
         <div class="header-top">
           <input 
@@ -15,6 +14,14 @@
           </label>
           <div class="status-indicator" v-if="product.final_status === 'available'"></div>
         </div>
+        <div class="branch-status">
+          <span v-if="product.branch_product_id" class="status-badge added">
+            Đã thêm vào chi nhánh
+          </span>
+          <span v-else class="status-badge not-added">
+            Chưa thêm vào chi nhánh
+          </span>
+        </div>
         <div class="product-actions">
           <button 
             v-if="!product.branch_product_id"
@@ -23,7 +30,7 @@
             title="Thêm vào chi nhánh"
             class="btn-add"
           >
-            Thêm
+            + Thêm
           </button>
           <button 
             v-else
@@ -46,7 +53,6 @@
       </div>
 
       <div class="card-body">
-        
         <div class="product-image-container">
           <img 
             :src="product.image || DEFAULT_PRODUCT_IMAGE" 
@@ -54,12 +60,11 @@
             class="product-image"
             @error="handleImageError"
           >
-          <div class="status-badge">
+          <div class="status-badge" style="background: transparent !important; background-color: transparent !important; color: #333 !important;">
             {{ getStatusText(product.final_status) }}
           </div>
         </div>
 
-        
         <div class="product-info">
           <p class="product-description">{{ product.description || 'Không có mô tả' }}</p>
           <div class="product-category">
@@ -67,7 +72,6 @@
           </div>
         </div>
 
-        
         <div class="price-section">
           <div class="price-row">
             <span>Giá cơ bản: {{ formatPrice(product.base_price) }}</span>
@@ -88,8 +92,6 @@
             <span>Chưa thêm vào chi nhánh</span>
           </div>
         </div>
-
-        
       </div>
     </div>
   </div>
@@ -133,25 +135,6 @@ const formatPrice = (price) => {
   }).format(price)
 }
 
-const formatDate = (date) => {
-  return new Intl.DateTimeFormat('vi-VN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(new Date(date))
-}
-
-const getStatusBadgeClass = (status) => {
-  const classes = {
-    'available': 'bg-success',
-    'out_of_stock': 'bg-danger',
-    'temporarily_unavailable': 'bg-warning',
-    'discontinued': 'bg-secondary',
-    'not_added': 'bg-light text-dark'
-  }
-  return classes[status] || 'bg-secondary'
-}
-
 const getStatusText = (status) => {
   const texts = {
     'available': 'Có sẵn',
@@ -170,23 +153,31 @@ const handleImageError = (event) => {
 
 <style scoped>
 .product-card {
-  margin-bottom: 1rem;
+  margin-bottom: 15px;
 }
 
 .product-card.selected .card {
   border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
 .card {
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid #ddd;
   height: 100%;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .card-header {
   background: #f8f9fa;
   border-bottom: 1px solid #ddd;
   padding: 12px;
+  border-radius: 6px 6px 0 0;
 }
 
 .card-body {
@@ -211,11 +202,22 @@ const handleImageError = (event) => {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: white;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #333 !important;
   padding: 4px 8px;
   border-radius: 4px;
-  font-size: 12px;
-  border: 1px solid #ddd;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Force override Bootstrap bg-secondary */
+.status-badge.bg-secondary {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #333 !important;
 }
 
 .product-info {
@@ -238,17 +240,18 @@ const handleImageError = (event) => {
   font-size: 12px;
   color: #999;
   margin-bottom: 8px;
+  font-weight: 500;
 }
 
 .price-section {
   background-color: #f8f9fa;
   border-radius: 4px;
-  padding: 8px;
+  padding: 10px;
   margin-bottom: 12px;
 }
 
 .price-row {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   font-size: 14px;
 }
 
@@ -258,16 +261,24 @@ const handleImageError = (event) => {
 
 .price-row input {
   width: 100%;
-  padding: 4px 8px;
+  padding: 6px 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
+  background: white;
+}
+
+.price-row input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
 .header-top {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 8px;
 }
 
 .header-top input {
@@ -276,10 +287,11 @@ const handleImageError = (event) => {
 
 .header-top label {
   flex: 1;
-  font-weight: bold;
+  font-weight: 600;
   font-size: 14px;
   margin: 0;
   cursor: pointer;
+  color: #333;
 }
 
 .status-indicator {
@@ -289,53 +301,94 @@ const handleImageError = (event) => {
   border-radius: 50%;
 }
 
+.branch-status {
+  margin: 8px 0;
+}
+
+.branch-status .status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.branch-status .status-badge.added {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.branch-status .status-badge.not-added {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
 .product-actions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 
 .product-actions button {
-  padding: 4px 8px;
+  padding: 8px 16px;
   border: 1px solid #ddd;
   background: white;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
   transition: all 0.2s ease;
+  min-width: 80px;
 }
 
-.product-actions button:hover {
-  background: #f5f5f5;
+.product-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.product-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-add {
-  background: #28a745;
-  color: white;
-  border-color: #28a745;
+  background: #28a745 !important;
+  color: white !important;
+  border-color: #28a745 !important;
+  font-weight: 700;
 }
 
-.btn-add:hover {
-  background: #218838;
+.btn-add:hover:not(:disabled) {
+  background: #218838 !important;
+  border-color: #218838 !important;
 }
 
 .btn-edit {
-  background: #ffc107;
-  color: #212529;
-  border-color: #ffc107;
+  background: #ffc107 !important;
+  color: #212529 !important;
+  border-color: #ffc107 !important;
 }
 
-.btn-edit:hover {
-  background: #e0a800;
+.btn-edit:hover:not(:disabled) {
+  background: #e0a800 !important;
+  border-color: #e0a800 !important;
 }
 
 .btn-remove {
-  background: #dc3545;
-  color: white;
-  border-color: #dc3545;
+  background: #dc3545 !important;
+  color: white !important;
+  border-color: #dc3545 !important;
 }
 
-.btn-remove:hover {
-  background: #c82333;
+.btn-remove:hover:not(:disabled) {
+  background: #c82333 !important;
+  border-color: #c82333 !important;
 }
 
 /* Responsive Design */
@@ -345,11 +398,26 @@ const handleImageError = (event) => {
   }
   
   .card-header {
-    padding: 8px;
+    padding: 10px;
   }
   
   .card-body {
-    padding: 8px;
+    padding: 10px;
+  }
+  
+  .product-actions {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  
+  .product-actions button {
+    padding: 6px 12px;
+    font-size: 12px;
+    min-width: 70px;
+  }
+  
+  .header-top label {
+    font-size: 13px;
   }
 }
 </style>

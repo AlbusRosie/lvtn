@@ -1,166 +1,60 @@
 <template>
   <div class="add-product-form">
     <form @submit.prevent="handleSubmit">
-      <div class="mb-3">
-        <label class="form-label">
-          <i class="bi bi-building"></i> Chi nhánh <span class="text-danger">*</span>
-        </label>
-        <div class="row">
-          <div class="col-md-6">
-            <div class="form-check">
-              <input 
-                class="form-check-input" 
-                type="radio" 
-                id="allBranches"
-                v-model="formData.branchType"
-                value="all"
-              >
-              <label class="form-check-label" for="allBranches">
-                <strong>Tất cả chi nhánh</strong>
-                <small class="text-muted d-block">Thêm sản phẩm vào tất cả chi nhánh đang hoạt động</small>
-              </label>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-check">
-              <input 
-                class="form-check-input" 
-                type="radio" 
-                id="specificBranch"
-                v-model="formData.branchType"
-                value="specific"
-              >
-              <label class="form-check-label" for="specificBranch">
-                <strong>Chi nhánh cụ thể</strong>
-                <small class="text-muted d-block">Chọn chi nhánh để thêm sản phẩm</small>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="formData.branchType === 'specific'" class="mb-3">
-        <label class="form-label">Chọn chi nhánh</label>
-        <select 
-          v-model="formData.selectedBranches" 
-          class="form-select"
-          multiple
-          size="4"
-        >
-          <option 
-            v-for="branch in availableBranches" 
-            :key="branch.id" 
-            :value="branch.id"
-          >
-            {{ branch.name }} - {{ branch.address_detail }}
-          </option>
-        </select>
-        <small class="text-muted">Giữ Ctrl để chọn nhiều chi nhánh</small>
-      </div>
-
-      <div class="mb-3">
-        <label class="form-label">
-          <i class="bi bi-box"></i> Sản phẩm <span class="text-danger">*</span>
-        </label>
-        <div class="row">
-          <div class="col-md-6">
-            <div class="form-check">
-              <input 
-                class="form-check-input" 
-                type="radio" 
-                id="existingProduct"
-                v-model="formData.productType"
-                value="existing"
-              >
-              <label class="form-check-label" for="existingProduct">
-                <strong>Sản phẩm có sẵn</strong>
-                <small class="text-muted d-block">Chọn từ danh sách sản phẩm hiện có</small>
-              </label>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-check">
-              <input 
-                class="form-check-input" 
-                type="radio" 
-                id="newProduct"
-                v-model="formData.productType"
-                value="new"
-              >
-              <label class="form-check-label" for="newProduct">
-                <strong>Tạo sản phẩm mới</strong>
-                <small class="text-muted d-block">Tạo sản phẩm mới và thêm vào chi nhánh</small>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="formData.productType === 'existing'" class="mb-3">
-        <label class="form-label">Chọn sản phẩm</label>
-        <div class="row">
-          <div class="col-md-6">
-            <select v-model="filters.category" class="form-select form-select-sm mb-2">
-              <option value="">Tất cả danh mục</option>
-              <option v-for="category in categories" :key="category.id" :value="category.id">
-                {{ category.name }}
-              </option>
-            </select>
-          </div>
-          <div class="col-md-6">
+      <div class="form-group">
+        <label>Chi nhánh *</label>
+        <div class="branch-options">
+          <label class="radio-option">
             <input 
-              type="text" 
-              v-model="filters.search"
-              class="form-control form-control-sm mb-2"
-              placeholder="Tìm kiếm sản phẩm..."
+              type="radio" 
+              v-model="formData.branchType"
+              value="multiple"
             >
+            <span>Chọn nhiều chi nhánh</span>
+          </label>
+          <label class="radio-option">
+            <input 
+              type="radio" 
+              v-model="formData.branchType"
+              value="all"
+            >
+            <span>Thêm vào tất cả chi nhánh</span>
+          </label>
+        </div>
+        
+        <div v-if="formData.branchType === 'multiple'" class="multiple-branches">
+          <div class="branches-list">
+            <div 
+              v-for="branch in availableBranches" 
+              :key="branch.id"
+              class="branch-item"
+            >
+              <label class="checkbox-label">
+                <input 
+                  type="checkbox" 
+                  :value="branch.id"
+                  v-model="formData.selectedMultipleBranches"
+                >
+                <span>{{ branch.name }}</span>
+              </label>
+            </div>
+          </div>
+          <div v-if="formData.selectedMultipleBranches.length > 0" class="selected-info">
+            <i class="bi bi-check-circle"></i>
+            <span>Đã chọn {{ formData.selectedMultipleBranches.length }} chi nhánh</span>
           </div>
         </div>
         
-        <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
-          <div v-if="loadingProducts" class="text-center p-3">
-            <div class="spinner-border spinner-border-sm text-primary" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
-          </div>
-          <div v-else-if="filteredProducts.length === 0" class="text-center p-3 text-muted">
-            <i class="bi bi-inbox"></i>
-            <p class="mb-0">Không có sản phẩm nào</p>
-          </div>
-          <div v-else>
-            <div 
-              v-for="product in filteredProducts" 
-              :key="product.id"
-              class="form-check mb-2"
-            >
-              <input 
-                class="form-check-input" 
-                type="checkbox" 
-                :id="`product-${product.id}`"
-                :value="product.id"
-                v-model="formData.selectedProducts"
-              >
-              <label class="form-check-label d-flex align-items-center" :for="`product-${product.id}`">
-                <img 
-                  :src="product.image || DEFAULT_AVATAR" 
-                  :alt="product.name"
-                  class="img-thumbnail me-2"
-                  style="width: 40px; height: 40px; object-fit: cover;"
-                >
-                <div>
-                  <div class="fw-bold">{{ product.name }}</div>
-                  <small class="text-muted">{{ product.category_name }} - {{ formatPrice(product.base_price) }}</small>
-                </div>
-              </label>
-            </div>
-          </div>
+        <div v-if="formData.branchType === 'all'" class="all-branches-info">
+          <i class="bi bi-info-circle"></i>
+          <span>Sản phẩm sẽ được thêm vào {{ availableBranches.length }} chi nhánh</span>
         </div>
       </div>
 
-      <div v-if="formData.productType === 'new'" class="mb-3">
-        <div class="row">
-          <div class="col-md-6">
-            <label class="form-label">Tên sản phẩm <span class="text-danger">*</span></label>
+      <div class="form-group">
+        <div class="form-row">
+          <div class="form-col">
+            <label>Tên sản phẩm *</label>
             <input 
               type="text" 
               v-model="formData.newProduct.name"
@@ -169,9 +63,9 @@
               required
             >
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Danh mục <span class="text-danger">*</span></label>
-            <select v-model="formData.newProduct.category_id" class="form-select" required>
+          <div class="form-col">
+            <label>Danh mục *</label>
+            <select v-model="formData.newProduct.category_id" class="form-control" required>
               <option value="">Chọn danh mục</option>
               <option v-for="category in categories" :key="category.id" :value="category.id">
                 {{ category.name }}
@@ -179,9 +73,10 @@
             </select>
           </div>
         </div>
-        <div class="row mt-2">
-          <div class="col-md-6">
-            <label class="form-label">Giá cơ bản <span class="text-danger">*</span></label>
+        
+        <div class="form-row">
+          <div class="form-col">
+            <label>Giá cơ bản *</label>
             <input 
               type="number" 
               v-model="formData.newProduct.base_price"
@@ -192,8 +87,8 @@
               required
             >
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Hình ảnh</label>
+          <div class="form-col">
+            <label>Hình ảnh</label>
             <input 
               type="file" 
               @change="handleImageUpload"
@@ -202,8 +97,9 @@
             >
           </div>
         </div>
-        <div class="mt-2">
-          <label class="form-label">Mô tả</label>
+        
+        <div class="form-group">
+          <label>Mô tả</label>
           <textarea 
             v-model="formData.newProduct.description"
             class="form-control"
@@ -213,13 +109,11 @@
         </div>
       </div>
 
-      <div class="mb-3">
-        <h6 class="mb-3">
-          <i class="bi bi-gear"></i> Cài đặt sản phẩm cho chi nhánh
-        </h6>
-        <div class="row">
-          <div class="col-md-4">
-            <label class="form-label">Giá tại chi nhánh</label>
+      <div class="form-group">
+        <label>Cài đặt cho chi nhánh</label>
+        <div class="form-row">
+          <div class="form-col">
+            <label>Giá tại chi nhánh</label>
             <input 
               type="number" 
               v-model="formData.branchSettings.price"
@@ -228,32 +122,29 @@
               min="0"
               step="1000"
             >
-            <small class="text-muted">Để trống để sử dụng giá cơ bản</small>
           </div>
-          <div class="col-md-4">
-            <label class="form-label">Trạng thái</label>
-            <select v-model="formData.branchSettings.status" class="form-select">
+          <div class="form-col">
+            <label>Trạng thái</label>
+            <select v-model="formData.branchSettings.status" class="form-control">
               <option value="available">Có sẵn</option>
               <option value="temporarily_unavailable">Tạm ngừng</option>
               <option value="out_of_stock">Hết hàng</option>
             </select>
           </div>
-          <div class="col-md-4">
-            <label class="form-label">Có sẵn</label>
-            <div class="form-check form-switch">
-              <input 
-                class="form-check-input" 
-                type="checkbox" 
-                v-model="formData.branchSettings.is_available"
-              >
-              <label class="form-check-label">
-                {{ formData.branchSettings.is_available ? 'Có sẵn' : 'Không có sẵn' }}
-              </label>
-            </div>
-          </div>
         </div>
-        <div class="mt-2">
-          <label class="form-label">Ghi chú</label>
+        
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input 
+              type="checkbox" 
+              v-model="formData.branchSettings.is_available"
+            >
+            <span>Có sẵn tại chi nhánh</span>
+          </label>
+        </div>
+        
+        <div class="form-group">
+          <label>Ghi chú</label>
           <textarea 
             v-model="formData.branchSettings.notes"
             class="form-control"
@@ -263,20 +154,19 @@
         </div>
       </div>
 
-      <div class="d-flex justify-content-end gap-2">
+      <div class="form-actions">
         <button 
           type="button" 
-          class="btn btn-secondary"
+          class="btn btn-cancel"
           @click="$emit('cancel')"
         >
-          <i class="bi bi-x-circle"></i> Hủy
+          Hủy
         </button>
         <button 
           type="submit" 
-          class="btn btn-primary"
+          class="btn btn-submit"
           :disabled="loading || !isFormValid"
         >
-          <i class="bi bi-plus-circle"></i> 
           {{ loading ? 'Đang xử lý...' : 'Thêm sản phẩm' }}
         </button>
       </div>
@@ -307,14 +197,10 @@ const props = defineProps({
 })
 
 const loading = ref(false)
-const loadingProducts = ref(false)
-const products = ref([])
 
 const formData = ref({
-  branchType: 'specific',
-  selectedBranches: [],
-  productType: 'existing',
-  selectedProducts: [],
+  branchType: 'multiple',
+  selectedMultipleBranches: [],
   newProduct: {
     name: '',
     category_id: '',
@@ -330,65 +216,19 @@ const formData = ref({
   }
 })
 
-const filters = ref({
-  category: '',
-  search: ''
-})
-
 const availableBranches = computed(() => {
-  if (props.selectedBranchId) {
-    return props.branches.filter(b => b.id == props.selectedBranchId)
-  }
   return props.branches
 })
 
-const filteredProducts = computed(() => {
-  let filtered = products.value
-
-  if (filters.value.category) {
-    filtered = filtered.filter(p => p.category_id == filters.value.category)
-  }
-
-  if (filters.value.search) {
-    const search = filters.value.search.toLowerCase()
-    filtered = filtered.filter(p => 
-      p.name.toLowerCase().includes(search) ||
-      p.description?.toLowerCase().includes(search)
-    )
-  }
-
-  return filtered
-})
-
 const isFormValid = computed(() => {
-  if (formData.value.branchType === 'specific' && formData.value.selectedBranches.length === 0) {
+  if (formData.value.branchType === 'multiple' && formData.value.selectedMultipleBranches.length === 0) {
     return false
   }
 
-  if (formData.value.productType === 'existing' && formData.value.selectedProducts.length === 0) {
-    return false
-  }
-
-  if (formData.value.productType === 'new') {
-    return formData.value.newProduct.name && 
-           formData.value.newProduct.category_id && 
-           formData.value.newProduct.base_price > 0
-  }
-
-  return true
+  return formData.value.newProduct.name && 
+         formData.value.newProduct.category_id && 
+         formData.value.newProduct.base_price > 0
 })
-
-const loadProducts = async () => {
-  loadingProducts.value = true
-  try {
-    const data = await ProductService.getProducts()
-    products.value = data.data?.products || data.products || []
-  } catch (error) {
-    console.error('Error loading products:', error)
-  } finally {
-    loadingProducts.value = false
-  }
-}
 
 const handleImageUpload = (event) => {
   const file = event.target.files[0]
@@ -400,44 +240,14 @@ const handleImageUpload = (event) => {
 const handleSubmit = async () => {
   loading.value = true
   try {
-    if (formData.value.productType === 'existing') {
-      await addExistingProducts()
-    } else {
-      await createNewProduct()
-    }
-    
+    await createNewProduct()
     emit('success')
   } catch (error) {
-    console.error('Error adding products:', error)
+    console.error('Error adding product:', error)
     alert('Có lỗi xảy ra: ' + error.message)
   } finally {
     loading.value = false
   }
-}
-
-const addExistingProducts = async () => {
-  const branches = formData.value.branchType === 'all' 
-    ? props.branches.map(b => b.id)
-    : formData.value.selectedBranches
-
-  const branchProductData = {
-    price: formData.value.branchSettings.price || null,
-    is_available: formData.value.branchSettings.is_available ? 1 : 0,
-    status: formData.value.branchSettings.status,
-    notes: formData.value.branchSettings.notes || null
-  }
-
-  const promises = []
-  
-  for (const branchId of branches) {
-    for (const productId of formData.value.selectedProducts) {
-      promises.push(
-        ProductService.addProductToBranch(branchId, productId, branchProductData)
-      )
-    }
-  }
-
-  await Promise.all(promises)
 }
 
 const createNewProduct = async () => {
@@ -446,52 +256,41 @@ const createNewProduct = async () => {
   productData.append('category_id', formData.value.newProduct.category_id)
   productData.append('base_price', formData.value.newProduct.base_price)
   productData.append('description', formData.value.newProduct.description)
-  productData.append('is_global_available', formData.value.branchType === 'all' ? '1' : '0')
+  productData.append('is_global_available', '0')
   
   if (formData.value.newProduct.image) {
     productData.append('imageFile', formData.value.newProduct.image)
   }
 
-  if (formData.value.branchType === 'specific') {
-    productData.append('selected_branches', JSON.stringify(formData.value.selectedBranches))
+  let targetBranches = []
+  if (formData.value.branchType === 'multiple') {
+    targetBranches = formData.value.selectedMultipleBranches
+  } else {
+    targetBranches = availableBranches.value.map(branch => branch.id)
   }
+
+  productData.append('selected_branches', JSON.stringify(targetBranches))
 
   const newProduct = await ProductService.createProduct(productData)
   
-  if (formData.value.branchType === 'specific' && formData.value.selectedBranches.length > 0) {
-    const branchProductData = {
-      price: formData.value.branchSettings.price || formData.value.newProduct.base_price,
-      is_available: formData.value.branchSettings.is_available ? 1 : 0,
-      status: formData.value.branchSettings.status,
-      notes: formData.value.branchSettings.notes || null
-    }
-
-    const promises = formData.value.selectedBranches.map(branchId => 
-      ProductService.addProductToBranch(branchId, newProduct.data.id, branchProductData)
-    )
-
-    await Promise.all(promises)
+  const branchProductData = {
+    price: formData.value.branchSettings.price || formData.value.newProduct.base_price,
+    is_available: formData.value.branchSettings.is_available ? 1 : 0,
+    status: formData.value.branchSettings.status,
+    notes: formData.value.branchSettings.notes || null
   }
-}
 
-const formatPrice = (price) => {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND'
-  }).format(price)
-}
+  const promises = targetBranches.map(branchId => 
+    ProductService.addProductToBranch(branchId, newProduct.data.id, branchProductData)
+  )
 
-watch(() => props.selectedBranchId, (newVal) => {
-  if (newVal) {
-    formData.value.selectedBranches = [newVal]
-  }
-})
+  await Promise.all(promises)
+}
 
 onMounted(() => {
   if (props.selectedBranchId) {
-    formData.value.selectedBranches = [props.selectedBranchId]
+    formData.value.selectedMultipleBranches = [props.selectedBranchId]
   }
-  loadProducts()
 })
 </script>
 
@@ -500,33 +299,175 @@ onMounted(() => {
   padding: 0;
 }
 
-.form-check-label {
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.branch-options {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 15px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
 }
 
-.img-thumbnail {
-  border: 1px solid #dee2e6;
+.radio-option input[type="radio"] {
+  margin: 0;
 }
 
-.border {
-  border: 1px solid #dee2e6 !important;
+.all-branches-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #e3f2fd;
+  border: 1px solid #bbdefb;
+  border-radius: 4px;
+  color: #1976d2;
+  font-size: 14px;
 }
 
-.spinner-border-sm {
-  width: 1rem;
-  height: 1rem;
+.all-branches-info i {
+  font-size: 16px;
 }
 
-.form-control-sm {
-  font-size: 0.875rem;
+.multiple-branches {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+  background: #f9f9f9;
 }
 
-.text-muted {
-  font-size: 0.875rem;
+.branches-list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 15px;
 }
 
-.form-switch .form-check-input {
-  width: 2.5em;
-  height: 1.25em;
+.branch-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.branch-item:last-child {
+  border-bottom: none;
+}
+
+.branch-item .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: normal;
+}
+
+.branch-item .checkbox-label input[type="checkbox"] {
+  margin: 0;
+}
+
+.selected-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 4px;
+  color: #155724;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.selected-info i {
+  font-size: 16px;
+}
+
+
+.form-row {
+  display: flex;
+  gap: 15px;
+}
+
+.form-col {
+  flex: 1;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin: 0;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-cancel {
+  background: white;
+  color: #666;
+}
+
+.btn-cancel:hover {
+  background: #f5f5f5;
+}
+
+.btn-submit {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.btn-submit:disabled {
+  background: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
 }
 </style>

@@ -55,7 +55,6 @@ class TableCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Table Icon
               Icon(
                 Icons.table_restaurant,
                 size: 48,
@@ -63,7 +62,6 @@ class TableCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               
-              // Table Number
               Text(
                 'Bàn ${table.tableNumber}',
                 style: TextStyle(
@@ -74,7 +72,6 @@ class TableCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               
-              // Capacity
               Text(
                 '${table.capacity} người',
                 style: TextStyle(
@@ -84,7 +81,6 @@ class TableCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               
-              // Status
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -105,7 +101,6 @@ class TableCard extends StatelessWidget {
                 ],
               ),
               
-              // Location
               if (table.location != null) ...[
                 const SizedBox(height: 4),
                 Text(

@@ -8,6 +8,8 @@ import { DEFAULT_AVATAR, DEFAULT_PRODUCT_IMAGE } from '@/constants';
  */
 async function efetch(url, options = {}) {
     const token = localStorage.getItem('auth_token');
+    console.log('Token from localStorage:', token ? 'exists' : 'null');
+    
     const headers = {
         'Content-Type': 'application/json',
         ...(options.headers || {}),
@@ -29,6 +31,12 @@ async function efetch(url, options = {}) {
     }
     
     if (!result.ok || json.status !== 'success') {
+        if (result.status === 401) {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_user');
+            window.location.href = '/admin/login';
+            return;
+        }
         throw new Error(json.message || 'Bạn cần đăng nhập');
     }
     

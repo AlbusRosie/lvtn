@@ -1,195 +1,159 @@
 <template>
   <div class="product-form">
     <form @submit.prevent="handleSubmit">
-      <div class="row">
-        <div class="col-md-6">
-          <div class="mb-3">
-            <label for="name" class="form-label">Tên sản phẩm <span class="text-danger">*</span></label>
-            <input
-              v-model="formData.name"
-              type="text"
-              class="form-control"
-              id="name"
-              placeholder="Nhập tên sản phẩm"
-              required
-            />
-          </div>
+      <div class="form-group">
+        <label>Tên sản phẩm *</label>
+        <input
+          v-model="formData.name"
+          type="text"
+          class="form-control"
+          placeholder="Nhập tên sản phẩm"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Danh mục *</label>
+        <select
+          v-model="formData.category_id"
+          class="form-control"
+          required
+        >
+          <option value="">Chọn danh mục</option>
+          <option v-for="category in categories" :key="category.id" :value="category.id">
+            {{ category.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-col">
+          <label>Giá cơ bản *</label>
+          <input
+            v-model.number="formData.base_price"
+            type="number"
+            class="form-control"
+            placeholder="Nhập giá cơ bản"
+            min="0"
+            step="1000"
+            required
+          />
         </div>
 
-        <div class="col-md-6">
-          <div class="mb-3">
-            <label for="category_id" class="form-label">Danh mục <span class="text-danger">*</span></label>
-            <select
-              v-model="formData.category_id"
-              class="form-select"
-              id="category_id"
-              required
+        <div class="form-col">
+          <label>Trạng thái</label>
+          <select
+            v-model="formData.status"
+            class="form-control"
+          >
+            <option value="active">Hoạt động</option>
+            <option value="inactive">Không hoạt động</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Mô tả</label>
+        <textarea
+          v-model="formData.description"
+          class="form-control"
+          rows="3"
+          placeholder="Nhập mô tả sản phẩm"
+        ></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input
+            v-model="formData.is_global_available"
+            type="checkbox"
+            @change="onGlobalAvailableChange"
+          />
+          <span>Có sẵn toàn hệ thống</span>
+        </label>
+      </div>
+
+      <div v-if="formData.is_global_available" class="form-group">
+        <label>Chọn chi nhánh áp dụng</label>
+        <div class="branch-selection">
+          <div class="branch-actions">
+            <button
+              type="button"
+              class="btn btn-small"
+              @click="selectAllBranches"
             >
-              <option value="">Chọn danh mục</option>
-              <option v-for="category in categories" :key="category.id" :value="category.id">
-                {{ category.name }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div class="col-md-6">
-          <div class="mb-3">
-            <label for="base_price" class="form-label">Giá cơ bản <span class="text-danger">*</span></label>
-            <input
-              v-model.number="formData.base_price"
-              type="number"
-              class="form-control"
-              id="base_price"
-              placeholder="Nhập giá cơ bản"
-              min="0"
-              step="1000"
-              required
-            />
-          </div>
-        </div>
-
-        <div class="col-md-6">
-          <div class="mb-3">
-            <label for="status" class="form-label">Trạng thái</label>
-            <select
-              v-model="formData.status"
-              class="form-select"
-              id="status"
+              Chọn tất cả
+            </button>
+            <button
+              type="button"
+              class="btn btn-small"
+              @click="deselectAllBranches"
             >
-              <option value="active">Hoạt động</option>
-              <option value="inactive">Không hoạt động</option>
-            </select>
+              Bỏ chọn tất cả
+            </button>
           </div>
-        </div>
-
-        <div class="col-12">
-          <div class="mb-3">
-            <label for="description" class="form-label">Mô tả</label>
-            <textarea
-              v-model="formData.description"
-              class="form-control"
-              id="description"
-              rows="3"
-              placeholder="Nhập mô tả sản phẩm"
-            ></textarea>
+          
+          <div v-if="loadingBranches" class="loading">
+            Đang tải danh sách chi nhánh...
           </div>
-        </div>
-
-        <div class="col-12">
-          <div class="mb-3">
-            <div class="form-check">
+          
+          <div v-else-if="branches.length === 0" class="empty">
+            Không có chi nhánh nào đang hoạt động
+          </div>
+          
+          <div v-else class="branch-list">
+            <div
+              v-for="branch in branches"
+              :key="branch.id"
+              class="branch-item"
+            >
               <input
-                v-model="formData.is_global_available"
-                class="form-check-input"
+                v-model="formData.selected_branches"
                 type="checkbox"
-                id="is_global_available"
-                @change="onGlobalAvailableChange"
+                :value="branch.id"
+                :id="`branch_${branch.id}`"
               />
-              <label class="form-check-label" for="is_global_available">
-                Có sẵn toàn hệ thống
+              <label :for="`branch_${branch.id}`" class="branch-label">
+                <div class="branch-name">{{ branch.name }}</div>
+                <div class="branch-address">{{ branch.address_detail }}</div>
               </label>
             </div>
           </div>
-        </div>
-
-        <div v-if="formData.is_global_available" class="col-12">
-          <div class="mb-3">
-            <label class="form-label">Chọn chi nhánh áp dụng</label>
-            <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
-              <div class="mb-2">
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-primary me-2"
-                  @click="selectAllBranches"
-                >
-                  <i class="bi bi-check-all"></i> Chọn tất cả
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-secondary"
-                  @click="deselectAllBranches"
-                >
-                  <i class="bi bi-x-square"></i> Bỏ chọn tất cả
-                </button>
-              </div>
-              
-              <div v-if="loadingBranches" class="text-center py-3">
-                <div class="spinner-border spinner-border-sm" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-                <span class="ms-2">Đang tải danh sách chi nhánh...</span>
-              </div>
-              
-              <div v-else-if="branches.length === 0" class="text-muted text-center py-3">
-                Không có chi nhánh nào đang hoạt động
-              </div>
-              
-              <div v-else class="row">
-                <div
-                  v-for="branch in branches"
-                  :key="branch.id"
-                  class="col-md-6 col-lg-4 mb-2"
-                >
-                  <div class="form-check">
-                    <input
-                      v-model="formData.selected_branches"
-                      class="form-check-input"
-                      type="checkbox"
-                      :value="branch.id"
-                      :id="`branch_${branch.id}`"
-                    />
-                    <label class="form-check-label" :for="`branch_${branch.id}`">
-                      <strong>{{ branch.name }}</strong>
-                      <br>
-                      <small class="text-muted">{{ branch.address_detail }}</small>
-                    </label>
-                  </div>
-                </div>
-              </div>
-              
-              <div v-if="branches.length > 0" class="mt-2 pt-2 border-top">
-                <small class="text-muted">
-                  Đã chọn: <strong>{{ formData.selected_branches.length }}</strong> / {{ branches.length }} chi nhánh
-                </small>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12">
-          <div class="mb-3">
-            <label for="image" class="form-label">Hình ảnh</label>
-            <input
-              @change="handleImageChange"
-              type="file"
-              class="form-control"
-              id="image"
-              accept="image/*"
-            />
-            <div v-if="imagePreview" class="mt-2">
-              <img :src="imagePreview" alt="Preview" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
-            </div>
+          
+          <div v-if="branches.length > 0" class="branch-count">
+            Đã chọn: {{ formData.selected_branches.length }} / {{ branches.length }} chi nhánh
           </div>
         </div>
       </div>
 
-      <div class="d-flex justify-content-end gap-2">
+      <div class="form-group">
+        <label>Hình ảnh</label>
+        <input
+          @change="handleImageChange"
+          type="file"
+          class="form-control"
+          accept="image/*"
+        />
+        <div v-if="imagePreview" class="image-preview">
+          <img :src="imagePreview" alt="Preview" class="preview-image">
+        </div>
+      </div>
+
+      <div class="form-actions">
         <button
           @click="$emit('cancel')"
           type="button"
-          class="btn btn-secondary"
+          class="btn btn-cancel"
           :disabled="loading"
         >
           Hủy
         </button>
         <button
           type="submit"
-          class="btn btn-primary"
+          class="btn btn-submit"
           :disabled="loading"
         >
-          <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
-          {{ isEditing ? 'Cập nhật' : 'Tạo mới' }}
+          {{ loading ? 'Đang xử lý...' : (isEditing ? 'Cập nhật' : 'Tạo mới') }}
         </button>
       </div>
     </form>
@@ -339,21 +303,176 @@ const handleSubmit = () => {
   max-width: 100%;
 }
 
-.form-label {
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
   font-weight: 500;
+  color: #333;
 }
 
-.text-danger {
-  color: #dc3545 !important;
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
 }
 
-.img-thumbnail {
-  border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
+.form-control:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
-.spinner-border-sm {
-  width: 1rem;
-  height: 1rem;
+.form-row {
+  display: flex;
+  gap: 15px;
+}
+
+.form-col {
+  flex: 1;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin: 0;
+}
+
+.branch-selection {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+}
+
+.branch-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.btn-small {
+  padding: 5px 10px;
+  font-size: 12px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.btn-small:hover {
+  background: #f5f5f5;
+}
+
+.loading, .empty {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+.branch-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.branch-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.branch-item:last-child {
+  border-bottom: none;
+}
+
+.branch-item input[type="checkbox"] {
+  margin: 0;
+}
+
+.branch-label {
+  cursor: pointer;
+  flex: 1;
+}
+
+.branch-name {
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.branch-address {
+  font-size: 12px;
+  color: #666;
+}
+
+.branch-count {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+  font-size: 12px;
+  color: #666;
+}
+
+.image-preview {
+  margin-top: 10px;
+}
+
+.preview-image {
+  max-width: 200px;
+  max-height: 200px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-cancel {
+  background: white;
+  color: #666;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.btn-submit {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.btn:disabled {
+  background: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
 }
 </style>

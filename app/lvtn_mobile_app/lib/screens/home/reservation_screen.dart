@@ -73,7 +73,6 @@ class _ReservationScreenState extends State<ReservationScreen> {
                 ),
                 const SizedBox(height: 16),
                 
-                // Table status legend
                 Row(
                   children: [
                     _buildStatusIndicator(Colors.green, 'Có sẵn'),
@@ -87,7 +86,6 @@ class _ReservationScreenState extends State<ReservationScreen> {
                 ),
                 const SizedBox(height: 24),
                 
-                // Tables grid
                 Expanded(
                   child: GridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

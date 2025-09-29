@@ -9,15 +9,12 @@ const router = express.Router();
 module.exports.setup = (app) => {
     app.use('/api/products', router);
 
-    // Public
     router.get('/', ProductController.getProducts);
     router.get('/:id', ProductController.getProduct);
     
     router.all('/', methodNotAllowed);
-    router.all('/branches/:branchId/products/:productId', methodNotAllowed);
     router.all('/:id', methodNotAllowed);
 
-    // Admin nhé
     router.use(verifyToken);
 
     router.post('/', productUpload, ProductController.createProduct);

@@ -251,38 +251,20 @@
     </div>
 
     
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
-      <div
-        v-for="toast in toasts"
-        :key="toast.id"
-        class="toast show"
-        :class="toast.type"
-      >
-        <div class="toast-header">
-          <strong class="me-auto">{{ toast.title }}</strong>
-          <button
-            @click="removeToast(toast.id)"
-            type="button"
-            class="btn-close"
-          ></button>
-        </div>
-        <div class="toast-body">
-          {{ toast.message }}
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useToast } from 'vue-toastification';
 import ProductService from '@/services/ProductService';
 import ProductForm from '@/components/Admin/Product/ProductForm.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 
 const product = ref(null);
 const categories = ref([]);
@@ -293,16 +275,13 @@ const deleteLoading = ref(false);
 const showEditModal = ref(false);
 const showDeleteModal = ref(false);
 
-const toasts = ref([]);
-let toastId = 0;
-
 const loadProduct = async () => {
   loading.value = true;
   try {
     const response = await ProductService.getProduct(route.params.id);
     product.value = response.data;
   } catch (error) {
-    showToast('Error', error.message, 'danger');
+    toast.error(error.message);
     product.value = null;
   } finally {
     loading.value = false;
@@ -380,11 +359,11 @@ const handleFormSubmit = async (formDataObj) => {
   formLoading.value = true;
   try {
     await ProductService.updateProduct(product.value.id, formDataObj);
-    showToast('Success', 'Product updated successfully', 'success');
+    toast.success('Cập nhật sản phẩm thành công!');
     showEditModal.value = false;
     loadProduct();
   } catch (error) {
-    showToast('Error', error.message, 'danger');
+    toast.error(error.message);
   } finally {
     formLoading.value = false;
   }
@@ -394,37 +373,16 @@ const confirmDelete = async () => {
   deleteLoading.value = true;
   try {
     await ProductService.deleteProduct(product.value.id);
-    showToast('Success', 'Product deleted successfully', 'success');
+    toast.success('Xóa sản phẩm thành công!');
     showDeleteModal.value = false;
     router.push('/admin/products/branch-menu');
   } catch (error) {
-    showToast('Error', error.message, 'danger');
+    toast.error(error.message);
   } finally {
     deleteLoading.value = false;
   }
 };
 
-const showToast = (title, message, type = 'info') => {
-  const toast = {
-    id: ++toastId,
-    title,
-    message,
-    type: `bg-${type} text-white`
-  };
-
-  toasts.value.push(toast);
-
-  setTimeout(() => {
-    removeToast(toast.id);
-  }, 5000);
-};
-
-const removeToast = (id) => {
-  const index = toasts.value.findIndex(toast => toast.id === id);
-  if (index > -1) {
-    toasts.value.splice(index, 1);
-  }
-};
 
 onMounted(() => {
   loadCategories();

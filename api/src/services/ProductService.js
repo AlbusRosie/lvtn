@@ -119,7 +119,6 @@ async function getManyProducts(query) {
                     .andOn('branch_products.branch_id', '=', branchId);
             })
             .join('categories', 'products.category_id', 'categories.id')
-            .where('products.is_global_available', 1)
             .where('products.status', 'active')
             .where((builder) => {
                 if (name) {
@@ -188,8 +187,8 @@ async function getManyProducts(query) {
                 knex.raw(`
                     CASE 
                         WHEN branch_products.id IS NULL THEN 'not_added'
+                        WHEN branch_products.status = 'discontinued' THEN 'not_added'
                         WHEN branch_products.is_available = 0 THEN 'unavailable'
-                        WHEN branch_products.status = 'discontinued' THEN 'discontinued'
                         WHEN branch_products.status = 'out_of_stock' THEN 'out_of_stock'
                         WHEN branch_products.status = 'temporarily_unavailable' THEN 'temporarily_unavailable'
                         ELSE 'available'
@@ -376,20 +375,43 @@ async function addProductToBranch(branchId, productId, branchProductData) {
         .where('product_id', productId)
         .first();
 
+    let id;
     if (existingBranchProduct) {
-        throw new Error('Product already exists in this branch');
+        await knex('branch_products')
+            .where('id', existingBranchProduct.id)
+            .update({
+                price: branchProductData.price || product.base_price,
+                is_available: branchProductData.is_available !== undefined ? branchProductData.is_available : 1,
+                status: branchProductData.status || 'available',
+                notes: branchProductData.notes || null,
+                updated_at: new Date()
+            });
+        id = existingBranchProduct.id;
+    } else {
+        [id] = await knex('branch_products').insert({
+            branch_id: branchId,
+            product_id: productId,
+            price: branchProductData.price || product.base_price,
+            is_available: branchProductData.is_available !== undefined ? branchProductData.is_available : 1,
+            status: branchProductData.status || 'available',
+            notes: branchProductData.notes || null
+        });
     }
 
-    const [id] = await knex('branch_products').insert({
-        branch_id: branchId,
-        product_id: productId,
-        price: branchProductData.price || product.base_price,
-        is_available: branchProductData.is_available !== undefined ? branchProductData.is_available : 1,
-        status: branchProductData.status || 'available',
-        notes: branchProductData.notes || null
-    });
-
-    return getBranchProductById(id);
+    return await knex('branch_products')
+        .join('products', 'branch_products.product_id', 'products.id')
+        .join('categories', 'products.category_id', 'categories.id')
+        .where('branch_products.id', id)
+        .select(
+            'branch_products.*',
+            'products.name',
+            'products.description',
+            'products.base_price',
+            'products.image',
+            'products.status as product_status',
+            'categories.name as category_name'
+        )
+        .first();
 }
 
 async function updateBranchProduct(branchProductId, updateData) {
@@ -447,7 +469,20 @@ async function updateBranchProduct(branchProductId, updateData) {
         .where('id', branchProductId)
         .update(updateFields);
 
-    return getBranchProductById(branchProductId);
+    return await knex('branch_products')
+        .join('products', 'branch_products.product_id', 'products.id')
+        .join('categories', 'products.category_id', 'categories.id')
+        .where('branch_products.id', branchProductId)
+        .select(
+            'branch_products.*',
+            'products.name',
+            'products.description',
+            'products.base_price',
+            'products.image',
+            'products.status as product_status',
+            'categories.name as category_name'
+        )
+        .first();
 }
 
 async function removeProductFromBranch(branchId, productId) {

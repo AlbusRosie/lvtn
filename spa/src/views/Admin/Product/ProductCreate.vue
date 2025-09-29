@@ -1,89 +1,42 @@
 <template>
   <div class="product-create">
-    
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <div>
-        <nav aria-label="breadcrumb">
-          <ol class="breadcrumb">
-            <li class="breadcrumb-item">
-              <router-link to="/admin/products/branch-menu">Menu Chi nhánh</router-link>
-            </li>
-            <li class="breadcrumb-item active" aria-current="page">
-              Create Product
-            </li>
-          </ol>
-        </nav>
-        <h2 class="mb-1">
-          <i class="bi bi-plus-circle"></i> Create New Product
-        </h2>
-        <p class="text-muted mb-0">Add a new product to your inventory</p>
+    <div class="header">
+      <div class="breadcrumb">
+        <router-link to="/admin/products/branch-menu">Menu Chi nhánh</router-link>
+        <span> / </span>
+        <span>Tạo sản phẩm mới</span>
       </div>
-      <router-link to="/admin/products/branch-menu" class="btn btn-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Products
-      </router-link>
+      <h1>Tạo sản phẩm mới</h1>
+      <p class="subtitle">Thêm sản phẩm mới vào hệ thống</p>
     </div>
 
-    
-    <div class="row justify-content-center">
-      <div class="col-lg-8">
-        <div class="card">
-          <div class="card-header">
-            <h5 class="card-title mb-0">
-              <i class="bi bi-box"></i> Product Information
-            </h5>
-          </div>
-          <div class="card-body">
-            <ProductForm
-              :product="duplicateProduct"
-              :categories="categories"
-              :loading="loading"
-              @submit="handleSubmit"
-              @cancel="handleCancel"
-            />
-          </div>
-        </div>
-      </div>
+    <div class="form-container">
+      <ProductForm
+        :product="duplicateProduct"
+        :categories="categories"
+        :loading="loading"
+        @submit="handleSubmit"
+        @cancel="handleCancel"
+      />
     </div>
 
-    
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
-      <div
-        v-for="toast in toasts"
-        :key="toast.id"
-        class="toast show"
-        :class="toast.type"
-      >
-        <div class="toast-header">
-          <strong class="me-auto">{{ toast.title }}</strong>
-          <button
-            @click="removeToast(toast.id)"
-            type="button"
-            class="btn-close"
-          ></button>
-        </div>
-        <div class="toast-body">
-          {{ toast.message }}
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useToast } from 'vue-toastification';
 import ProductService from '@/services/ProductService';
 import ProductForm from '@/components/Admin/Product/ProductForm.vue';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 
 const categories = ref([]);
 const duplicateProduct = ref(null);
 const loading = ref(false);
-
-const toasts = ref([]);
-let toastId = 0;
 
 const loadCategories = () => {
   categories.value = [
@@ -107,7 +60,7 @@ const loadDuplicateProduct = async () => {
         description: product.description
       };
     } catch (error) {
-      showToast('Error', 'Failed to load product for duplication', 'danger');
+      toast.error('Không thể tải sản phẩm để sao chép');
     }
   }
 };
@@ -116,13 +69,13 @@ const handleSubmit = async (formData) => {
   loading.value = true;
   try {
     await ProductService.createProduct(formData);
-    showToast('Success', 'Product created successfully', 'success');
+    toast.success('Tạo sản phẩm thành công!');
 
     setTimeout(() => {
       router.push('/admin/products/branch-menu');
     }, 1500);
   } catch (error) {
-    showToast('Error', error.message, 'danger');
+    toast.error(error.message);
   } finally {
     loading.value = false;
   }
@@ -132,27 +85,6 @@ const handleCancel = () => {
   router.push('/admin/products/branch-menu');
 };
 
-const showToast = (title, message, type = 'info') => {
-  const toast = {
-    id: ++toastId,
-    title,
-    message,
-    type: `bg-${type} text-white`
-  };
-
-  toasts.value.push(toast);
-
-  setTimeout(() => {
-    removeToast(toast.id);
-  }, 5000);
-};
-
-const removeToast = (id) => {
-  const index = toasts.value.findIndex(toast => toast.id === id);
-  if (index > -1) {
-    toasts.value.splice(index, 1);
-  }
-};
 
 onMounted(() => {
   loadCategories();
@@ -165,16 +97,40 @@ onMounted(() => {
   padding: 20px;
 }
 
-.toast-container {
-  z-index: 1060;
+.header {
+  margin-bottom: 30px;
+}
+
+.breadcrumb {
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #666;
 }
 
 .breadcrumb a {
+  color: #007bff;
   text-decoration: none;
-  color: #0d6efd;
 }
 
 .breadcrumb a:hover {
   text-decoration: underline;
 }
+
+.header h1 {
+  margin: 0 0 5px 0;
+  font-size: 24px;
+  color: #333;
+}
+
+.subtitle {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.form-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
 </style>

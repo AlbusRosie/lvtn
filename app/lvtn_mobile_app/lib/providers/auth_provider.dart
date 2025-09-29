@@ -31,13 +31,9 @@ class AuthProvider with ChangeNotifier {
     _clearError();
     
     try {
-      print('AuthProvider: Starting login for $username');
       await _authService.login(username, password);
       _user = _authService.currentUser;
-      print('AuthProvider: Login successful, user: $_user');
-      print('AuthProvider: isLoggedIn: $isLoggedIn');
     } catch (e) {
-      print('AuthProvider: Login error: $e');
       _setError(e.toString());
       rethrow;
     } finally {

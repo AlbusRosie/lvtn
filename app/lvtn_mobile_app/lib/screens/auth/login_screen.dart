@@ -64,7 +64,6 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Logo
                 const Icon(
                   Icons.restaurant,
                   size: 80,
@@ -72,7 +71,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
                 
-                // Title
                 const Text(
                   'LVTN Restaurant',
                   textAlign: TextAlign.center,
@@ -94,7 +92,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 48),
 
-                // Username field
                 CustomTextField(
                   controller: _usernameController,
                   labelText: 'Tên đăng nhập',
@@ -108,7 +105,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Password field
                 CustomTextField(
                   controller: _passwordController,
                   labelText: 'Mật khẩu',
@@ -133,7 +129,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Login button
                 Consumer<AuthProvider>(
                   builder: (context, authProvider, child) {
                     return LoadingButton(
@@ -145,7 +140,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Register link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

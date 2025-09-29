@@ -36,7 +36,6 @@ class _MenuScreenState extends State<MenuScreen> {
           IconButton(
             icon: const Icon(Icons.shopping_cart),
             onPressed: () {
-              // TODO: Navigate to cart
             },
           ),
         ],
@@ -51,7 +50,6 @@ class _MenuScreenState extends State<MenuScreen> {
 
           return Column(
             children: [
-              // Categories
               Container(
                 height: 50,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -89,7 +87,6 @@ class _MenuScreenState extends State<MenuScreen> {
               
               const SizedBox(height: 16),
               
-              // Products
               Expanded(
                 child: productProvider.products.isEmpty
                     ? const Center(
@@ -126,10 +123,8 @@ class _MenuScreenState extends State<MenuScreen> {
                           return ProductCard(
                             product: product,
                             onTap: () {
-                              // TODO: Show product details
                             },
                             onAddToCart: () {
-                              // TODO: Add to cart
                             },
                           );
                         },

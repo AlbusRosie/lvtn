@@ -88,7 +88,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Username
               CustomTextField(
                 controller: _usernameController,
                 labelText: 'Tên đăng nhập *',
@@ -105,7 +104,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Email
               CustomTextField(
                 controller: _emailController,
                 labelText: 'Email *',
@@ -123,7 +121,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Name
               CustomTextField(
                 controller: _nameController,
                 labelText: 'Họ và tên *',
@@ -137,7 +134,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Phone
               CustomTextField(
                 controller: _phoneController,
                 labelText: 'Số điện thoại',
@@ -154,7 +150,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Address
               CustomTextField(
                 controller: _addressController,
                 labelText: 'Địa chỉ',
@@ -163,7 +158,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Role selection
               const Text(
                 'Loại tài khoản *',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
@@ -193,7 +187,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Password
               CustomTextField(
                 controller: _passwordController,
                 labelText: 'Mật khẩu *',
@@ -221,7 +214,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Confirm Password
               CustomTextField(
                 controller: _confirmPasswordController,
                 labelText: 'Xác nhận mật khẩu *',
@@ -249,7 +241,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Register button
               Consumer<AuthProvider>(
                 builder: (context, authProvider, child) {
                   return LoadingButton(

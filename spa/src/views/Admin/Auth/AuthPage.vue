@@ -52,7 +52,7 @@ async function onLogin(values) {
   <div class="login-container">
     <div class="login-card">
       <div class="login-header">
-        <h1 class="login-title">Admin Login</h1>
+        <h1 class="login-title">Login</h1>
         <p class="login-subtitle">Đăng nhập hệ thống quản lý</p>
       </div>
 

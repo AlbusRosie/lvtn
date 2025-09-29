@@ -28,7 +28,6 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product Image
             Expanded(
               flex: 3,
               child: Container(
@@ -65,7 +64,6 @@ class ProductCard extends StatelessWidget {
               ),
             ),
             
-            // Product Info
             Expanded(
               flex: 2,
               child: Padding(
@@ -73,7 +71,6 @@ class ProductCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Product Name
                     Text(
                       product.name,
                       style: const TextStyle(
@@ -85,7 +82,6 @@ class ProductCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     
-                    // Price
                     Text(
                       product.formattedPrice,
                       style: const TextStyle(
@@ -97,7 +93,6 @@ class ProductCard extends StatelessWidget {
                     
                     const Spacer(),
                     
-                    // Add to Cart Button
                     SizedBox(
                       width: double.infinity,
                       height: 32,

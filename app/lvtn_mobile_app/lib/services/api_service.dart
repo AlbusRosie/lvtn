@@ -26,21 +26,15 @@ class ApiService {
     }
 
     Future<dynamic> _handleResponse(http.Response response) async {
-        print('API Response Status: ${response.statusCode}');
-        print('API Response Body: ${response.body}');
-        
         final data = json.decode(response.body);
         
         if (response.statusCode >= 200 && response.statusCode < 300) {
-        // Nếu data là List, trả về trực tiếp
         if (data is List) {
             return data;
         }
-        // Nếu data có cấu trúc {status: "success", data: ...}
         if (data is Map && data['status'] == 'success') {
             return data['data'] ?? {};
         }
-        // Nếu data là Map nhưng không có status, trả về trực tiếp
         if (data is Map) {
             return data;
         }
