@@ -1,6 +1,126 @@
+
+<script setup>
+import { ref, computed, watch, onMounted } from 'vue'
+import ProductService from '@/services/ProductService'
+import { DEFAULT_AVATAR } from '@/constants'
+
+const emit = defineEmits(['success', 'cancel'])
+
+const props = defineProps({
+  branches: {
+    type: Array,
+    default: () => []
+  },
+  categories: {
+    type: Array,
+    default: () => []
+  },
+  selectedBranchId: {
+    type: [String, Number],
+    default: null
+  }
+})
+
+const loading = ref(false)
+
+const formData = ref({
+  branchType: 'multiple',
+  selectedMultipleBranches: [],
+  newProduct: {
+    name: '',
+    category_id: '',
+    base_price: 0,
+    description: '',
+    image: null
+  },
+  branchSettings: {
+    price: '',
+    status: 'available',
+    is_available: true,
+    notes: ''
+  }
+})
+
+const availableBranches = computed(() => {
+  return props.branches
+})
+
+const isFormValid = computed(() => {
+  if (formData.value.branchType === 'multiple' && formData.value.selectedMultipleBranches.length === 0) {
+    return false
+  }
+
+  return formData.value.newProduct.name && 
+         formData.value.newProduct.category_id && 
+         formData.value.newProduct.base_price > 0
+})
+
+const handleImageUpload = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    formData.value.newProduct.image = file
+  }
+}
+
+const handleSubmit = async () => {
+  loading.value = true
+  try {
+    await createNewProduct()
+    emit('success')
+  } catch (error) {
+    console.error('Error adding product:', error)
+    alert('Có lỗi xảy ra: ' + error.message)
+  } finally {
+    loading.value = false
+  }
+}
+
+const createNewProduct = async () => {
+  const productData = new FormData()
+  productData.append('name', formData.value.newProduct.name)
+  productData.append('category_id', formData.value.newProduct.category_id)
+  productData.append('base_price', formData.value.newProduct.base_price)
+  productData.append('description', formData.value.newProduct.description)
+  productData.append('is_global_available', '0')
+  
+  if (formData.value.newProduct.image) {
+    productData.append('imageFile', formData.value.newProduct.image)
+  }
+
+  let targetBranches = []
+  if (formData.value.branchType === 'multiple') {
+    targetBranches = formData.value.selectedMultipleBranches
+  } else {
+    targetBranches = availableBranches.value.map(branch => branch.id)
+  }
+
+  productData.append('selected_branches', JSON.stringify(targetBranches))
+
+  const newProduct = await ProductService.createProduct(productData)
+  
+  const branchProductData = {
+    price: formData.value.branchSettings.price || formData.value.newProduct.base_price,
+    is_available: formData.value.branchSettings.is_available ? 1 : 0,
+    status: formData.value.branchSettings.status,
+    notes: formData.value.branchSettings.notes || null
+  }
+
+  const promises = targetBranches.map(branchId => 
+    ProductService.addProductToBranch(branchId, newProduct.id, branchProductData)
+  )
+
+  await Promise.all(promises)
+}
+
+onMounted(() => {
+  if (props.selectedBranchId) {
+    formData.value.selectedMultipleBranches = [props.selectedBranchId]
+  }
+})
+</script>
 <template>
   <div class="add-product-form">
-    <form @submit.prevent="handleSubmit">
+    <form @submit.prevent="handleSubmit" @keydown.enter.prevent>
       <div class="form-group">
         <label>Chi nhánh *</label>
         <div class="branch-options">
@@ -173,127 +293,6 @@
     </form>
   </div>
 </template>
-
-<script setup>
-import { ref, computed, watch, onMounted } from 'vue'
-import ProductService from '@/services/ProductService'
-import { DEFAULT_AVATAR } from '@/constants'
-
-const emit = defineEmits(['success', 'cancel'])
-
-const props = defineProps({
-  branches: {
-    type: Array,
-    default: () => []
-  },
-  categories: {
-    type: Array,
-    default: () => []
-  },
-  selectedBranchId: {
-    type: [String, Number],
-    default: null
-  }
-})
-
-const loading = ref(false)
-
-const formData = ref({
-  branchType: 'multiple',
-  selectedMultipleBranches: [],
-  newProduct: {
-    name: '',
-    category_id: '',
-    base_price: 0,
-    description: '',
-    image: null
-  },
-  branchSettings: {
-    price: '',
-    status: 'available',
-    is_available: true,
-    notes: ''
-  }
-})
-
-const availableBranches = computed(() => {
-  return props.branches
-})
-
-const isFormValid = computed(() => {
-  if (formData.value.branchType === 'multiple' && formData.value.selectedMultipleBranches.length === 0) {
-    return false
-  }
-
-  return formData.value.newProduct.name && 
-         formData.value.newProduct.category_id && 
-         formData.value.newProduct.base_price > 0
-})
-
-const handleImageUpload = (event) => {
-  const file = event.target.files[0]
-  if (file) {
-    formData.value.newProduct.image = file
-  }
-}
-
-const handleSubmit = async () => {
-  loading.value = true
-  try {
-    await createNewProduct()
-    emit('success')
-  } catch (error) {
-    console.error('Error adding product:', error)
-    alert('Có lỗi xảy ra: ' + error.message)
-  } finally {
-    loading.value = false
-  }
-}
-
-const createNewProduct = async () => {
-  const productData = new FormData()
-  productData.append('name', formData.value.newProduct.name)
-  productData.append('category_id', formData.value.newProduct.category_id)
-  productData.append('base_price', formData.value.newProduct.base_price)
-  productData.append('description', formData.value.newProduct.description)
-  productData.append('is_global_available', '0')
-  
-  if (formData.value.newProduct.image) {
-    productData.append('imageFile', formData.value.newProduct.image)
-  }
-
-  let targetBranches = []
-  if (formData.value.branchType === 'multiple') {
-    targetBranches = formData.value.selectedMultipleBranches
-  } else {
-    targetBranches = availableBranches.value.map(branch => branch.id)
-  }
-
-  productData.append('selected_branches', JSON.stringify(targetBranches))
-
-  const newProduct = await ProductService.createProduct(productData)
-  
-  const branchProductData = {
-    price: formData.value.branchSettings.price || formData.value.newProduct.base_price,
-    is_available: formData.value.branchSettings.is_available ? 1 : 0,
-    status: formData.value.branchSettings.status,
-    notes: formData.value.branchSettings.notes || null
-  }
-
-  const promises = targetBranches.map(branchId => 
-    ProductService.addProductToBranch(branchId, newProduct.data.id, branchProductData)
-  )
-
-  await Promise.all(promises)
-}
-
-onMounted(() => {
-  if (props.selectedBranchId) {
-    formData.value.selectedMultipleBranches = [props.selectedBranchId]
-  }
-})
-</script>
-
 <style scoped>
 .add-product-form {
   padding: 0;

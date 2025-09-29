@@ -13,12 +13,6 @@ module.exports.setup = (app) => {
     router.get('/active', BranchController.getActiveBranches);
     router.get('/statistics', BranchController.getBranchStatistics);
     router.get('/:id', BranchController.getBranchById);
-    
-    // Những route không được phép
-    router.all('/', methodNotAllowed);
-    router.all('/active', methodNotAllowed);
-    router.all('/statistics', methodNotAllowed);
-    router.all('/managers', methodNotAllowed);
 
     // Admin
     router.use(verifyToken);
@@ -28,5 +22,10 @@ module.exports.setup = (app) => {
     router.put('/:id', BranchController.updateBranch);
     router.delete('/:id', BranchController.deleteBranch);
     
+    // Những route không được phép (đặt ở cuối)
+    router.all('/', methodNotAllowed);
+    router.all('/active', methodNotAllowed);
+    router.all('/statistics', methodNotAllowed);
+    router.all('/managers', methodNotAllowed);
     router.all('/:id', methodNotAllowed);
 }

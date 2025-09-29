@@ -38,13 +38,6 @@ const categories = ref([]);
 const duplicateProduct = ref(null);
 const loading = ref(false);
 
-const loadCategories = () => {
-  categories.value = [
-    { id: 1, name: 'Điện thoại' },
-    { id: 2, name: 'Laptop' }
-  ];
-};
-
 const loadDuplicateProduct = async () => {
   const duplicateId = route.query.duplicate;
   if (duplicateId) {
@@ -87,7 +80,6 @@ const handleCancel = () => {
 
 
 onMounted(() => {
-  loadCategories();
   loadDuplicateProduct();
 });
 </script>

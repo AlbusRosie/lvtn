@@ -8,7 +8,6 @@ import { DEFAULT_AVATAR, DEFAULT_PRODUCT_IMAGE } from '@/constants';
  */
 async function efetch(url, options = {}) {
     const token = localStorage.getItem('auth_token');
-    console.log('Token from localStorage:', token ? 'exists' : 'null');
     
     const headers = {
         'Content-Type': 'application/json',

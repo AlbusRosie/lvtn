@@ -279,7 +279,7 @@ const loadProduct = async () => {
   loading.value = true;
   try {
     const response = await ProductService.getProduct(route.params.id);
-    product.value = response.data;
+    product.value = response;
   } catch (error) {
     toast.error(error.message);
     product.value = null;

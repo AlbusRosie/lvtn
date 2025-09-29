@@ -10,9 +10,6 @@ module.exports.setup = (app) => {
 
     // Public 
     router.get('/', TableController.getAllTables);
-
-    router.all('/', methodNotAllowed);
-
     // Admin
     router.use(verifyToken);
     router.use(requireRole(['admin']));
@@ -20,5 +17,8 @@ module.exports.setup = (app) => {
     router.put('/:id', TableController.updateTable);
     router.patch('/:id/status', TableController.updateTableStatus);
     router.delete('/:id', TableController.deleteTable);
+    
+    router.all('/', methodNotAllowed);
+    router.all('/:id', methodNotAllowed);
     
 }

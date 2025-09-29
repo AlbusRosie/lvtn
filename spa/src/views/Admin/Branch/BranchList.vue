@@ -217,9 +217,7 @@ export default {
       this.error = null;
 
       try {
-        console.log('Loading branches...');
         const branches = await BranchService.getAllBranches();
-        console.log('Branches loaded:', branches);
         this.branches = branches;
       } catch (error) {
         const errorMessage = error.message || 'Có lỗi xảy ra khi tải danh sách chi nhánh';
@@ -237,7 +235,6 @@ export default {
       this.formLoading = true;
 
       try {
-        console.log('Form data:', formData);
 
         if (formData && formData.target && formData.target.tagName === 'FORM') {
           this.$toast.error('Lỗi: Dữ liệu form không hợp lệ');
@@ -261,9 +258,7 @@ export default {
           }
         }
 
-        console.log('Reloading branches after update...');
         await this.loadBranches();
-        console.log('Branches reloaded:', this.branches);
         this.closeModal();
         this.editingBranch = null;
       } catch (error) {
@@ -323,7 +318,6 @@ export default {
       try {
         this.provinces = await ProvinceService.getAllProvinces();
       } catch (error) {
-        console.error('Error loading provinces:', error);
         this.$toast?.error('Không thể tải danh sách tỉnh/thành phố');
       }
     },
@@ -337,7 +331,6 @@ export default {
           this.districts = await ProvinceService.getDistrictsByProvinceId(this.selectedProvinceId);
           this.filteredDistricts = this.districts;
         } catch (error) {
-          console.error('Error loading districts:', error);
           this.$toast?.error('Không thể tải danh sách quận/huyện');
         }
       }

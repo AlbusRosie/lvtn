@@ -9,19 +9,17 @@ module.exports.setup = (app) => {
     app.use('/api/users', router);
 
     router.post('/login', UserController.login);
-
-    router.get('/', verifyToken, UserController.getUsersByFilter);
-
     router.post('/register', avatarUpload, UserController.createUser);
 
     router.delete('/', verifyToken, UserController.deleteAllUsers);
-    
-    router.all('/', methodNotAllowed);
+    router.get('/', verifyToken, UserController.getUsersByFilter);
 
     router.get('/:id', verifyToken, UserController.getUser);
-
     router.put('/:id',verifyToken,avatarUpload, UserController.updateUser);
-
     router.delete('/:id', verifyToken, UserController.deleteUser);
     router.all('/:id', methodNotAllowed);
+    
+    router.all('/', methodNotAllowed);
+    router.all('/login', methodNotAllowed);
+    router.all('/register', methodNotAllowed);
 }

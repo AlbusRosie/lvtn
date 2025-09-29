@@ -27,31 +27,41 @@ function makeProductService() {
     }
 
     async function getProduct(id) {
-        const { product } = await efetch(`${baseUrl}/${id}`);
-        return transformData(product, DEFAULT_PRODUCT_IMAGE);
+        const data = await efetch(`${baseUrl}/${id}`);
+        return transformData(data, DEFAULT_PRODUCT_IMAGE);
     }
 
     async function createProduct(productData) {
-        const formData = new FormData();
-        Object.entries(productData).forEach(([key, value]) => {
-            formData.append(key, value);
-        });
+        const body = (productData instanceof FormData)
+            ? productData
+            : (() => {
+                const fd = new FormData();
+                Object.entries(productData).forEach(([key, value]) => {
+                    fd.append(key, value);
+                });
+                return fd;
+            })();
 
         return efetch(baseUrl, {
             method: 'POST',
-            body: formData
+            body
         });
     }
 
     async function updateProduct(id, productData) {
-        const formData = new FormData();
-        Object.entries(productData).forEach(([key, value]) => {
-            formData.append(key, value);
-        });
+        const body = (productData instanceof FormData)
+            ? productData
+            : (() => {
+                const fd = new FormData();
+                Object.entries(productData).forEach(([key, value]) => {
+                    fd.append(key, value);
+                });
+                return fd;
+            })();
 
         return efetch(`${baseUrl}/${id}`, {
             method: 'PUT',
-            body: formData
+            body
         });
     }
 

@@ -11,10 +11,6 @@ module.exports.setup = (app) => {
 
     router.get('/', ProductController.getProducts);
     router.get('/:id', ProductController.getProduct);
-    
-    router.all('/', methodNotAllowed);
-    router.all('/:id', methodNotAllowed);
-
     router.use(verifyToken);
 
     router.post('/', productUpload, ProductController.createProduct);
@@ -23,6 +19,6 @@ module.exports.setup = (app) => {
     router.post('/branches/:branchId/products/:productId', ProductController.addProductToBranch);
     router.put('/branch-products/:branchProductId', ProductController.updateBranchProduct);
     router.delete('/branches/:branchId/products/:productId', ProductController.removeProductFromBranch);
-    
+    router.all('/', methodNotAllowed);
     router.all('/:id', methodNotAllowed);
 }

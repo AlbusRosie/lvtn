@@ -11,9 +11,6 @@ module.exports.setup = (app) => {
     router.get('/', CategoryController.getAllCategories);
     router.get('/with-count', CategoryController.getCategoriesWithProductCount);
     router.get('/:id', CategoryController.getCategoryById);
-    
-    router.all('/', methodNotAllowed);
-    router.all('/with-count', methodNotAllowed);
 
     // Admin
     router.use(verifyToken);
@@ -22,5 +19,7 @@ module.exports.setup = (app) => {
     router.put('/:id', CategoryController.updateCategory);
     router.delete('/:id', CategoryController.deleteCategory);
     
+    router.all('/', methodNotAllowed);
+    router.all('/with-count', methodNotAllowed);
     router.all('/:id', methodNotAllowed);
 }

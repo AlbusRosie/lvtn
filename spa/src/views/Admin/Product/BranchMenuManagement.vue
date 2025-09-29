@@ -456,7 +456,6 @@ const loadProducts = async () => {
   try {
     let params = { ...filters.value }
     
-    // Map frontend field names to API field names
     if (params.category) {
       params.category_id = params.category
       delete params.category
@@ -470,9 +469,7 @@ const loadProducts = async () => {
       params.name = searchQuery.value
     }
     
-    console.log('Loading products with params:', params)
     const data = await ProductService.getProducts(params)
-    console.log('API response:', data)
     
     if (data.data && data.data.products) {
       products.value = data.data.products
@@ -483,13 +480,7 @@ const loadProducts = async () => {
     } else {
       products.value = []
     }
-    
-    console.log('Final products:', products.value)
-    console.log('Not added products:', products.value.filter(p => p.final_status === 'not_added'))
-    console.log('Added products:', products.value.filter(p => p.final_status === 'available' || p.final_status === 'out_of_stock' || p.final_status === 'temporarily_unavailable'))
-    console.log('All final_status values:', products.value.map(p => ({ name: p.name, final_status: p.final_status, is_global_available: p.is_global_available })))
-  } catch (error) {
-    console.error('Error loading products:', error)
+    } catch (error) {
     showErrorToast('Không thể tải danh sách sản phẩm')
   } finally {
     loading.value = false
@@ -508,24 +499,16 @@ const selectAllBranches = () => {
 }
 
 const onSearchInput = () => {
-  console.log('Search input changed:', searchQuery.value)
-  // Test alert to see if function is called
-  // alert('Search input: ' + searchQuery.value)
-  
-  // Clear previous timeout
   if (searchTimeout) {
     clearTimeout(searchTimeout)
   }
   
-  // Set new timeout for debounce
   searchTimeout = setTimeout(() => {
-    console.log('Debounced search triggered')
     loadProducts()
-  }, 500) // 500ms delay
+  }, 500)
 }
 
 const onSearchEnter = () => {
-  console.log('Search enter pressed')
   if (searchTimeout) {
     clearTimeout(searchTimeout)
   }
@@ -533,14 +516,10 @@ const onSearchEnter = () => {
 }
 
 const applyFilters = () => {
-  console.log('Apply filters button clicked')
-  // alert('Apply filters clicked!')
   loadProducts()
 }
 
 const clearFilters = () => {
-  console.log('clearFilters called')
-  // alert('Clear filters clicked!')
   searchQuery.value = ''
   filters.value = {
     category: '',
@@ -548,7 +527,6 @@ const clearFilters = () => {
     min_price: '',
     max_price: ''
   }
-  console.log('Filters cleared, calling loadProducts')
   loadProducts()
 }
 
@@ -570,7 +548,6 @@ const addProductToBranch = async (product) => {
     
     await loadProducts()
   } catch (error) {
-    console.error('Error adding product to branch:', error)
     showErrorToast(error.message)
   }
 }
@@ -584,16 +561,13 @@ const removeProductFromBranch = async (product) => {
   if (!confirm(`Bạn có chắc muốn xóa "${product.name}" khỏi chi nhánh?`)) return
   
   try {
-    console.log('Removing product:', product.name, 'from branch:', selectedBranchId.value)
     await ProductService.removeProductFromBranch(selectedBranchId.value, product.id)
     showSuccessToast(`Đã xóa "${product.name}" khỏi chi nhánh`)
     
     await new Promise(resolve => setTimeout(resolve, 500))
     
-    console.log('Reloading products after removal...')
     await loadProducts()
   } catch (error) {
-    console.error('Error removing product:', error)
     showErrorToast(error.message)
   }
 }
@@ -740,7 +714,6 @@ const handleImageError = (event) => {
   event.target.src = DEFAULT_PRODUCT_IMAGE
 }
 
-// Toast functions using Vue Toastification
 const showSuccessToast = (message) => {
   toast.success(message)
 }

@@ -15,12 +15,6 @@ module.exports.setup = (app) => {
     router.get('/branch/:branch_id', FloorController.getFloorsByBranch);
     router.get('/generate-number/:branch_id', FloorController.generateNextFloorNumber);
     router.get('/:id', FloorController.getFloorById);
-    
-    router.all('/', methodNotAllowed);
-    router.all('/active', methodNotAllowed);
-    router.all('/statistics', methodNotAllowed);
-    router.all('/branch/:branch_id', methodNotAllowed);
-    router.all('/generate-number/:branch_id', methodNotAllowed);
 
     // Admin nhé
     router.use(verifyToken);
@@ -30,5 +24,10 @@ module.exports.setup = (app) => {
     router.put('/:id', FloorController.updateFloor);
     router.delete('/:id', FloorController.deleteFloor);
     
+    router.all('/', methodNotAllowed);
+    router.all('/active', methodNotAllowed);
+    router.all('/statistics', methodNotAllowed);
+    router.all('/branch/:branch_id', methodNotAllowed);
+    router.all('/generate-number/:branch_id', methodNotAllowed);
     router.all('/:id', methodNotAllowed);
 }
