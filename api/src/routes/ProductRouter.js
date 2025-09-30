@@ -10,6 +10,7 @@ module.exports.setup = (app) => {
     app.use('/api/products', router);
 
     router.get('/', ProductController.getProducts);
+    router.get('/not-added', ProductController.getNotAddedProducts);
     router.get('/:id', ProductController.getProduct);
     router.use(verifyToken);
 

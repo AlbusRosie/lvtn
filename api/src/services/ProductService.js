@@ -105,137 +105,145 @@ async function createProduct(payload) {
     };
 }
 
-async function getManyProducts(query) {
-    const { name, category_id, min_price, max_price, status, is_available, branch_id, page = 1, limit = 10 } = query;
+async function getProductsByBranch(query) {
+    const { branch_id, page = 1, limit = 20 } = query;
     const paginator = new Paginator(page, limit);
 
-    let queryBuilder;
-
-    if (branch_id) {
-        const branchId = parseInt(branch_id);
-        queryBuilder = knex('products')
-            .leftJoin('branch_products', function() {
-                this.on('products.id', '=', 'branch_products.product_id')
-                    .andOn('branch_products.branch_id', '=', branchId);
-            })
-            .join('categories', 'products.category_id', 'categories.id')
-            .where('products.status', 'active')
-            .where((builder) => {
-                if (name) {
-                    builder.where('products.name', 'like', `%${name}%`);
-                }
-                if (category_id) {
-                    builder.where('products.category_id', category_id);
-                }
-                if (min_price) {
-                    builder.where(function() {
-                        this.where('branch_products.price', '>=', min_price)
-                            .orWhere(function() {
-                                this.whereNull('branch_products.price')
-                                    .andWhere('products.base_price', '>=', min_price);
-                            });
-                    });
-                }
-                if (max_price) {
-                    builder.where(function() {
-                        this.where('branch_products.price', '<=', max_price)
-                            .orWhere(function() {
-                                this.whereNull('branch_products.price')
-                                    .andWhere('products.base_price', '<=', max_price);
-                            });
-                    });
-                }
-                if (status) {
-                    if (status === 'not_added') {
-                        builder.whereNull('branch_products.id');
-                    } else {
-                        builder.where('branch_products.status', status);
-                    }
-                }
-                if (is_available !== undefined) {
-                    const available = is_available === 'true' || is_available === true ? 1 : 0;
-                    if (available) {
-                        builder.where(function() {
-                            this.where('branch_products.is_available', 1)
-                                .orWhereNull('branch_products.id');
-                        });
-                    } else {
-                        builder.where('branch_products.is_available', 0);
-                    }
-                }
-            })
-            .select(
-                knex.raw('count(products.id) OVER() AS recordCount'),
-                'products.id',
-                'products.name',
-                'products.base_price',
-                'products.description',
-                'products.image',
-                'products.is_global_available',
-                'products.status as global_status',
-                'products.created_at',
-                'categories.name as category_name',
-                'categories.id as category_id',
-                
-                'branch_products.id as branch_product_id',
-                'branch_products.price as branch_price',
-                'branch_products.is_available as branch_available',
-                'branch_products.status as branch_status',
-                'branch_products.notes as branch_notes',
-                'branch_products.created_at as added_to_branch_at',
-                
-                knex.raw(`
-                    CASE 
-                        WHEN branch_products.id IS NULL THEN 'not_added'
-                        WHEN branch_products.status = 'discontinued' THEN 'not_added'
-                        WHEN branch_products.is_available = 0 THEN 'unavailable'
-                        WHEN branch_products.status = 'out_of_stock' THEN 'out_of_stock'
-                        WHEN branch_products.status = 'temporarily_unavailable' THEN 'temporarily_unavailable'
-                        ELSE 'available'
-                    END as final_status
-                `),
-                
-                knex.raw(`
-                    COALESCE(branch_products.price, products.base_price) as display_price
-                `)
-            );
-    } else {
-        queryBuilder = productRepository()
-            .join('categories', 'products.category_id', 'categories.id')
-            .where((builder) => {
-                if (name) {
-                    builder.where('products.name', 'like', `%${name}%`);
-                }
-                if (category_id) {
-                    builder.where('products.category_id', category_id);
-                }
-                if (min_price) {
-                    builder.where('products.base_price', '>=', min_price);
-                }
-                if (max_price) {
-                    builder.where('products.base_price', '<=', max_price);
-                }
-                if (status) {
-                    builder.where('products.status', status);
-                }
-                if (is_available !== undefined) {
-                    builder.where('products.is_global_available', is_available === 'true' || is_available === true ? 1 : 0);
-                }
-            })
-            .select(
-                knex.raw('count(products.id) OVER() AS recordCount'),
-                'products.id',
-                'products.name',
-                'products.base_price',
-                'products.description',
-                'products.image',
-                'products.is_global_available',
-                'products.status',
-                'products.created_at',
-                'categories.name as category_name',
-                'categories.id as category_id'
-            );
+    if (!branch_id) {
+        throw new Error('Branch ID is required');
     }
+
+    const branchId = parseInt(branch_id);
+    
+    const queryBuilder = knex('products')
+        .leftJoin('categories', 'products.category_id', 'categories.id')
+        .leftJoin('branch_products', function() {
+            this.on('products.id', '=', 'branch_products.product_id')
+                .andOn('branch_products.branch_id', '=', branchId);
+        })
+        .select(
+            knex.raw('count(products.id) OVER() AS recordCount'),
+            'products.id',
+            'products.name',
+            'products.base_price',
+            'products.description',
+            'products.image',
+            'products.is_global_available',
+            'products.status as global_status',
+            'products.created_at',
+            'categories.name as category_name',
+            'categories.id as category_id',
+            
+            'branch_products.id as branch_product_id',
+            'branch_products.price as branch_price',
+            'branch_products.is_available as branch_available',
+            'branch_products.status as branch_status',
+            'branch_products.notes as branch_notes',
+            'branch_products.created_at as added_to_branch_at',
+            
+            knex.raw(`
+                CASE 
+                    WHEN branch_products.id IS NULL THEN 'not_added'
+                    WHEN branch_products.is_available = 0 THEN 'unavailable'
+                    WHEN branch_products.status = 'out_of_stock' THEN 'out_of_stock'
+                    WHEN branch_products.status = 'temporarily_unavailable' THEN 'temporarily_unavailable'
+                    ELSE 'available'
+                END as final_status
+            `),
+            
+            knex.raw(`
+                COALESCE(branch_products.price, products.base_price) as display_price
+            `)
+        );
+
+    let results = await queryBuilder
+        .orderBy('products.created_at', 'desc')
+        .limit(paginator.limit)
+        .offset(paginator.offset);
+
+    let totalRecords = 0;
+    results = results.map((result) => {
+        totalRecords = result.recordCount;
+        delete result.recordCount;
+        return result;
+    });
+
+    return {
+        metadata: paginator.getMetadata(totalRecords),
+        products: results,
+    };
+}
+
+async function getProducts(query) {
+    const { page = 1, limit = 20 } = query;
+    const paginator = new Paginator(page, limit);
+    
+    const queryBuilder = knex('products')
+        .leftJoin('categories', 'products.category_id', 'categories.id')
+        .select(
+            knex.raw('count(products.id) OVER() AS recordCount'),
+            'products.id',
+            'products.name',
+            'products.base_price',
+            'products.description',
+            'products.image',
+            'products.is_global_available',
+            'products.status as global_status',
+            'products.created_at',
+            'categories.name as category_name',
+            'categories.id as category_id',
+            knex.raw('products.base_price as display_price')
+        );
+
+    let results = await queryBuilder
+        .orderBy('products.created_at', 'desc')
+        .limit(paginator.limit)
+        .offset(paginator.offset);
+
+    let totalRecords = 0;
+    results = results.map((result) => {
+        totalRecords = result.recordCount;
+        delete result.recordCount;
+        return result;
+    });
+
+    return {
+        metadata: paginator.getMetadata(totalRecords),
+        products: results,
+    };
+}
+
+async function getNotAddedProductsByBranch(query) {
+    const { branch_id, page = 1, limit = 20 } = query;
+    const paginator = new Paginator(page, limit);
+
+    if (!branch_id) {
+        throw new Error('Branch ID is required');
+    }
+
+    const branchId = parseInt(branch_id);
+    
+    const queryBuilder = knex('products')
+        .leftJoin('categories', 'products.category_id', 'categories.id')
+        .leftJoin('branch_products', function() {
+            this.on('products.id', '=', 'branch_products.product_id')
+                .andOn('branch_products.branch_id', '=', branchId);
+        })
+        .whereNull('branch_products.id')
+        .select(
+            knex.raw('count(products.id) OVER() AS recordCount'),
+            'products.id',
+            'products.name',
+            'products.base_price',
+            'products.description',
+            'products.image',
+            'products.is_global_available',
+            'products.status as global_status',
+            'products.created_at',
+            'categories.name as category_name',
+            'categories.id as category_id',
+            knex.raw('products.base_price as display_price')
+        );
 
     let results = await queryBuilder
         .orderBy('products.created_at', 'desc')
@@ -320,23 +328,10 @@ async function updateProduct(id, payload) {
 }
 
 async function updateAllBranchProductsForGlobalChange(productId, globalChanges) {
-    const updateFields = {};
-    
     if (globalChanges.is_global_available === 0 || globalChanges.status === 'inactive') {
-        updateFields.is_available = 0;
-        updateFields.status = 'discontinued';
-        updateFields.updated_at = new Date();
-    }
-    else if (globalChanges.is_global_available === 1 && globalChanges.status === 'active') {
-        updateFields.is_available = 1;
-        updateFields.status = 'available';
-        updateFields.updated_at = new Date();
-    }
-    
-    if (Object.keys(updateFields).length > 0) {
         await knex('branch_products')
             .where('product_id', productId)
-            .update(updateFields);
+            .del();
     }
 }
 
@@ -428,6 +423,7 @@ async function updateBranchProduct(branchProductId, updateData) {
         throw new Error('Cannot update branch product: Global product is disabled');
     }
 
+    // Nếu status là discontinued, xóa luôn record thay vì update
     if (updateData.status === 'discontinued') {
         const pendingOrders = await knex('order_details')
             .join('orders', 'order_details.order_id', 'orders.id')
@@ -440,6 +436,12 @@ async function updateBranchProduct(branchProductId, updateData) {
         if (pendingOrders.count > 0) {
             throw new Error('Cannot discontinue product: There are pending orders');
         }
+
+        await knex('branch_products')
+            .where('id', branchProductId)
+            .del();
+
+        return { message: 'Product removed from branch successfully' };
     }
 
     const updateFields = {};
@@ -451,7 +453,7 @@ async function updateBranchProduct(branchProductId, updateData) {
     }
     if (updateData.is_available !== undefined) updateFields.is_available = updateData.is_available;
     if (updateData.status !== undefined) {
-        const validStatuses = ['available', 'out_of_stock', 'temporarily_unavailable', 'discontinued'];
+        const validStatuses = ['available', 'out_of_stock', 'temporarily_unavailable'];
         if (!validStatuses.includes(updateData.status)) {
             throw new Error('Invalid status value');
         }
@@ -501,11 +503,7 @@ async function removeProductFromBranch(branchId, productId) {
     const deletedCount = await knex('branch_products')
         .where('branch_id', branchId)
         .where('product_id', productId)
-        .update({
-            is_available: 0,
-            status: 'discontinued',
-            updated_at: new Date()
-        });
+        .del();
 
     if (deletedCount === 0) {
         throw new Error('Product not found in this branch');
@@ -516,7 +514,9 @@ async function removeProductFromBranch(branchId, productId) {
 
 module.exports = {
     createProduct,
-    getManyProducts,
+    getProducts,
+    getProductsByBranch,
+    getNotAddedProductsByBranch,
     getProductById,
     updateProduct,
     deleteProduct,

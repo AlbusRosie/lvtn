@@ -1,19 +1,5 @@
 import { DEFAULT_AVATAR, USER_ROLES } from '@/constants';
-
-async function efetch(url, options = {}) {
-    let result = {};
-    let json = {};
-    try {
-        result = await fetch(url, options);
-        json = await result.json();
-    } catch (error) {
-        throw new Error(error.message);
-    }
-    if (!result.ok || json.status !== 'success') {
-        throw new Error(json.message || 'Request failed');
-    }
-    return json.data;
-}
+import { efetch } from './BaseService';
 
 function makeAuthService() {
     const TOKEN_KEY = 'auth_token';

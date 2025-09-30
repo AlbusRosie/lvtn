@@ -51,7 +51,21 @@ async function createProduct(req, res, next) {
 
 async function getProducts(req, res, next) {
     try {
-        const result = await ProductService.getManyProducts(req.query);
+        let result;
+        if (req.query.branch_id) {
+            result = await ProductService.getProductsByBranch(req.query);
+        } else {
+            result = await ProductService.getProducts(req.query);
+        }
+        res.json(JSend.success(result));
+    } catch (error) {
+        next(new ApiError(500, error.message));
+    }
+}
+
+async function getNotAddedProducts(req, res, next) {
+    try {
+        const result = await ProductService.getNotAddedProductsByBranch(req.query);
         res.json(JSend.success(result));
     } catch (error) {
         next(new ApiError(500, error.message));
@@ -206,6 +220,7 @@ async function removeProductFromBranch(req, res, next) {
 module.exports = {
     createProduct,
     getProducts,
+    getNotAddedProducts,
     getProduct,
     updateProduct,
     deleteProduct,

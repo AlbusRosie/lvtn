@@ -38,8 +38,6 @@
           <option value="available">Có sẵn</option>
           <option value="out_of_stock">Hết hàng</option>
           <option value="temporarily_unavailable">Tạm ngừng</option>
-          <option value="discontinued">Ngừng bán</option>
-          <option value="not_added">Chưa thêm</option>
         </select>
 
         <button @click="applyFilters" class="filter-btn">Lọc</button>
@@ -143,14 +141,12 @@
                 
                 <div class="product-actions">
                   <button 
-                    v-if="product.final_status === 'not_added'"
                     @click="addProductToBranch(product)"
                     :disabled="loading"
                     class="btn btn-success btn-sm"
                   >
                     <i class="fas fa-plus"></i> Thêm
                   </button>
-                  <span v-else class="text-success">Đã thêm</span>
                 </div>
               </div>
             </div>
@@ -217,7 +213,6 @@
                   >
                     <i class="fas fa-trash"></i> Xóa
                   </button>
-                  <span v-else-if="product.final_status === 'discontinued'" class="text-muted">Đã xóa</span>
                   <span v-else class="text-muted">Không thể xóa</span>
                 </div>
               </div>
@@ -421,12 +416,10 @@ const addedProductsCount = computed(() => {
 })
 
 const notAddedProductsCount = computed(() => {
-  return products.value.filter(p => p.final_status === 'not_added').length
+  return notAddedProducts.value.length
 })
 
-const notAddedProducts = computed(() => {
-  return products.value.filter(p => p.final_status === 'not_added')
-})
+const notAddedProducts = ref([])
 
 const addedProducts = computed(() => {
   return products.value.filter(p => p.final_status === 'available' || p.final_status === 'out_of_stock' || p.final_status === 'temporarily_unavailable')
@@ -445,9 +438,44 @@ const loadCategories = async () => {
   try {
     const CategoryService = await import('@/services/CategoryService')
     const data = await CategoryService.default.getAllCategories()
-    categories.value = data
+    categories.value = data.data || data
   } catch (error) {
     showErrorToast('Không thể tải danh mục sản phẩm')
+  }
+}
+
+const loadNotAddedProducts = async () => {
+  if (!selectedBranchId.value) {
+    notAddedProducts.value = []
+    return
+  }
+
+  try {
+    let params = { ...filters.value }
+    
+    if (params.category) {
+      params.category_id = params.category
+      delete params.category
+    }
+    
+    if (searchQuery.value) {
+      params.name = searchQuery.value
+    }
+    
+    const data = await ProductService.getNotAddedProductsByBranch(selectedBranchId.value, params)
+    
+    if (data.data && data.data.products) {
+      notAddedProducts.value = data.data.products
+    } else if (data.products) {
+      notAddedProducts.value = data.products
+    } else if (Array.isArray(data)) {
+      notAddedProducts.value = data
+    } else {
+      notAddedProducts.value = []
+    }
+  } catch (error) {
+    showErrorToast('Không thể tải danh sách sản phẩm chưa thêm')
+    notAddedProducts.value = []
   }
 }
 
@@ -461,15 +489,19 @@ const loadProducts = async () => {
       delete params.category
     }
     
-    if (selectedBranchId.value) {
-      params.branch_id = selectedBranchId.value
-    }
-    
     if (searchQuery.value) {
       params.name = searchQuery.value
     }
     
-    const data = await ProductService.getProducts(params)
+    let data
+    if (selectedBranchId.value) {
+      data = await ProductService.getProductsByBranch(selectedBranchId.value, params)
+      
+      await loadNotAddedProducts()
+    } else {
+      data = await ProductService.getProducts(params)
+      notAddedProducts.value = []
+    }
     
     if (data.data && data.data.products) {
       products.value = data.data.products
@@ -480,7 +512,7 @@ const loadProducts = async () => {
     } else {
       products.value = []
     }
-    } catch (error) {
+  } catch (error) {
     showErrorToast('Không thể tải danh sách sản phẩm')
   } finally {
     loading.value = false
@@ -535,6 +567,11 @@ const refreshData = () => {
 }
 
 const addProductToBranch = async (product) => {
+  if (!selectedBranchId.value) {
+    showErrorToast('Vui lòng chọn chi nhánh trước khi thêm sản phẩm')
+    return
+  }
+
   try {
     const branchProductData = {
       price: product.base_price
@@ -693,7 +730,6 @@ const getStatusBadgeClass = (status) => {
     'available': 'bg-success',
     'out_of_stock': 'bg-danger',
     'temporarily_unavailable': 'bg-warning',
-    'discontinued': 'bg-transparent text-dark',
     'not_added': 'bg-light text-dark'
   }
   return classes[status] || 'bg-transparent text-dark'
@@ -704,7 +740,6 @@ const getStatusText = (status) => {
     'available': 'Có sẵn',
     'out_of_stock': 'Hết hàng',
     'temporarily_unavailable': 'Tạm ngừng',
-    'discontinued': 'Ngừng bán',
     'not_added': 'Chưa thêm'
   }
   return texts[status] || status
@@ -1435,6 +1470,17 @@ onMounted(() => {
 .product-actions .btn-danger:hover:not(:disabled) {
   background: #c82333 !important;
   border-color: #c82333 !important;
+}
+
+.product-actions .btn-info {
+  background: #17a2b8 !important;
+  color: white !important;
+  border-color: #17a2b8 !important;
+}
+
+.product-actions .btn-info:hover:not(:disabled) {
+  background: #138496 !important;
+  border-color: #138496 !important;
 }
 
 @media (max-width: 768px) {

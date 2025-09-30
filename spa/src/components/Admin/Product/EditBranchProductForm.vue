@@ -47,7 +47,6 @@
           <option value="available">Có sẵn</option>
           <option value="out_of_stock">Hết hàng</option>
           <option value="temporarily_unavailable">Tạm ngừng</option>
-          <option value="discontinued">Ngừng bán</option>
         </select>
         <div v-if="errors.status" class="invalid-feedback">
           {{ errors.status }}
@@ -60,7 +59,7 @@
             class="form-check-input" 
             type="checkbox" 
             v-model="formData.is_available"
-            :disabled="formData.status === 'discontinued'"
+            :disabled="false"
           >
           <label class="form-check-label">
             Có sẵn tại chi nhánh

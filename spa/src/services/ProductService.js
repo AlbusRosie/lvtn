@@ -127,8 +127,19 @@ function makeProductService() {
     }
 
     async function getProductsByBranch(branchId, params = {}) {
-        const queryString = buildQueryString(params);
-        const url = queryString ? `${baseUrl}/branches/${branchId}/products?${queryString}` : `${baseUrl}/branches/${branchId}/products`;
+        const queryString = buildQueryString({ ...params, branch_id: branchId });
+        const url = queryString ? `${baseUrl}?${queryString}` : `${baseUrl}?branch_id=${branchId}`;
+        
+        const data = await efetch(url);
+        if (data.products) {
+            data.products = transformDataArray(data.products, DEFAULT_PRODUCT_IMAGE);
+        }
+        return data;
+    }
+
+    async function getNotAddedProductsByBranch(branchId, params = {}) {
+        const queryString = buildQueryString({ ...params, branch_id: branchId });
+        const url = queryString ? `${baseUrl}/not-added?${queryString}` : `${baseUrl}/not-added?branch_id=${branchId}`;
         
         const data = await efetch(url);
         if (data.products) {
@@ -162,6 +173,7 @@ function makeProductService() {
         updateBranchProduct,
         removeProductFromBranch,
         getProductsByBranch,
+        getNotAddedProductsByBranch,
         getBranchProduct,
         getActiveBranches
     };

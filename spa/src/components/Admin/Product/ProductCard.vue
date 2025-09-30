@@ -140,7 +140,6 @@ const getStatusText = (status) => {
     'available': 'Có sẵn',
     'out_of_stock': 'Hết hàng',
     'temporarily_unavailable': 'Tạm ngừng',
-    'discontinued': 'Ngừng bán',
     'not_added': 'Chưa thêm'
   }
   return texts[status] || status
