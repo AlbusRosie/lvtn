@@ -9,11 +9,11 @@ const toast = useToast();
 const isCollapsed = ref(false);
 
 const menuItems = [
-    // {
-    //     title: 'TRANG CHỦ',
-    //     icon: 'fas fa-home',
-    //     route: '/'
-    // },
+    {
+        title: 'NHÂN VIÊN',
+        icon: 'fas fa-user',
+        route: '/'
+    },
     {
         title: 'MENU CHI NHÁNH',
         icon: 'fas fa-shop',

@@ -8,6 +8,12 @@ class Product {
   final bool isGlobalAvailable;
   final String status;
   final DateTime createdAt;
+  final String? categoryName;
+  
+  // Branch-specific data
+  final double? branchPrice;
+  final bool? branchAvailable;
+  final String? branchStatus;
 
   Product({
     required this.id,
@@ -19,6 +25,10 @@ class Product {
     required this.isGlobalAvailable,
     required this.status,
     required this.createdAt,
+    this.categoryName,
+    this.branchPrice,
+    this.branchAvailable,
+    this.branchStatus,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -26,12 +36,16 @@ class Product {
       id: json['id'],
       categoryId: json['category_id'],
       name: json['name'],
-      basePrice: double.parse(json['base_price'].toString()),
+      basePrice: (json['base_price'] ?? json['display_price']).toDouble(),
       description: json['description'],
       image: json['image'],
-      isGlobalAvailable: json['is_global_available'] == 1 || json['is_global_available'] == true,
-      status: json['status'],
+      isGlobalAvailable: json['is_global_available'] == 1,
+      status: json['status'] ?? json['global_status'],
       createdAt: DateTime.parse(json['created_at']),
+      categoryName: json['category_name'],
+      branchPrice: json['branch_price']?.toDouble(),
+      branchAvailable: json['branch_available'] == 1,
+      branchStatus: json['branch_status'],
     );
   }
 
@@ -46,56 +60,10 @@ class Product {
       'is_global_available': isGlobalAvailable ? 1 : 0,
       'status': status,
       'created_at': createdAt.toIso8601String(),
+      'category_name': categoryName,
+      'branch_price': branchPrice,
+      'branch_available': (branchAvailable ?? false) ? 1 : 0,
+      'branch_status': branchStatus,
     };
   }
-
-  bool get isActive => status == 'active';
-  String get formattedPrice => '${basePrice.toStringAsFixed(0).replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-    (Match m) => '${m[1]},',
-  )} VNĐ';
-}
-
-class BranchProduct {
-  final int id;
-  final int branchId;
-  final int productId;
-  final double price;
-  final bool isAvailable;
-  final String status;
-  final String? notes;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  BranchProduct({
-    required this.id,
-    required this.branchId,
-    required this.productId,
-    required this.price,
-    required this.isAvailable,
-    required this.status,
-    this.notes,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  factory BranchProduct.fromJson(Map<String, dynamic> json) {
-    return BranchProduct(
-      id: json['id'],
-      branchId: json['branch_id'],
-      productId: json['product_id'],
-      price: double.parse(json['price'].toString()),
-      isAvailable: json['is_available'] == 1 || json['is_available'] == true,
-      status: json['status'],
-      notes: json['notes'],
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
-    );
-  }
-
-  bool get isAvailableForOrder => isAvailable && status == 'available';
-  String get formattedPrice => '${price.toStringAsFixed(0).replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-    (Match m) => '${m[1]},',
-  )} VNĐ';
 }

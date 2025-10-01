@@ -1,7 +1,7 @@
 const express = require('express');
 const UserController = require('../controllers/UserController');
 const { methodNotAllowed } = require('../controllers/ErrorController');
-const { avatarUpload } = require('../middlewares/AvatarUpload');
+const { avatarUpload, optionalAvatarUpload } = require('../middlewares/AvatarUpload');
 const router = express.Router();
 const { verifyToken } = require('../middlewares/AuthMiddleware');
 
@@ -9,7 +9,8 @@ module.exports.setup = (app) => {
     app.use('/api/users', router);
 
     router.post('/login', UserController.login);
-    router.post('/register', avatarUpload, UserController.createUser);
+    
+    router.post('/register', optionalAvatarUpload, UserController.createUser);
 
     router.delete('/', verifyToken, UserController.deleteAllUsers);
     router.get('/', verifyToken, UserController.getUsersByFilter);

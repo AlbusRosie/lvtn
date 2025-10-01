@@ -52,19 +52,4 @@ class Table {
       'created_at': createdAt.toIso8601String(),
     };
   }
-
-  bool get isAvailable => status == 'available';
-  bool get isOccupied => status == 'occupied';
-  bool get isReserved => status == 'reserved';
-  bool get isMaintenance => status == 'maintenance';
-  
-  String get statusText {
-    switch (status) {
-      case 'available': return 'Có sẵn';
-      case 'occupied': return 'Đang sử dụng';
-      case 'reserved': return 'Đã đặt';
-      case 'maintenance': return 'Bảo trì';
-      default: return 'Không xác định';
-    }
-  }
 }

@@ -3,49 +3,34 @@ import '../constants/api_constants.dart';
 import 'api_service.dart';
 
 class BranchService {
-    static final BranchService _instance = BranchService._internal();
-    factory BranchService() => BranchService._internal();
-    BranchService._internal();
+  static final BranchService _instance = BranchService._internal();
+  factory BranchService() => _instance;
+  BranchService._internal();
 
-    final ApiService _apiService = ApiService();
-
-    Future<List<Branch>> getAllBranches() async {
-        try {
-        final response = await _apiService.get(ApiConstants.branches);
-        final List<dynamic> branchesData = response['branches'] ?? [];
-        return branchesData.map((json) => Branch.fromJson(json)).toList();
-        } catch (e) {
-        throw Exception('Lỗi khi tải danh sách chi nhánh: ${e.toString()}');
-        }
+  Future<List<Branch>> getAllBranches() async {
+    try {
+      final response = await ApiService().get(ApiConstants.branches);
+      return (response as List).map((json) => Branch.fromJson(json)).toList();
+    } catch (error) {
+      throw Exception('Không thể tải danh sách chi nhánh: ${error.toString()}');
     }
+  }
 
-    Future<List<Branch>> getActiveBranches() async {
-        try {
-        final response = await _apiService.get(ApiConstants.activeBranches);
-        final List<dynamic> branchesData = response is List ? response : [];
-        final branches = branchesData.map((json) => Branch.fromJson(json)).toList();
-        return branches;
-        } catch (e) {
-        print('BranchService: Error: $e');
-        throw Exception('Lỗi khi tải chi nhánh đang hoạt động: ${e.toString()}');
-        }
+  Future<List<Branch>> getActiveBranches() async {
+    try {
+      final response = await ApiService().get(ApiConstants.activeBranches);
+      return (response as List).map((json) => Branch.fromJson(json)).toList();
+    } catch (error) {
+      throw Exception('Không thể tải chi nhánh hoạt động: ${error.toString()}');
     }
+  }
 
-    Future<Branch> getBranchById(int id) async {
-        try {
-        final response = await _apiService.get('${ApiConstants.branches}/$id');
-        return Branch.fromJson(response['branch']);
-        } catch (e) {
-        throw Exception('Lỗi khi tải thông tin chi nhánh: ${e.toString()}');
-        }
+  Future<Branch> getBranchById(int id) async {
+    try {
+      final response = await ApiService().get('${ApiConstants.branches}/$id');
+      return Branch.fromJson(response);
+    } catch (error) {
+      throw Exception('Không thể tải thông tin chi nhánh: ${error.toString()}');
     }
-
-    Future<Map<String, dynamic>> getBranchStatistics() async {
-        try {
-        final response = await _apiService.get('${ApiConstants.branches}/statistics');
-        return response;
-        } catch (e) {
-        throw Exception('Lỗi khi tải thống kê chi nhánh: ${e.toString()}');
-        }
-    }
+  }
 }

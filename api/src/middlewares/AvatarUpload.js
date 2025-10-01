@@ -72,5 +72,12 @@ function avatarUpload(req, res, next) {
 
 module.exports = {
     imageUpload,
-    avatarUpload
+    avatarUpload,
+    optionalAvatarUpload: (req, res, next) => {
+        const contentType = req.headers['content-type'] || '';
+        if (contentType.includes('multipart/form-data')) {
+            return avatarUpload(req, res, next);
+        }
+        return next();
+    }
 };

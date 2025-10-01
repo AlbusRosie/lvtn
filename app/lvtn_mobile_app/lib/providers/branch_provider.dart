@@ -2,34 +2,45 @@ import 'package:flutter/foundation.dart';
 import '../models/branch.dart';
 import '../services/branch_service.dart';
 
-class BranchProvider with ChangeNotifier {
+class BranchProvider extends ChangeNotifier {
   final BranchService _branchService = BranchService();
   
   List<Branch> _branches = [];
+  List<Branch> _activeBranches = [];
   Branch? _selectedBranch;
   bool _isLoading = false;
-  String? _error;
 
   List<Branch> get branches => _branches;
+  List<Branch> get activeBranches => _activeBranches;
   Branch? get selectedBranch => _selectedBranch;
   bool get isLoading => _isLoading;
-  String? get error => _error;
 
   Future<void> loadBranches() async {
-    _setLoading(true);
-    _clearError();
+    _isLoading = true;
+    notifyListeners();
     
     try {
-      print('BranchProvider: Loading branches...');
-      _branches = await _branchService.getActiveBranches();
-      print('BranchProvider: Loaded ${_branches.length} branches');
-      print('BranchProvider: Branches: $_branches');
-    } catch (e) {
-      print('BranchProvider: Error loading branches: $e');
-      _setError(e.toString());
-    } finally {
-      _setLoading(false);
+      _branches = await _branchService.getAllBranches();
+    } catch (error) {
+      debugPrint('Error loading branches: $error');
     }
+    
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> loadActiveBranches() async {
+    _isLoading = true;
+    notifyListeners();
+    
+    try {
+      _activeBranches = await _branchService.getActiveBranches();
+    } catch (error) {
+      debugPrint('Error loading active branches: $error');
+    }
+    
+    _isLoading = false;
+    notifyListeners();
   }
 
   void selectBranch(Branch branch) {
@@ -39,21 +50,6 @@ class BranchProvider with ChangeNotifier {
 
   void clearSelectedBranch() {
     _selectedBranch = null;
-    notifyListeners();
-  }
-
-  void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
-  }
-
-  void _setError(String error) {
-    _error = error;
-    notifyListeners();
-  }
-
-  void _clearError() {
-    _error = null;
     notifyListeners();
   }
 }

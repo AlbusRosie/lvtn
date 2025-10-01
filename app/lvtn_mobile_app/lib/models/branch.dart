@@ -12,6 +12,8 @@ class Branch {
   final String? description;
   final DateTime createdAt;
 
+  String get address => addressDetail ?? 'Địa chỉ không xác định';
+
   Branch({
     required this.id,
     required this.name,
@@ -28,22 +30,19 @@ class Branch {
   });
 
   factory Branch.fromJson(Map<String, dynamic> json) {
-    print('Branch.fromJson: Parsing branch data: $json');
     return Branch(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '',
+      id: json['id'],
+      name: json['name'],
       provinceId: json['province_id'],
       districtId: json['district_id'],
       addressDetail: json['address_detail'],
-      phone: json['phone'] ?? '',
+      phone: json['phone'],
       email: json['email'],
       managerId: json['manager_id'],
-      status: json['status'] ?? 'active',
+      status: json['status'],
       openingHours: json['opening_hours'],
       description: json['description'],
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at'])
-          : DateTime.now(),
+      createdAt: DateTime.parse(json['created_at']),
     );
   }
 
@@ -63,7 +62,4 @@ class Branch {
       'created_at': createdAt.toIso8601String(),
     };
   }
-
-  bool get isActive => status == 'active';
-  String get fullAddress => '$addressDetail, District $districtId, Province $provinceId';
 }

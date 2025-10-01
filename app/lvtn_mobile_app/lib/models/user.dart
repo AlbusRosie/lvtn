@@ -1,7 +1,5 @@
 class User {
   final int id;
-  final int roleId;
-  final int? branchId;
   final String username;
   final String email;
   final String name;
@@ -9,13 +7,12 @@ class User {
   final String? phone;
   final bool favorite;
   final String? avatar;
+  final int roleId;
   final String status;
   final DateTime createdAt;
 
   User({
     required this.id,
-    required this.roleId,
-    this.branchId,
     required this.username,
     required this.email,
     required this.name,
@@ -23,16 +20,42 @@ class User {
     this.phone,
     required this.favorite,
     this.avatar,
+    required this.roleId,
     required this.status,
     required this.createdAt,
   });
 
+  User copyWith({
+    int? id,
+    String? username,
+    String? email,
+    String? name,
+    String? address,
+    String? phone,
+    bool? favorite,
+    String? avatar,
+    int? roleId,
+    String? status,
+    DateTime? createdAt,
+  }) {
+    return User(
+      id: id ?? this.id,
+      username: username ?? this.username,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      address: address ?? this.address,
+      phone: phone ?? this.phone,
+      favorite: favorite ?? this.favorite,
+      avatar: avatar ?? this.avatar,
+      roleId: roleId ?? this.roleId,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   factory User.fromJson(Map<String, dynamic> json) {
-    print('User.fromJson: Parsing user data: $json');
     return User(
       id: json['id'] ?? 0,
-      roleId: json['role_id'] ?? 0,
-      branchId: json['branch_id'],
       username: json['username'] ?? '',
       email: json['email'] ?? '',
       name: json['name'] ?? '',
@@ -40,18 +63,17 @@ class User {
       phone: json['phone'],
       favorite: json['favorite'] == 1 || json['favorite'] == true,
       avatar: json['avatar'],
-      status: json['status'] ?? 'active', // Default value if null
+      roleId: json['role_id'] ?? 4, // Default to customer role
+      status: json['status'] ?? 'active',
       createdAt: json['created_at'] != null 
           ? DateTime.parse(json['created_at'])
-          : DateTime.now(), // Default to now if null
+          : DateTime.now(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'role_id': roleId,
-      'branch_id': branchId,
       'username': username,
       'email': email,
       'name': name,
@@ -59,23 +81,9 @@ class User {
       'phone': phone,
       'favorite': favorite ? 1 : 0,
       'avatar': avatar,
+      'role_id': roleId,
       'status': status,
       'created_at': createdAt.toIso8601String(),
     };
   }
-
-  String get roleName {
-    switch (roleId) {
-      case 1: return 'Admin';
-      case 2: return 'Manager';
-      case 3: return 'Staff';
-      case 4: return 'Customer';
-      default: return 'Unknown';
-    }
-  }
-
-  bool get isAdmin => roleId == 1;
-  bool get isManager => roleId == 2;
-  bool get isStaff => roleId == 3;
-  bool get isCustomer => roleId == 4;
 }

@@ -1,57 +1,70 @@
 import 'package:flutter/foundation.dart';
 import '../models/product.dart';
-import '../models/category.dart' as models;
 import '../services/product_service.dart';
 
-class ProductProvider with ChangeNotifier {
+class ProductProvider extends ChangeNotifier {
   final ProductService _productService = ProductService();
   
   List<Product> _products = [];
-  List<models.Category> _categories = [];
+  List<Product> _availableProducts = [];
+  List<Product> _branchProducts = [];
+  List<Map<String, dynamic>> _categories = [];
   bool _isLoading = false;
-  String? _error;
 
   List<Product> get products => _products;
-  List<models.Category> get categories => _categories;
+  List<Product> get availableProducts => _availableProducts;
+  List<Product> get branchProducts => _branchProducts;
+  List<Map<String, dynamic>> get categories => _categories;
   bool get isLoading => _isLoading;
-  String? get error => _error;
 
-  Future<void> loadProducts({int? categoryId, int? branchId}) async {
-    _setLoading(true);
-    _clearError();
+  Future<void> loadProducts({int? branchId, int? categoryId, String? search}) async {
+    _isLoading = true;
+    notifyListeners();
     
     try {
-      _products = await _productService.getProducts(
-        categoryId: categoryId,
-        branchId: branchId,
-      );
-    } catch (e) {
-      _setError(e.toString());
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<void> loadCategories() async {
-    try {
+      _products = await _productService.getProductsByBranch(branchId ?? 0);
       _categories = await _productService.getCategories();
-    } catch (e) {
-      _setError(e.toString());
+    } catch (error) {
+      debugPrint('Error loading products: $error');
     }
-  }
-
-  void _setLoading(bool loading) {
-    _isLoading = loading;
+    
+    _isLoading = false;
     notifyListeners();
   }
 
-  void _setError(String error) {
-    _error = error;
+  Future<void> loadAvailableProducts() async {
+    _isLoading = true;
+    notifyListeners();
+    
+    try {
+      _availableProducts = await _productService.getAvailableProducts();
+    } catch (error) {
+      debugPrint('Error loading available products: $error');
+    }
+    
+    _isLoading = false;
     notifyListeners();
   }
 
-  void _clearError() {
-    _error = null;
+  Future<void> loadProductsByBranch(int branchId) async {
+    _isLoading = true;
     notifyListeners();
+    
+    try {
+      _branchProducts = await _productService.getProductsByBranch(branchId);
+    } catch (error) {
+      debugPrint('Error loading branch products: $error');
+    }
+    
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Product? findById(int id) {
+    try {
+      return _products.firstWhere((product) => product.id == id);
+    } catch (e) {
+      return null;
+    }
   }
 }

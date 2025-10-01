@@ -1,5 +1,16 @@
+import 'dart:io';
+
 class ApiConstants {
-  static const String baseUrl = 'http://192.168.1.61:3000/api';
+  static String get baseUrl {
+    if (Platform.isAndroid) {
+      //IP LAN máy chạy backend
+      return 'http://192.168.1.22:3000/api';
+    }
+    if (Platform.isIOS) {
+      return 'http://127.0.0.1:3000/api';
+    }
+    return 'http://127.0.0.1:3000/api';
+  }
   
   static const String login = '/users/login';
   static const String register = '/users/register';

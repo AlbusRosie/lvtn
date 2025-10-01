@@ -1,52 +1,46 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../constants/app_constants.dart';
 
 class StorageService {
-    static final StorageService _instance = StorageService._internal();
-    factory StorageService() => StorageService._internal();
-    StorageService._internal();
+  static final StorageService _instance = StorageService._internal();
+  factory StorageService() => _instance;
+  StorageService._internal();
 
-    SharedPreferences? _prefs;
+  SharedPreferences? _prefs;
 
-    Future<void> initialize() async {
-        _prefs = await SharedPreferences.getInstance();
-    }
+  Future<void> initialize() async {
+    _prefs = await SharedPreferences.getInstance();
+  }
 
-    Future<String?> getAuthToken() async {
-        return _prefs?.getString(AppConstants.authTokenKey);
-    }
+  Future<void> setString(String key, String value) async {
+    await _prefs?.setString(key, value);
+  }
 
-    Future<void> saveAuthToken(String token) async {
-        await _prefs?.setString(AppConstants.authTokenKey, token);
-    }
+  Future<String?> getString(String key) async {
+    return _prefs?.getString(key);
+  }
 
-    Future<Map<String, dynamic>?> getUserData() async {
-        final userDataString = _prefs?.getString(AppConstants.userDataKey);
-        if (userDataString != null) {
-        return json.decode(userDataString);
-        }
-        return null;
-    }
+  Future<void> setInt(String key, int value) async {
+    await _prefs?.setInt(key, value);
+  }
 
-    Future<void> saveUserData(Map<String, dynamic> userData) async {
-        await _prefs?.setString(AppConstants.userDataKey, json.encode(userData));
-    }
+  Future<int?> getInt(String key) async {
+    return _prefs?.getInt(key);
+  }
 
-    Future<void> clearAuthData() async {
-        await _prefs?.remove(AppConstants.authTokenKey);
-        await _prefs?.remove(AppConstants.userDataKey);
-    }
+  Future<void> setBool(String key, bool value) async {
+    await _prefs?.setBool(key, value);
+  }
 
-    Future<int?> getSelectedBranchId() async {
-        return _prefs?.getInt(AppConstants.selectedBranchKey);
-    }
+  Future<bool?> getBool(String key) async {
+    return _prefs?.getBool(key);
+  }
 
-    Future<void> saveSelectedBranchId(int branchId) async {
-        await _prefs?.setInt(AppConstants.selectedBranchKey, branchId);
-    }
+  Future<void> remove(String key) async {
+    await _prefs?.remove(key);
+  }
 
-    Future<void> clearSelectedBranch() async {
-        await _prefs?.remove(AppConstants.selectedBranchKey);
-    }
+  Future<void> clear() async {
+    await _prefs?.clear();
+  }
 }
