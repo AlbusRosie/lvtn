@@ -245,7 +245,6 @@ export default {
       this.formLoading = true;
 
       try {
-
         if (formData && formData.target && formData.target.tagName === 'FORM') {
           this.$toast.error('Lỗi: Dữ liệu form không hợp lệ');
           return;
