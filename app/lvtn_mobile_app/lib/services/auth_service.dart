@@ -66,7 +66,14 @@ class AuthService {
         'role_id': AppConstants.customerRole,
       });
 
-      _currentUser = User.fromJson(response['data']['user']);
+      if (response == null) {
+        throw Exception('Không nhận được phản hồi từ server');
+      }
+
+      if (response['user'] == null) {
+        throw Exception('Dữ liệu phản hồi không hợp lệ');
+      }
+
       return await login(username, password);
     } catch (error) {
       throw Exception('Đăng ký thất bại: ${error.toString()}');
