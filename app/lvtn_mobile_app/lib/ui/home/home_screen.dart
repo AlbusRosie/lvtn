@@ -185,7 +185,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: EdgeInsets.all(20),
                             child: Row(
                               children: [
-                                // Branch image/icon
                                 Container(
                                   width: 80,
                                   height: 80,
@@ -211,7 +210,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 SizedBox(width: 16),
                                 
-                                // Branch info
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,7 +247,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                       SizedBox(height: 8),
                                       
-                                      // Address
                                       Row(
                                         children: [
                                           Icon(
@@ -272,7 +269,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                       SizedBox(height: 6),
                                       
-                                      // Phone
                                       Row(
                                         children: [
                                           Icon(
@@ -290,7 +286,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ],
                                       ),
                                       
-                                      // Opening hours
                                       if (branch.openingHours != null) ...[
                                         SizedBox(height: 6),
                                         Row(
@@ -316,7 +311,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                                 
-                                // Arrow icon
                                 Icon(
                                   Icons.arrow_forward_ios,
                                   size: 20,
@@ -341,7 +335,6 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: (index) {
           switch (index) {
             case 0:
-              // Already on home
               break;
             case 1:
               Navigator.pushNamed(context, '/branches');

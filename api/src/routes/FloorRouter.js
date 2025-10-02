@@ -8,7 +8,6 @@ const router = express.Router();
 module.exports.setup = (app) => {
     app.use('/api/floors', router);
 
-    // Public
     router.get('/', FloorController.getAllFloors);
     router.get('/active', FloorController.getActiveFloors);
     router.get('/statistics', FloorController.getFloorStatistics);
@@ -16,7 +15,6 @@ module.exports.setup = (app) => {
     router.get('/generate-number/:branch_id', FloorController.generateNextFloorNumber);
     router.get('/:id', FloorController.getFloorById);
 
-    // Admin nhé
     router.use(verifyToken);
     router.use(requireRole(['admin']));
 

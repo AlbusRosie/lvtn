@@ -7,7 +7,6 @@ const router = express.Router();
 module.exports.setup = (app) => {
     app.use('/api/provinces', router);
 
-    // Public 
     router.get('/', ProvinceController.getAllProvinces);
     router.get('/search', ProvinceController.searchProvinces);
     router.get('/districts/search', ProvinceController.searchDistricts);

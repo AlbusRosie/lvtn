@@ -423,7 +423,6 @@ async function updateBranchProduct(branchProductId, updateData) {
         throw new Error('Cannot update branch product: Global product is disabled');
     }
 
-    // Nếu status là discontinued, xóa luôn record thay vì update
     if (updateData.status === 'discontinued') {
         const pendingOrders = await knex('order_details')
             .join('orders', 'order_details.order_id', 'orders.id')

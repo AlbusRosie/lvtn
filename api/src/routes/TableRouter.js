@@ -8,9 +8,7 @@ const router = express.Router();
 module.exports.setup = (app) => {
     app.use('/api/tables', router);
 
-    // Public 
     router.get('/', TableController.getAllTables);
-    // Admin
     router.use(verifyToken);
     router.use(requireRole(['admin']));
     router.post('/', TableController.createTable);

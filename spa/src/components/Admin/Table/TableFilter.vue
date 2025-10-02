@@ -35,6 +35,13 @@
           <option value="7+">7+ người</option>
         </select>
 
+        <select v-model="floorFilter" @change="handleFilter">
+          <option value="">Tất cả tầng</option>
+          <option v-for="floor in floors" :key="floor.id" :value="floor.id">
+            {{ floor.name }} ({{ getBranchName(floor.branch_id) }})
+          </option>
+        </select>
+
         <button @click="resetFilters" class="btn btn-reset">
           <i class="fas fa-undo"></i>
           Đặt lại
@@ -92,11 +99,16 @@ export default {
       branchFilter: '',
       statusFilter: '',
       capacityFilter: '',
-      branches: []
+      floorFilter: '',
+      branches: [],
+      floors: []
     };
   },
   async mounted() {
     await this.loadBranches();
+    await this.loadFloors();
+  },
+  computed: {
   },
   methods: {
     async loadBranches() {
@@ -108,6 +120,19 @@ export default {
         this.branches = [];
       }
     },
+    async loadFloors() {
+      try {
+        const FloorService = await import('@/services/FloorService');
+        const floors = await FloorService.default.getAllFloors();
+        this.floors = floors || [];
+      } catch (error) {
+        this.floors = [];
+      }
+    },
+    getBranchName(branchId) {
+      const branch = this.branches.find(b => b.id == branchId);
+      return branch ? branch.name : `Chi nhánh ${branchId}`;
+    },
     handleSearch() {
       this.$emit('search', this.searchTerm);
     },
@@ -115,7 +140,8 @@ export default {
       this.$emit('filter', {
         branch: this.branchFilter,
         status: this.statusFilter,
-        capacity: this.capacityFilter
+        capacity: this.capacityFilter,
+        floor: this.floorFilter
       });
     },
     resetFilters() {
@@ -123,6 +149,7 @@ export default {
       this.branchFilter = '';
       this.statusFilter = '';
       this.capacityFilter = '';
+      this.floorFilter = '';
       this.$emit('reset');
     }
   }
@@ -136,34 +163,38 @@ export default {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .filter-row {
   display: flex;
-  gap: 20px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .search-box {
   position: relative;
   flex: 1;
-  min-width: 250px;
+  min-width: 180px;
+  max-width: 250px;
 }
 
 .search-box input {
   width: 100%;
-  padding: 10px 12px 10px 40px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  padding: 8px 12px 8px 40px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
   transition: border-color 0.2s ease;
 }
 
 .search-box input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #007bff;
 }
 
 .search-box i {
@@ -176,43 +207,49 @@ export default {
 
 .filter-controls {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  flex: 2;
+  min-width: 0;
 }
 
 .filter-controls select {
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
   background: white;
   cursor: pointer;
   transition: border-color 0.2s ease;
+  flex: 1;
+  min-width: 120px;
+  max-width: 200px;
 }
 
 .filter-controls select:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #007bff;
 }
 
 .btn-reset {
-  padding: 8px 16px;
-  background: #6b7280;
+  padding: 8px 12px;
+  background: #6c757d;
   color: white;
   border: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  border-radius: 4px;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-reset:hover {
-  background: #4b5563;
-  transform: translateY(-1px);
+  background: #5a6268;
 }
 
 .filter-stats {
@@ -257,22 +294,71 @@ export default {
   color: #6b7280;
 }
 
+@media (max-width: 1200px) {
+  .filter-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .search-box {
+    flex: 1 1 200px;
+    min-width: 200px;
+    max-width: 300px;
+  }
+  
+  .filter-controls {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  
+  .filter-controls select {
+    flex: 1 1 150px;
+    min-width: 120px;
+    max-width: 180px;
+  }
+}
+
 @media (max-width: 768px) {
   .filter-row {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
+    width: 100%;
   }
 
   .search-box {
     min-width: auto;
+    max-width: none;
+    flex: none;
+    width: 100%;
   }
 
   .filter-controls {
-    justify-content: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    flex: none;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .filter-controls select {
+    flex: 1 1 140px;
+    min-width: 120px;
+    max-width: 160px;
+  }
+
+  .btn-reset {
+    flex: 1 1 auto;
+    min-width: 120px;
   }
 
   .filter-stats {
     justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
   }
 }
 </style>

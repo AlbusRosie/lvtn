@@ -21,24 +21,54 @@ function makeBranchService() {
         return branch;
     }
 
-    async function createBranch(branchData) {
-        return efetch(baseUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(branchData)
-        });
+    async function createBranch(branchData, imageFile = null) {
+        if (imageFile) {
+            const formData = new FormData();
+            
+            Object.keys(branchData).forEach(key => {
+                formData.append(key, branchData[key]);
+            });
+            
+            formData.append('branchImage', imageFile);
+            
+            return efetch(baseUrl, {
+                method: 'POST',
+                body: formData
+            });
+        } else {
+            return efetch(baseUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(branchData)
+            });
+        }
     }
 
-    async function updateBranch(id, branchData) {
-        return efetch(`${baseUrl}/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(branchData)
-        });
+    async function updateBranch(id, branchData, imageFile = null) {
+        if (imageFile) {
+            const formData = new FormData();
+            
+            Object.keys(branchData).forEach(key => {
+                formData.append(key, branchData[key]);
+            });
+            
+            formData.append('branchImage', imageFile);
+            
+            return efetch(`${baseUrl}/${id}`, {
+                method: 'PUT',
+                body: formData
+            });
+        } else {
+            return efetch(`${baseUrl}/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(branchData)
+            });
+        }
     }
 
     async function deleteBranch(id) {

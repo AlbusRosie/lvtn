@@ -32,7 +32,7 @@
       <div v-else-if="filteredTables.length === 0" class="empty-state">
         <i class="fas fa-table"></i>
         <h3>Không có bàn nào</h3>
-        <p v-if="searchTerm || statusFilter || capacityFilter">
+        <p v-if="searchTerm || statusFilter || capacityFilter || branchFilter || floorFilter">
           Không tìm thấy bàn phù hợp với bộ lọc hiện tại
         </p>
         <p v-else>
@@ -51,14 +51,14 @@
           :is-admin="isAdmin"
           @edit="handleEdit"
           @delete="handleDelete"
-          @update-status="handleUpdateStatus"
+          @updateStatus="handleUpdateStatus"
         />
       </div>
     </div>
 
     
-    <div v-if="showCreateForm || editingTable" class="modal-overlay" @click="closeModal">
-      <div class="modal-content" @click.stop>
+    <div v-if="showCreateForm || editingTable" class="modal-overlay">
+      <div class="modal-content">
         <TableForm
           :table="editingTable"
           :loading="formLoading"
@@ -69,8 +69,8 @@
     </div>
 
     
-    <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
-      <div class="modal-content delete-modal" @click.stop>
+    <div v-if="showDeleteModal" class="modal-overlay">
+      <div class="modal-content delete-modal">
         <div class="delete-header">
           <i class="fas fa-exclamation-triangle"></i>
           <h3>Xác nhận xóa</h3>
@@ -127,6 +127,7 @@ export default {
       branchFilter: '',
       statusFilter: '',
       capacityFilter: '',
+      floorFilter: '',
       tableStats: {
         total: 0,
         available: 0,
@@ -155,6 +156,10 @@ export default {
 
       if (this.branchFilter) {
         filtered = filtered.filter(table => table.branch_id == this.branchFilter);
+      }
+
+      if (this.floorFilter) {
+        filtered = filtered.filter(table => table.floor_id == this.floorFilter);
       }
 
       if (this.statusFilter) {
@@ -221,6 +226,7 @@ export default {
       this.branchFilter = filters.branch;
       this.statusFilter = filters.status;
       this.capacityFilter = filters.capacity;
+      this.floorFilter = filters.floor;
     },
 
     handleReset() {
@@ -228,6 +234,7 @@ export default {
       this.branchFilter = '';
       this.statusFilter = '';
       this.capacityFilter = '';
+      this.floorFilter = '';
     },
 
     handleEdit(table) {
@@ -243,17 +250,16 @@ export default {
           this.$toast.error('Lỗi: Dữ liệu form không hợp lệ');
           return;
         }
-        const token = AuthService.getToken();
 
         if (this.editingTable) {
-          await TableService.updateTable(this.editingTable.id, formData, token);
+          await TableService.updateTable(this.editingTable.id, formData);
           if (this.toast) {
             this.toast.success('Cập nhật bàn thành công!');
           } else {
             alert('Cập nhật bàn thành công!');
           }
         } else {
-          await TableService.createTable(formData, token);
+          await TableService.createTable(formData);
           if (this.toast) {
             this.toast.success('Tạo bàn mới thành công!');
           } else {
@@ -293,8 +299,7 @@ export default {
       this.deleteLoading = true;
 
       try {
-        const token = AuthService.getToken();
-        await TableService.deleteTable(this.tableToDelete.id, token);
+        await TableService.deleteTable(this.tableToDelete.id);
 
         if (this.toast) {
           this.toast.success('Xóa bàn thành công!');
@@ -318,8 +323,7 @@ export default {
 
     async handleUpdateStatus(tableId, status) {
       try {
-        const token = AuthService.getToken();
-        await TableService.updateTableStatus(tableId, status, token);
+        await TableService.updateTableStatus(tableId, status);
 
         if (this.$toast) {
           this.$toast.success('Cập nhật trạng thái thành công!');
@@ -348,6 +352,9 @@ export default {
 <style scoped>
 .table-list {
   padding: 20px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .header {
@@ -440,6 +447,9 @@ export default {
 
 .content-area {
   min-height: 400px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .loading,
@@ -483,8 +493,10 @@ export default {
 
 .tables-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .modal-overlay {
@@ -544,7 +556,18 @@ export default {
   margin-top: 24px;
 }
 
+@media (max-width: 1024px) {
+  .tables-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
 @media (max-width: 768px) {
+  .table-list {
+    padding: 10px;
+  }
+
   .page-header {
     flex-direction: column;
     gap: 16px;
@@ -553,6 +576,7 @@ export default {
 
   .tables-grid {
     grid-template-columns: 1fr;
+    gap: 15px;
   }
 
   .modal-overlay {

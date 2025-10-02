@@ -1,6 +1,6 @@
 <template>
   <div class="branch-form">
-    <h2>{{ isEditing ? 'Chỉnh sửa chi nhánh' : 'Thêm chi nhánh mới' }}</h2>
+    <h2>{{ getFormTitle() }}</h2>
 
     <form class="form" @keydown.enter.prevent>
       <div class="form-group">
@@ -110,6 +110,33 @@
         ></textarea>
       </div>
 
+      <div class="form-group">
+        <label for="branchImage">Ảnh chi nhánh</label>
+        <div class="image-upload-container">
+          <input
+            id="branchImage"
+            ref="imageInput"
+            type="file"
+            accept="image/*"
+            @change="handleImageChange"
+            class="image-input"
+          />
+          <div class="image-preview" v-if="imagePreview">
+            <img :src="imagePreview" alt="Preview" />
+            <button type="button" @click="removeImage" class="remove-image-btn">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="image-placeholder" v-else>
+            <i class="fas fa-image"></i>
+            <span>Chọn ảnh chi nhánh</span>
+          </div>
+        </div>
+        <div class="image-info">
+          <small>Định dạng: JPG, PNG, GIF, WebP. Kích thước tối đa: 5MB</small>
+        </div>
+      </div>
+
       <div class="form-group" v-if="isEditing">
         <label for="status">Trạng thái</label>
         <select id="status" v-model="form.status" required>
@@ -125,7 +152,7 @@
         </button>
         <button type="button" @click="handleSubmit" class="btn btn-primary" :disabled="loading">
           <span v-if="loading">Đang xử lý...</span>
-          <span v-else>{{ isEditing ? 'Cập nhật' : 'Tạo chi nhánh' }}</span>
+          <span v-else>{{ getSubmitButtonText() }}</span>
         </button>
       </div>
     </form>
@@ -163,12 +190,17 @@ export default {
       provinces: [],
       districts: [],
       loadingProvinces: false,
-      loadingDistricts: false
+      loadingDistricts: false,
+      selectedImage: null,
+      imagePreview: null
     };
   },
   computed: {
     isEditing() {
       return !!this.branch;
+    },
+    isCopying() {
+      return this.branch && this.branch.name && this.branch.name.includes('(Copy)');
     }
   },
   async mounted() {
@@ -177,7 +209,6 @@ export default {
   watch: {
     branch: {
       async handler(newBranch) {
-        console.log('Branch data received:', newBranch);
         if (newBranch) {
           this.form = {
             name: newBranch.name,
@@ -190,10 +221,15 @@ export default {
             province_id: newBranch.province_id || '',
             district_id: newBranch.district_id || ''
           };
-          console.log('Form data set:', this.form);
+          
+          if (newBranch.image) {
+            this.imagePreview = newBranch.image;
+          } else {
+            this.imagePreview = null;
+          }
+          
           if (newBranch.province_id) {
             await this.loadDistricts(newBranch.province_id);
-            console.log('Districts loaded:', this.districts);
           } else {
             this.districts = [];
           }
@@ -205,6 +241,26 @@ export default {
     }
   },
   methods: {
+    getFormTitle() {
+      if (this.isCopying) {
+        return 'Sao chép chi nhánh';
+      } else if (this.isEditing) {
+        return 'Chỉnh sửa chi nhánh';
+      } else {
+        return 'Thêm chi nhánh mới';
+      }
+    },
+
+    getSubmitButtonText() {
+      if (this.isCopying) {
+        return 'Tạo bản sao';
+      } else if (this.isEditing) {
+        return 'Cập nhật';
+      } else {
+        return 'Tạo chi nhánh';
+      }
+    },
+
     async loadProvinces() {
       try {
         this.loadingProvinces = true;
@@ -220,9 +276,7 @@ export default {
     async loadDistricts(provinceId) {
       try {
         this.loadingDistricts = true;
-        console.log('Loading districts for province:', provinceId);
         this.districts = await ProvinceService.getDistrictsByProvinceId(provinceId);
-        console.log('Districts loaded:', this.districts);
       } catch (error) {
         console.error('Error loading districts:', error);
         this.$toast?.error('Không thể tải danh sách quận/huyện');
@@ -232,13 +286,11 @@ export default {
     },
 
     async onProvinceChange() {
-      console.log('Province changed to:', this.form.province_id);
       this.form.district_id = '';
       this.districts = [];
       
       if (this.form.province_id) {
         await this.loadDistricts(this.form.province_id);
-        console.log('Districts loaded after province change:', this.districts);
       }
     },
 
@@ -255,6 +307,38 @@ export default {
         district_id: ''
       };
       this.districts = [];
+      this.selectedImage = null;
+      this.imagePreview = null;
+    },
+
+    handleImageChange(event) {
+      const file = event.target.files[0];
+      if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          this.$toast?.error('Kích thước file không được vượt quá 5MB');
+          return;
+        }
+
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+          this.$toast?.error('Chỉ chấp nhận file ảnh (JPG, PNG, GIF, WebP)');
+          return;
+        }
+
+        this.selectedImage = file;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.imagePreview = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    },
+
+    removeImage() {
+      this.selectedImage = null;
+      this.imagePreview = null;
+      this.$refs.imageInput.value = '';
     },
 
     handleSubmit() {
@@ -264,10 +348,8 @@ export default {
       }
 
       const formData = { ...this.form };
-      console.log('Submitting form data:', formData);
-      console.log('Current form state:', this.form);
-      console.log('Available districts:', this.districts);
-      this.$emit('submit', formData);
+      
+      this.$emit('submit', { formData, imageFile: this.selectedImage });
     }
   }
 };
@@ -389,6 +471,80 @@ export default {
 
 .btn-secondary:hover:not(:disabled) {
   background: #4b5563;
+}
+
+.image-upload-container {
+  position: relative;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  transition: border-color 0.2s ease;
+  cursor: pointer;
+}
+
+.image-upload-container:hover {
+  border-color: #3b82f6;
+}
+
+.image-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.image-preview {
+  position: relative;
+  display: inline-block;
+}
+
+.image-preview img {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.remove-image-btn:hover {
+  background: #dc2626;
+}
+
+.image-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+}
+
+.image-placeholder i {
+  font-size: 2rem;
+}
+
+.image-info {
+  margin-top: 8px;
+  color: #6b7280;
 }
 
 @media (max-width: 768px) {

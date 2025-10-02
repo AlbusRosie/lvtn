@@ -101,7 +101,9 @@ async function deleteCategory(id) {
         products.forEach((product) => {
             if (product.image && product.image.startsWith('/public/uploads')) {
                 unlink(`.${product.image}`, (err) => {
-                    if (err) console.log('Error deleting product image:', err);
+                    if (err) {
+                      // Continue silently
+                    }
                 });
             }
         });

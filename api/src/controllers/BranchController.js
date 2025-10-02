@@ -47,7 +47,8 @@ async function createBranch(req, res, next) {
       opening_hours: opening_hours ? opening_hours.trim() : null,
       description: description ? description.trim() : null,
       province_id: parseInt(province_id),
-      district_id: parseInt(district_id)
+      district_id: parseInt(district_id),
+      image: req.file ? `/public/uploads/${req.file.filename}` : null
     };
 
     const branch = await BranchService.createBranch(branchData);
@@ -125,6 +126,7 @@ async function updateBranch(req, res, next) {
     if (description !== undefined) branchData.description = description ? description.trim() : null;
     if (province_id !== undefined) branchData.province_id = parseInt(province_id);
     if (district_id !== undefined) branchData.district_id = parseInt(district_id);
+    if (req.file) branchData.image = `/public/uploads/${req.file.filename}`;
 
     const branch = await BranchService.updateBranch(id, branchData);
     res.json(success(branch, 'Branch updated successfully'));

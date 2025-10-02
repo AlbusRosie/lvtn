@@ -5,42 +5,17 @@
       @click="toggleMenu"
       class="btn btn-action-toggle"
       :class="{ 'active': isMenuOpen }"
-      title="Hành động"
+      title="Đổi trạng thái"
     >
-      <i class="fas fa-ellipsis-v"></i>
-      <span>Hành động</span>
+      <i class="fas fa-exchange-alt"></i>
+      <span>Đổi trạng thái</span>
       <i class="fas fa-chevron-down chevron" :class="{ 'rotated': isMenuOpen }"></i>
     </button>
 
     
     <div v-if="isMenuOpen" class="action-dropdown">
-      
-      <div class="action-group">
-        <button
-          @click="handleEdit"
-          class="action-item"
-        >
-          <i class="fas fa-edit"></i>
-          <span>Chỉnh sửa bàn</span>
-        </button>
-
-        <button
-          @click="handleDelete"
-          class="action-item"
-          :disabled="table.status === 'occupied' || table.status === 'reserved'"
-          :title="getDeleteTooltip()"
-        >
-          <i class="fas fa-trash"></i>
-          <span>Xóa bàn</span>
-          <small v-if="table.status === 'occupied' || table.status === 'reserved'" class="disabled-reason">
-            {{ getDeleteReason() }}
-          </small>
-        </button>
-      </div>
-
-      
       <div class="action-group" v-if="availableStatuses.length > 0">
-        <div class="group-title">Đổi trạng thái</div>
+        <div class="group-title">Chọn trạng thái mới</div>
         <button
           v-for="status in availableStatuses"
           :key="status.value"
@@ -121,37 +96,9 @@ export default {
         this.closeMenu();
       }
     },
-    handleEdit() {
-      this.$emit('edit', this.table);
-      this.closeMenu();
-    },
-    handleDelete() {
-      if (this.table.status !== 'occupied' && this.table.status !== 'reserved') {
-        this.$emit('delete', this.table);
-        this.closeMenu();
-      }
-    },
     handleStatusChange(status) {
       this.$emit('updateStatus', this.table.id, status);
       this.closeMenu();
-    },
-    getDeleteTooltip() {
-      if (this.table.status === 'occupied') {
-        return 'Không thể xóa bàn đang được sử dụng';
-      }
-      if (this.table.status === 'reserved') {
-        return 'Không thể xóa bàn đã được đặt trước';
-      }
-      return 'Xóa bàn';
-    },
-    getDeleteReason() {
-      if (this.table.status === 'occupied') {
-        return 'Bàn đang được sử dụng';
-      }
-      if (this.table.status === 'reserved') {
-        return 'Bàn đã được đặt trước';
-      }
-      return '';
     }
   }
 };
@@ -166,18 +113,18 @@ export default {
 .btn-action-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 6px 10px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   color: #475569;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
-  min-width: 120px;
+  min-width: 100px;
   justify-content: space-between;
 }
 

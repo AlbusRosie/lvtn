@@ -1,5 +1,12 @@
 <template>
   <div class="branch-card">
+    <div class="branch-image" v-if="branch.image">
+      <img :src="branch.image" :alt="branch.name" />
+    </div>
+    <div class="branch-image-placeholder" v-else>
+      <i class="fas fa-building"></i>
+    </div>
+
     <div class="branch-header">
       <div class="branch-info">
         <h3 class="branch-name">{{ branch.name }}</h3>
@@ -8,6 +15,9 @@
         </span>
       </div>
       <div class="branch-actions" v-if="isAdmin">
+        <button @click="$emit('copy', branch)" class="btn-icon" title="Sao chép">
+          <i class="fas fa-copy"></i>
+        </button>
         <button @click="$emit('edit', branch)" class="btn-icon" title="Chỉnh sửa">
           <i class="fas fa-edit"></i>
         </button>
@@ -102,6 +112,36 @@ export default {
   padding: 20px;
   transition: all 0.2s ease;
   border: 1px solid #e5e7eb;
+}
+
+.branch-image {
+  width: 100%;
+  height: 200px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.branch-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.branch-image-placeholder {
+  width: 100%;
+  height: 200px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+}
+
+.branch-image-placeholder i {
+  font-size: 3rem;
 }
 
 .branch-card:hover {

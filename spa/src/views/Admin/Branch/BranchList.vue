@@ -78,6 +78,7 @@
           :key="branch.id"
           :branch="branch"
           :is-admin="isAdmin"
+          @copy="handleCopy"
           @edit="handleEdit"
           @delete="handleDelete"
         />
@@ -85,8 +86,8 @@
     </div>
 
     
-    <div v-if="showCreateForm || editingBranch" class="modal-overlay" @click="closeModal">
-      <div class="modal-content" @click.stop>
+    <div v-if="showCreateForm || editingBranch" class="modal-overlay">
+      <div class="modal-content">
         <BranchForm
           :branch="editingBranch"
           :loading="formLoading"
@@ -97,8 +98,8 @@
     </div>
 
     
-    <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
-      <div class="modal-content delete-modal" @click.stop>
+    <div v-if="showDeleteModal" class="modal-overlay">
+      <div class="modal-content delete-modal">
         <div class="delete-header">
           <i class="fas fa-exclamation-triangle"></i>
           <h3>Xác nhận xóa chi nhánh</h3>
@@ -227,30 +228,54 @@ export default {
       }
     },
 
+    handleCopy(branch) {
+      const copiedBranch = {
+        ...branch,
+        name: `${branch.name} (Copy)`,
+        email: `copy_${branch.email}`,
+        phone: branch.phone + '_copy'
+      };
+      
+      delete copiedBranch.id;
+      delete copiedBranch.created_at;
+      delete copiedBranch.image; 
+      
+      this.editingBranch = copiedBranch;
+    },
+
     handleEdit(branch) {
       this.editingBranch = branch;
     },
 
-    async handleFormSubmit(formData) {
+    async handleFormSubmit(data) {
       this.formLoading = true;
 
       try {
-
-        if (formData && formData.target && formData.target.tagName === 'FORM') {
+        if (data && data.target && data.target.tagName === 'FORM') {
           this.$toast.error('Lỗi: Dữ liệu form không hợp lệ');
           return;
         }
-        const token = AuthService.getToken();
+
+        const { formData, imageFile } = data;
 
         if (this.editingBranch) {
-          await BranchService.updateBranch(this.editingBranch.id, formData, token);
-          if (this.toast) {
-            this.toast.success('Cập nhật chi nhánh thành công!');
+          if (this.editingBranch.name && this.editingBranch.name.includes('(Copy)')) {
+            await BranchService.createBranch(formData, imageFile);
+            if (this.toast) {
+              this.toast.success('Tạo bản sao chi nhánh thành công!');
+            } else {
+              alert('Tạo bản sao chi nhánh thành công!');
+            }
           } else {
-            alert('Cập nhật chi nhánh thành công!');
+            await BranchService.updateBranch(this.editingBranch.id, formData, imageFile);
+            if (this.toast) {
+              this.toast.success('Cập nhật chi nhánh thành công!');
+            } else {
+              alert('Cập nhật chi nhánh thành công!');
+            }
           }
         } else {
-          await BranchService.createBranch(formData, token);
+          await BranchService.createBranch(formData, imageFile);
           if (this.toast) {
             this.toast.success('Tạo chi nhánh mới thành công!');
           } else {
@@ -262,7 +287,6 @@ export default {
         this.closeModal();
         this.editingBranch = null;
       } catch (error) {
-
         let errorMessage = 'Có lỗi xảy ra';
         if (error.response && error.response.data) {
           errorMessage = error.response.data.message || error.response.data.error || errorMessage;

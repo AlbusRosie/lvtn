@@ -12,7 +12,6 @@ module.exports.setup = (app) => {
     router.get('/with-count', CategoryController.getCategoriesWithProductCount);
     router.get('/:id', CategoryController.getCategoryById);
 
-    // Admin
     router.use(verifyToken);
     router.use(requireRole(['admin']));
     router.post('/', CategoryController.createCategory);
