@@ -1,4 +1,4 @@
-import '../config/environment.dart';
+import '../config/env.dart';
 
 class ApiConstants {
   static String get baseUrl => Environment.baseUrl;
