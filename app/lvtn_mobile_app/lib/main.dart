@@ -64,41 +64,28 @@ class LVTNRestaurantApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => BranchProvider()),
       ],
-      child: Consumer<AuthProvider>(
-        builder: (ctx, authProvider, child) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: themeData,
-            home: authProvider.isAuth
-                ? const SafeArea(child: HomeScreen())
-                : FutureBuilder(
-                    future: authProvider.tryAutoLogin(),
-                    builder: (ctx, snapshot) {
-                      return snapshot.connectionState == ConnectionState.waiting
-                          ? const SafeArea(child: SplashScreen())
-                          : const SafeArea(child: AuthScreen());
-                    },
-                  ),
-            routes: {
-              HomeScreen.routeName: (ctx) => const SafeArea(child: HomeScreen()),
-              BranchesScreen.routeName: (ctx) => const SafeArea(child: BranchesScreen()),
-              ProfileScreen.routeName: (ctx) => const SafeArea(child: ProfileScreen()),
-              AuthScreen.routeName: (ctx) => const SafeArea(child: AuthScreen()),
-            },
-            onGenerateRoute: (settings) {
-              if (settings.name == BranchDetailScreen.routeName) {
-                final branchId = settings.arguments as int;
-                return MaterialPageRoute(
-                  builder: (ctx) {
-                    return SafeArea(
-                      child: BranchDetailScreen(branchId: branchId),
-                    );
-                  },
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: themeData,
+        home: const SafeArea(child: SplashScreen()),
+        routes: {
+          '/auth': (ctx) => const SafeArea(child: AuthScreen()),
+          HomeScreen.routeName: (ctx) => const SafeArea(child: HomeScreen()),
+          BranchesScreen.routeName: (ctx) => const SafeArea(child: BranchesScreen()),
+          ProfileScreen.routeName: (ctx) => const SafeArea(child: ProfileScreen()),
+        },
+        onGenerateRoute: (settings) {
+          if (settings.name == BranchDetailScreen.routeName) {
+            final branchId = settings.arguments as int;
+            return MaterialPageRoute(
+              builder: (ctx) {
+                return SafeArea(
+                  child: BranchDetailScreen(branchId: branchId),
                 );
-              }
-              return null;
-            },
-          );
+              },
+            );
+          }
+          return null;
         },
       ),
     );
