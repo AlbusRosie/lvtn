@@ -78,7 +78,6 @@ class BranchesScreen extends StatelessWidget {
                       padding: EdgeInsets.all(16),
                       child: Row(
                         children: [
-                          // Branch image placeholder
                           Container(
                             width: 80,
                             height: 80,
@@ -94,7 +93,6 @@ class BranchesScreen extends StatelessWidget {
                           ),
                           SizedBox(width: 16),
                           
-                          // Branch info
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,

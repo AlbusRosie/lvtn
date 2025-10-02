@@ -63,7 +63,7 @@ class User {
       phone: json['phone'],
       favorite: json['favorite'] == 1 || json['favorite'] == true,
       avatar: json['avatar'],
-      roleId: json['role_id'] ?? 4, // Default to customer role
+      roleId: json['role_id'] ?? 4,
       status: json['status'] ?? 'active',
       createdAt: json['created_at'] != null 
           ? DateTime.parse(json['created_at'])

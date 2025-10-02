@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/branch_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../branches/branch_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,7 +16,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Load branches when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<BranchProvider>(context, listen: false).loadBranches();
     });
@@ -127,7 +125,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
           return Column(
             children: [
-              // Welcome section
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(20),
@@ -165,7 +162,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               
-              // Branches list
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () => branchProvider.loadBranches(),
@@ -182,7 +178,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         child: InkWell(
                           onTap: () {
-                            // Navigate to products tab with selected branch
                             Navigator.pushNamed(context, '/products');
                           },
                           borderRadius: BorderRadius.circular(16),

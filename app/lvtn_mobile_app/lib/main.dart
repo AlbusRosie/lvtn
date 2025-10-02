@@ -1,28 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'ui/screens.dart';
 import 'ui/home/home_screen.dart';
 import 'ui/branches/branches_screen.dart';
 import 'ui/branches/branch_detail_screen.dart';
-import 'ui/products/products_screen.dart';
-import 'ui/products/product_detail_screen.dart';
-import 'ui/tables/tables_screen.dart';
-import 'ui/orders/orders_screen.dart';
 import 'ui/profile/profile_screen.dart';
 import 'ui/splash_screen.dart';
 import 'ui/auth/auth_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/branch_provider.dart';
-import 'providers/product_provider.dart';
-import 'providers/table_provider.dart';
-import 'providers/order_provider.dart';
 import 'services/storage_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
   await StorageService().initialize();
-  
   runApp(const LVTNRestaurantApp());
 }
 
@@ -73,9 +63,6 @@ class LVTNRestaurantApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => BranchProvider()),
-        ChangeNotifierProvider(create: (_) => ProductProvider()),
-        ChangeNotifierProvider(create: (_) => TableProvider()),
-        ChangeNotifierProvider(create: (_) => OrderProvider()),
       ],
       child: Consumer<AuthProvider>(
         builder: (ctx, authProvider, child) {
@@ -95,22 +82,10 @@ class LVTNRestaurantApp extends StatelessWidget {
             routes: {
               HomeScreen.routeName: (ctx) => const SafeArea(child: HomeScreen()),
               BranchesScreen.routeName: (ctx) => const SafeArea(child: BranchesScreen()),
-              ProductsScreen.routeName: (ctx) => const SafeArea(child: ProductsScreen()),
-              TablesScreen.routeName: (ctx) => const SafeArea(child: TablesScreen()),
-              OrdersScreen.routeName: (ctx) => const SafeArea(child: OrdersScreen()),
               ProfileScreen.routeName: (ctx) => const SafeArea(child: ProfileScreen()),
+              AuthScreen.routeName: (ctx) => const SafeArea(child: AuthScreen()),
             },
             onGenerateRoute: (settings) {
-              if (settings.name == ProductDetailScreen.routeName) {
-                final productId = settings.arguments as int;
-                return MaterialPageRoute(
-                  builder: (ctx) {
-                    return SafeArea(
-                      child: ProductDetailScreen(productId: productId),
-                    );
-                  },
-                );
-              }
               if (settings.name == BranchDetailScreen.routeName) {
                 final branchId = settings.arguments as int;
                 return MaterialPageRoute(

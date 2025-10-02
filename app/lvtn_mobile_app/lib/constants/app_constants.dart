@@ -23,8 +23,8 @@ class AppConstants {
   static const String active = 'active';
   static const String inactive = 'inactive';
   
-  static const String defaultAvatar = '/public/images/blank-profile-picture.png';
-  static const String defaultProductImage = '/public/images/blank-profile-picture.png';
+  static const String defaultAvatar = '/public/images/blank-profile-picture.jpg';
+  static const String defaultProductImage = '/public/images/blank-profile-picture.jpg';
   
   static const String authTokenKey = 'auth_token';
   static const String userDataKey = 'user_data';

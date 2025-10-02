@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../home/home_screen.dart';
 
 class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key});
@@ -77,7 +78,9 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
       }
       
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
       }
     } catch (error) {
       if (mounted) {
@@ -110,7 +113,6 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
               children: [
                 SizedBox(height: 40),
                 
-                // Logo
                 Icon(
                   Icons.restaurant,
                   size: 80,
@@ -135,7 +137,6 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                 ),
                 SizedBox(height: 40),
 
-                // Username
                 TextFormField(
                   controller: _usernameController,
                   decoration: InputDecoration(
@@ -152,7 +153,6 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                 ),
                 SizedBox(height: 16),
 
-                // Email (only for register)
                 if (!_isLogin) ...[
                   TextFormField(
                     controller: _emailController,
@@ -175,7 +175,6 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                   SizedBox(height: 16),
                 ],
 
-                // Name (only for register)
                 if (!_isLogin) ...[
                   TextFormField(
                     controller: _nameController,
@@ -194,7 +193,6 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                   SizedBox(height: 16),
                 ],
 
-                // Password
                 TextFormField(
                   controller: _passwordController,
                   decoration: InputDecoration(
@@ -223,7 +221,6 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                 ),
                 SizedBox(height: 16),
 
-                // Phone (only for register)
                 if (!_isLogin) ...[
                   TextFormField(
                     controller: _phoneController,
@@ -237,7 +234,6 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                   SizedBox(height: 16),
                 ],
 
-                // Address (only for register)
                 if (!_isLogin) ...[
                   TextFormField(
                     controller: _addressController,
@@ -251,7 +247,6 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                   SizedBox(height: 16),
                 ],
 
-                // Submit button
                 ElevatedButton(
                   onPressed: _isLoading ? null : _submit,
                   child: _isLoading
@@ -267,7 +262,6 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                 ),
                 SizedBox(height: 16),
 
-                // Toggle mode
                 TextButton(
                   onPressed: _toggleMode,
                   child: Text(

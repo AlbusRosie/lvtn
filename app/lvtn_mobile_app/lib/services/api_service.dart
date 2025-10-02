@@ -26,9 +26,6 @@ class ApiService {
   }
 
   Future<dynamic> _handleResponse(http.Response response) async {
-    print('Response status: ${response.statusCode}');
-    print('Response body: ${response.body}');
-    
     final data = json.decode(response.body);
     
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -36,7 +33,7 @@ class ApiService {
         return data;
       }
       if (data is Map && data['status'] == 'success') {
-        return data['data'] ?? {};
+        return data['data'];
       }
       if (data is Map) {
         return data;

@@ -1,16 +1,7 @@
-import 'dart:io';
+import '../config/environment.dart';
 
 class ApiConstants {
-  static String get baseUrl {
-    if (Platform.isAndroid) {
-      //IP LAN máy chạy backend
-      return 'http://192.168.1.22:3000/api';
-    }
-    if (Platform.isIOS) {
-      return 'http://127.0.0.1:3000/api';
-    }
-    return 'http://127.0.0.1:3000/api';
-  }
+  static String get baseUrl => Environment.baseUrl;
   
   static const String login = '/users/login';
   static const String register = '/users/register';
@@ -26,7 +17,7 @@ class ApiConstants {
   static const String floors = '/floors';
   
   static const String provinces = '/provinces';
-  static const String districts = '/provinces';
+  static const String districts = '/districts';
   
   static const Map<String, String> defaultHeaders = {
     'Content-Type': 'application/json',

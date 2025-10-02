@@ -32,7 +32,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: EdgeInsets.all(16),
             child: Column(
               children: [
-                // Profile card
                 Card(
                   child: Padding(
                     padding: EdgeInsets.all(16),
@@ -90,13 +89,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 SizedBox(height: 20),
 
-                // Menu items
                 _buildMenuItem(
                   context,
                   'Thông tin cá nhân',
                   Icons.person_outline,
                   () {
-                    // TODO: Navigate to edit profile
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Tính năng đang phát triển')),
                     );
@@ -107,7 +104,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   'Đơn hàng của tôi',
                   Icons.receipt_long,
                   () {
-                    Navigator.pushNamed(context, '/orders');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Tính năng đang phát triển')),
+                    );
                   },
                 ),
                 _buildMenuItem(
@@ -132,7 +131,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 SizedBox(height: 20),
 
-                // Logout button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
