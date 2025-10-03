@@ -1,4 +1,3 @@
-
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import ProductService from '@/services/ProductService'
@@ -22,6 +21,8 @@ const props = defineProps({
 })
 
 const loading = ref(false)
+const imagePreview = ref(null)
+const imageInput = ref(null)
 
 const formData = ref({
   branchType: 'multiple',
@@ -58,7 +59,32 @@ const isFormValid = computed(() => {
 const handleImageUpload = (event) => {
   const file = event.target.files[0]
   if (file) {
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Kích thước file không được vượt quá 5MB')
+      return
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      alert('Chỉ chấp nhận file ảnh (JPG, PNG, GIF, WebP)')
+      return
+    }
+
     formData.value.newProduct.image = file
+    
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      imagePreview.value = e.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+const removeImage = () => {
+  formData.value.newProduct.image = null
+  imagePreview.value = null
+  if (imageInput.value) {
+    imageInput.value.value = ''
   }
 }
 
@@ -208,13 +234,30 @@ onMounted(() => {
             >
           </div>
           <div class="form-col">
-            <label>Hình ảnh</label>
-            <input 
-              type="file" 
-              @change="handleImageUpload"
-              class="form-control"
-              accept="image/*"
-            >
+            <label for="productImage">Hình ảnh</label>
+            <div class="image-upload-container">
+              <input
+                id="productImage"
+                ref="imageInput"
+                type="file"
+                accept="image/*"
+                @change="handleImageUpload"
+                class="image-input"
+              />
+              <div class="image-preview" v-if="imagePreview">
+                <img :src="imagePreview" alt="Preview" />
+                <button type="button" @click="removeImage" class="remove-image-btn">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <div class="image-placeholder" v-else>
+                <i class="fas fa-image"></i>
+                <span>Chọn ảnh sản phẩm</span>
+              </div>
+            </div>
+            <div class="image-info">
+              <small>Định dạng: JPG, PNG, GIF, WebP. Kích thước tối đa: 5MB</small>
+            </div>
           </div>
         </div>
         
@@ -468,5 +511,79 @@ onMounted(() => {
   background: #ccc;
   border-color: #ccc;
   cursor: not-allowed;
+}
+
+.image-upload-container {
+  position: relative;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  transition: border-color 0.2s ease;
+  cursor: pointer;
+}
+
+.image-upload-container:hover {
+  border-color: #3b82f6;
+}
+
+.image-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.image-preview {
+  position: relative;
+  display: inline-block;
+}
+
+.image-preview img {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.remove-image-btn:hover {
+  background: #dc2626;
+}
+
+.image-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+}
+
+.image-placeholder i {
+  font-size: 2rem;
+}
+
+.image-info {
+  margin-top: 8px;
+  color: #6b7280;
 }
 </style>

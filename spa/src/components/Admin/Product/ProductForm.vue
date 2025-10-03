@@ -127,15 +127,29 @@
       </div>
 
       <div class="form-group">
-        <label>Hình ảnh</label>
-        <input
-          @change="handleImageChange"
-          type="file"
-          class="form-control"
-          accept="image/*"
-        />
-        <div v-if="imagePreview" class="image-preview">
-          <img :src="imagePreview" alt="Preview" class="preview-image">
+        <label for="productImage">Hình ảnh sản phẩm</label>
+        <div class="image-upload-container">
+          <input
+            id="productImage"
+            ref="imageInput"
+            type="file"
+            accept="image/*"
+            @change="handleImageChange"
+            class="image-input"
+          />
+          <div class="image-preview" v-if="imagePreview">
+            <img :src="imagePreview" alt="Preview" />
+            <button type="button" @click="removeImage" class="remove-image-btn">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="image-placeholder" v-else>
+            <i class="fas fa-image"></i>
+            <span>Chọn ảnh sản phẩm</span>
+          </div>
+        </div>
+        <div class="image-info">
+          <small>Định dạng: JPG, PNG, GIF, WebP. Kích thước tối đa: 5MB</small>
         </div>
       </div>
 
@@ -181,7 +195,9 @@ const emit = defineEmits(['submit', 'cancel']);
 const categories = ref([]);
 const branches = ref([]);
 const loadingBranches = ref(false);
-const imagePreview = ref('');
+const selectedImage = ref(null);
+const imagePreview = ref(null);
+const imageInput = ref(null);
 
 const isEditing = computed(() => !!props.product);
 
@@ -231,7 +247,7 @@ watch(() => props.product, (newProduct) => {
     formData.is_global_available = newProduct.is_global_available !== undefined ? newProduct.is_global_available : true;
     
     if (newProduct.image) {
-      imagePreview.value = newProduct.image;
+      imagePreview.value = getImageUrl(newProduct.image);
     }
   } else {
     Object.keys(formData).forEach(key => {
@@ -243,21 +259,64 @@ watch(() => props.product, (newProduct) => {
         formData[key] = '';
       }
     });
-    imagePreview.value = '';
+    selectedImage.value = null;
+    imagePreview.value = null;
   }
 }, { immediate: true });
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  // Nếu đường dẫn đã có http, trả về nguyên
+  if (imagePath.startsWith('http')) return imagePath;
+  // Nếu đường dẫn bắt đầu bằng /public, thêm domain
+  if (imagePath.startsWith('/public')) {
+    return `${window.location.origin}${imagePath}`;
+  }
+  // Mặc định thêm /public/uploads/
+  return `${window.location.origin}/public/uploads/${imagePath}`;
+};
 
 const handleImageChange = (event) => {
   const file = event.target.files[0];
   if (file) {
-    formData.image = file;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Kích thước file không được vượt quá 5MB');
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Chỉ chấp nhận file ảnh (JPG, PNG, GIF, WebP)');
+      return;
+    }
+
+    selectedImage.value = file;
     
     const reader = new FileReader();
     reader.onload = (e) => {
       imagePreview.value = e.target.result;
     };
     reader.readAsDataURL(file);
+    
+    formData.image = file;
   }
+};
+
+const removeImage = () => {
+  selectedImage.value = null;
+  imagePreview.value = null;
+  formData.image = null;
+  if (imageInput.value) {
+    imageInput.value.value = '';
+  }
+};
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
 const onGlobalAvailableChange = () => {
@@ -423,15 +482,78 @@ const handleSubmit = () => {
   color: #666;
 }
 
-.image-preview {
-  margin-top: 10px;
+.image-upload-container {
+  position: relative;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  transition: border-color 0.2s ease;
+  cursor: pointer;
 }
 
-.preview-image {
+.image-upload-container:hover {
+  border-color: #3b82f6;
+}
+
+.image-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.image-preview {
+  position: relative;
+  display: inline-block;
+}
+
+.image-preview img {
   max-width: 200px;
   max-height: 200px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.remove-image-btn:hover {
+  background: #dc2626;
+}
+
+.image-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+}
+
+.image-placeholder i {
+  font-size: 2rem;
+}
+
+.image-info {
+  margin-top: 8px;
+  color: #6b7280;
 }
 
 .form-actions {
