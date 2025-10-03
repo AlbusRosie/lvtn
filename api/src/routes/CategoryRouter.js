@@ -2,6 +2,7 @@ const express = require('express');
 const CategoryController = require('../controllers/CategoryController');
 const { methodNotAllowed } = require('../controllers/ErrorController');
 const { verifyToken, requireRole } = require('../middlewares/AuthMiddleware');
+const { optionalCategoryImageUpload } = require('../middlewares/CategoryUpload');
 
 const router = express.Router();
 
@@ -14,8 +15,8 @@ module.exports.setup = (app) => {
 
     router.use(verifyToken);
     router.use(requireRole(['admin']));
-    router.post('/', CategoryController.createCategory);
-    router.put('/:id', CategoryController.updateCategory);
+    router.post('/', optionalCategoryImageUpload, CategoryController.createCategory);
+    router.put('/:id', optionalCategoryImageUpload, CategoryController.updateCategory);
     router.delete('/:id', CategoryController.deleteCategory);
     
     router.all('/', methodNotAllowed);

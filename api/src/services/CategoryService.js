@@ -9,7 +9,8 @@ function categoryRepository() {
 function readCategory(payload) {
     return {
         name: payload.name,
-        description: payload.description || null
+        description: payload.description || null,
+        image: payload.image || null
     };
 }
 
@@ -123,6 +124,7 @@ async function getCategoriesWithProductCount() {
             'categories.id',
             'categories.name',
             'categories.description',
+            'categories.image',
             'categories.created_at',
             knex.raw('COUNT(products.id) as product_count')
         )

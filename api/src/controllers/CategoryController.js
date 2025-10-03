@@ -12,7 +12,8 @@ async function createCategory(req, res, next) {
     
     const categoryData = {
       name: name.trim(),
-      description: description ? description.trim() : null
+      description: description ? description.trim() : null,
+      image: req.file ? `/public/uploads/${req.file.filename}` : null
     };
 
     const category = await CategoryService.createCategory(categoryData);
@@ -53,6 +54,7 @@ async function updateCategory(req, res, next) {
     const categoryData = {};
     if (name !== undefined) categoryData.name = name.trim();
     if (description !== undefined) categoryData.description = description ? description.trim() : null;
+    if (req.file) categoryData.image = `/public/uploads/${req.file.filename}`;
 
     const category = await CategoryService.updateCategory(id, categoryData);
     res.json(success(category, 'Category updated successfully'));

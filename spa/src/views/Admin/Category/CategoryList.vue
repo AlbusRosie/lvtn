@@ -195,14 +195,14 @@ export default {
         const token = AuthService.getToken();
 
         if (this.editingCategory) {
-          await CategoryService.updateCategory(this.editingCategory.id, formData, token);
+          await CategoryService.updateCategory(this.editingCategory.id, formData, formData.imageFile);
           if (this.toast) {
             this.toast.success('Cập nhật danh mục thành công!');
           } else {
             alert('Cập nhật danh mục thành công!');
           }
         } else {
-          await CategoryService.createCategory(formData, token);
+          await CategoryService.createCategory(formData, formData.imageFile);
           if (this.toast) {
             this.toast.success('Tạo danh mục mới thành công!');
           } else {

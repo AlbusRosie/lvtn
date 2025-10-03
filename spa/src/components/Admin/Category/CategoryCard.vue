@@ -2,6 +2,17 @@
   <div class="category-card">
     <div class="category-header">
       <div class="category-info">
+        <div class="category-image-container" v-if="category.image">
+          <img 
+            :src="getImageUrl(category.image)" 
+            :alt="category.name"
+            class="category-image"
+            @error="handleImageError"
+          />
+        </div>
+        <div class="category-image-placeholder" v-else>
+          <i class="fas fa-image"></i>
+        </div>
         <h3 class="category-name">{{ category.name }}</h3>
       </div>
       <div class="category-actions" v-if="isAdmin">
@@ -60,6 +71,25 @@ export default {
       if (!dateString) return '';
       const date = new Date(dateString);
       return date.toLocaleDateString('vi-VN');
+    },
+    getImageUrl(imagePath) {
+      if (!imagePath) return '';
+      // Nếu đường dẫn đã có http, trả về nguyên
+      if (imagePath.startsWith('http')) return imagePath;
+      // Nếu đường dẫn bắt đầu bằng /public, thêm domain
+      if (imagePath.startsWith('/public')) {
+        return `${window.location.origin}${imagePath}`;
+      }
+      // Mặc định thêm /public/uploads/
+      return `${window.location.origin}/public/uploads/${imagePath}`;
+    },
+    handleImageError(event) {
+      // Thay thế bằng placeholder khi lỗi load hình
+      event.target.style.display = 'none';
+      const placeholder = event.target.parentElement.querySelector('.category-image-placeholder');
+      if (placeholder) {
+        placeholder.style.display = 'flex';
+      }
     }
   }
 };
@@ -89,10 +119,43 @@ export default {
 
 .category-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.category-image-container {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.category-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.category-image-placeholder {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  border: 2px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 1.5rem;
 }
 
 .category-name {
-  margin: 0 0 8px 0;
+  margin: 0;
   color: #1f2937;
   font-size: 1.25rem;
   font-weight: 600;

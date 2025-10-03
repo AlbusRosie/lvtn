@@ -24,6 +24,36 @@
         ></textarea>
       </div>
 
+      <div class="form-group">
+        <label for="image">Hình ảnh danh mục</label>
+        <div class="image-upload-section">
+          <div class="current-image" v-if="currentImageUrl">
+            <img :src="currentImageUrl" alt="Current image" class="preview-image" />
+            <button type="button" @click="removeImage" class="remove-image-btn">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="image-upload" v-else>
+            <input
+              ref="imageInput"
+              id="image"
+              type="file"
+              accept="image/*"
+              @change="handleImageChange"
+              style="display: none"
+            />
+            <button type="button" @click="$refs.imageInput.click()" class="upload-btn">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <span>Chọn hình ảnh</span>
+            </button>
+          </div>
+          <div class="image-info" v-if="selectedImage">
+            <p class="image-name">{{ selectedImage.name }}</p>
+            <p class="image-size">{{ formatFileSize(selectedImage.size) }}</p>
+          </div>
+        </div>
+      </div>
+
 
       <div class="form-actions">
         <button type="button" @click="$emit('cancel')" class="btn btn-secondary">
@@ -56,7 +86,9 @@ export default {
       form: {
         name: '',
         description: ''
-      }
+      },
+      selectedImage: null,
+      currentImageUrl: null
     };
   },
   computed: {
@@ -72,6 +104,7 @@ export default {
             name: newCategory.name,
             description: newCategory.description || ''
           };
+          this.currentImageUrl = this.getImageUrl(newCategory.image);
         } else {
           this.resetForm();
         }
@@ -85,10 +118,63 @@ export default {
         name: '',
         description: ''
       };
+      this.selectedImage = null;
+      this.currentImageUrl = null;
+    },
+
+    getImageUrl(imagePath) {
+      if (!imagePath) return null;
+      // Nếu đường dẫn đã có http, trả về nguyên
+      if (imagePath.startsWith('http')) return imagePath;
+      // Nếu đường dẫn bắt đầu bằng /public, thêm domain
+      if (imagePath.startsWith('/public')) {
+        return `${window.location.origin}${imagePath}`;
+      }
+      // Mặc định thêm /public/uploads/
+      return `${window.location.origin}/public/uploads/${imagePath}`;
+    },
+
+    handleImageChange(event) {
+      const file = event.target.files[0];
+      if (file) {
+        // Kiểm tra kích thước file (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          if (this.$toast) {
+            this.$toast.error('Kích thước file không được vượt quá 5MB');
+          }
+          return;
+        }
+
+        // Kiểm tra loại file
+        if (!file.type.startsWith('image/')) {
+          if (this.$toast) {
+            this.$toast.error('Vui lòng chọn file hình ảnh');
+          }
+          return;
+        }
+
+        this.selectedImage = file;
+        this.currentImageUrl = URL.createObjectURL(file);
+      }
+    },
+
+    removeImage() {
+      this.selectedImage = null;
+      this.currentImageUrl = null;
+      if (this.$refs.imageInput) {
+        this.$refs.imageInput.value = '';
+      }
+    },
+
+    formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     },
 
     handleSubmit() {
-
       if (!this.form.name || !this.form.name.trim()) {
         if (this.$toast) {
           this.$toast.error('Vui lòng nhập tên danh mục');
@@ -96,7 +182,10 @@ export default {
         return;
       }
 
-      const formData = { ...this.form };
+      const formData = { 
+        ...this.form,
+        imageFile: this.selectedImage
+      };
       this.$emit('submit', formData);
     }
   }
@@ -201,5 +290,108 @@ export default {
 
 .btn-secondary:hover:not(:disabled) {
   background: #4b5563;
+}
+
+.image-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.current-image {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #e5e7eb;
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s ease;
+}
+
+.remove-image-btn:hover {
+  background: rgba(220, 38, 38, 1);
+}
+
+.image-upload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.upload-btn:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.upload-btn i {
+  font-size: 1.5rem;
+}
+
+.upload-btn span {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.image-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.image-name {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #374151;
+  word-break: break-all;
+}
+
+.image-size {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7280;
 }
 </style>
