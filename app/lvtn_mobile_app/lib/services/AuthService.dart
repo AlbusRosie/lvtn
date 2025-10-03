@@ -2,8 +2,8 @@ import 'dart:convert';
 import '../models/user.dart';
 import '../constants/app_constants.dart';
 import '../constants/api_constants.dart';
-import 'api_service.dart';
-import 'storage_service.dart';
+import 'APIService.dart';
+import 'StorageService.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();

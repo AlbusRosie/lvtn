@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/branch_provider.dart';
-import 'branch_detail_screen.dart';
+import '../../providers/BranchProvider.dart';
+import 'BranchDetailScreen.dart';
 
-class BranchesScreen extends StatelessWidget {
-  const BranchesScreen({super.key});
+class BranchScreen extends StatelessWidget {
+  const BranchScreen({super.key});
 
   static const String routeName = '/branches';
 

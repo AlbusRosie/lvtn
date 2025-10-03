@@ -1,6 +1,6 @@
 import '../models/branch.dart';
 import '../constants/api_constants.dart';
-import 'api_service.dart';
+import 'APIService.dart';
 
 class BranchService {
   static final BranchService _instance = BranchService._internal();

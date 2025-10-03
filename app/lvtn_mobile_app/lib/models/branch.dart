@@ -10,6 +10,7 @@ class Branch {
   final String status;
   final String? openingHours;
   final String? description;
+  final String? image;
   final DateTime createdAt;
 
   String get address => addressDetail ?? 'Địa chỉ không xác định';
@@ -26,6 +27,7 @@ class Branch {
     required this.status,
     this.openingHours,
     this.description,
+    this.image,
     required this.createdAt,
   });
 
@@ -42,6 +44,7 @@ class Branch {
       status: json['status'],
       openingHours: json['opening_hours'],
       description: json['description'],
+      image: json['image'],
       createdAt: DateTime.parse(json['created_at']),
     );
   }
@@ -59,6 +62,7 @@ class Branch {
       'status': status,
       'opening_hours': openingHours,
       'description': description,
+      'image': image,
       'created_at': createdAt.toIso8601String(),
     };
   }

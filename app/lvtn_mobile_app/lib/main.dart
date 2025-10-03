@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'ui/home/home_screen.dart';
-import 'ui/branches/branches_screen.dart';
-import 'ui/branches/branch_detail_screen.dart';
-import 'ui/profile/profile_screen.dart';
+import 'ui/home/HomeScreen.dart';
+import 'ui/branches/BranchScreen.dart';
+import 'ui/branches/BranchDetailScreen.dart';
+import 'ui/profile/ProfileScreen.dart';
 import 'ui/splash_screen.dart';
-import 'ui/auth/auth_screen.dart';
-import 'providers/auth_provider.dart';
-import 'providers/branch_provider.dart';
-import 'services/storage_service.dart';
+import 'ui/auth/AuthScreen.dart';
+import 'providers/AuthProvider.dart';
+import 'providers/BranchProvider.dart';
+import 'providers/LocationProvider.dart';
+import 'providers/CategoryProvider.dart';
+import 'services/StorageService.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,6 +65,8 @@ class LVTNRestaurantApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => BranchProvider()),
+        ChangeNotifierProvider(create: (_) => LocationProvider()),
+        ChangeNotifierProvider(create: (_) => CategoryProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -71,7 +75,7 @@ class LVTNRestaurantApp extends StatelessWidget {
         routes: {
           '/auth': (ctx) => const SafeArea(child: AuthScreen()),
           HomeScreen.routeName: (ctx) => const SafeArea(child: HomeScreen()),
-          BranchesScreen.routeName: (ctx) => const SafeArea(child: BranchesScreen()),
+          BranchScreen.routeName: (ctx) => const SafeArea(child: BranchScreen()),
           ProfileScreen.routeName: (ctx) => const SafeArea(child: ProfileScreen()),
         },
         onGenerateRoute: (settings) {
