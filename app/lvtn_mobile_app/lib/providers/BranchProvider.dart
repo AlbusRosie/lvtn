@@ -17,7 +17,12 @@ class BranchProvider extends ChangeNotifier {
 
   List<Branch> get branches => _branches;
   List<Branch> get activeBranches => _activeBranches;
-  List<Branch> get filteredBranches => _filteredBranches.isNotEmpty ? _filteredBranches : _branches;
+  List<Branch> get filteredBranches {
+    if (_selectedProvinceId != null || _selectedDistrictId != null || _selectedCategoryId != null) {
+      return _filteredBranches;
+    }
+    return _branches;
+  }
   Branch? get selectedBranch => _selectedBranch;
   int? get selectedProvinceId => _selectedProvinceId;
   int? get selectedDistrictId => _selectedDistrictId;
@@ -78,14 +83,15 @@ class BranchProvider extends ChangeNotifier {
 
   void _applyFilters() {
     if (_selectedProvinceId == null && _selectedDistrictId == null && _selectedCategoryId == null) {
-      _filteredBranches = [];
-    } else {
-      _filteredBranches = _branches.where((branch) {
-        bool matchesProvince = _selectedProvinceId == null || branch.provinceId == _selectedProvinceId;
-        bool matchesDistrict = _selectedDistrictId == null || branch.districtId == _selectedDistrictId;
-        return matchesProvince && matchesDistrict;
-      }).toList();
+      notifyListeners();
+      return;
     }
+    
+    _filteredBranches = _branches.where((branch) {
+      bool matchesProvince = _selectedProvinceId == null || branch.provinceId == _selectedProvinceId;
+      bool matchesDistrict = _selectedDistrictId == null || branch.districtId == _selectedDistrictId;
+      return matchesProvince && matchesDistrict;
+    }).toList();
     
     notifyListeners();
   }
@@ -94,7 +100,6 @@ class BranchProvider extends ChangeNotifier {
     _selectedProvinceId = null;
     _selectedDistrictId = null;
     _selectedCategoryId = null;
-    _filteredBranches = [];
     notifyListeners();
   }
 

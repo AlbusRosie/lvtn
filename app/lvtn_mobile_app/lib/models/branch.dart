@@ -8,7 +8,8 @@ class Branch {
   final String? email;
   final int? managerId;
   final String status;
-  final String? openingHours;
+  final int? openingHours;
+  final int? closeHours;
   final String? description;
   final String? image;
   final DateTime createdAt;
@@ -26,6 +27,7 @@ class Branch {
     this.managerId,
     required this.status,
     this.openingHours,
+    this.closeHours,
     this.description,
     this.image,
     required this.createdAt,
@@ -34,15 +36,16 @@ class Branch {
   factory Branch.fromJson(Map<String, dynamic> json) {
     return Branch(
       id: json['id'],
-      name: json['name'],
+      name: json['name'].toString(),
       provinceId: json['province_id'],
       districtId: json['district_id'],
       addressDetail: json['address_detail'],
       phone: json['phone'],
       email: json['email'],
       managerId: json['manager_id'],
-      status: json['status'],
+      status: json['status'].toString(),
       openingHours: json['opening_hours'],
+      closeHours: json['close_hours'],
       description: json['description'],
       image: json['image'],
       createdAt: DateTime.parse(json['created_at']),
@@ -61,6 +64,7 @@ class Branch {
       'manager_id': managerId,
       'status': status,
       'opening_hours': openingHours,
+      'close_hours': closeHours,
       'description': description,
       'image': image,
       'created_at': createdAt.toIso8601String(),

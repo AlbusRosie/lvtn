@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'ui/home/HomeScreen.dart';
 import 'ui/branches/BranchScreen.dart';
 import 'ui/branches/BranchDetailScreen.dart';
+import 'ui/menu/BranchMenuScreen.dart';
+import 'ui/menu/ProductDetailScreen.dart';
 import 'ui/profile/ProfileScreen.dart';
 import 'ui/splash_screen.dart';
 import 'ui/auth/AuthScreen.dart';
@@ -10,6 +12,7 @@ import 'providers/AuthProvider.dart';
 import 'providers/BranchProvider.dart';
 import 'providers/LocationProvider.dart';
 import 'providers/CategoryProvider.dart';
+import 'providers/ProductProvider.dart';
 import 'services/StorageService.dart';
 
 Future<void> main() async {
@@ -67,6 +70,7 @@ class LVTNRestaurantApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BranchProvider()),
         ChangeNotifierProvider(create: (_) => LocationProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
+        ChangeNotifierProvider(create: (_) => ProductProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -89,6 +93,29 @@ class LVTNRestaurantApp extends StatelessWidget {
               },
             );
           }
+          
+          if (settings.name == BranchMenuScreen.routeName) {
+            final branch = settings.arguments as dynamic;
+            return MaterialPageRoute(
+              builder: (ctx) {
+                return SafeArea(
+                  child: BranchMenuScreen(branch: branch),
+                );
+              },
+            );
+          }
+          
+          if (settings.name == ProductDetailScreen.routeName) {
+            return MaterialPageRoute(
+              builder: (ctx) {
+                return SafeArea(
+                  child: ProductDetailScreen(),
+                );
+              },
+              settings: settings,
+            );
+          }
+          
           return null;
         },
       ),

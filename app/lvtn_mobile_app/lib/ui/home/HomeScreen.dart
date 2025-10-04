@@ -6,6 +6,7 @@ import '../../providers/LocationProvider.dart';
 import '../../providers/CategoryProvider.dart';
 import '../../models/province.dart';
 import '../../models/category.dart' as CategoryModel;
+import '../menu/BranchMenuScreen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -189,9 +190,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
                   child: Consumer<AuthProvider>(
                     builder: (context, authProvider, child) {
+                      final userName = authProvider.currentUser?.name ?? 'Guest';
+                      final greeting = _getGreeting();
+                      
                       return RichText(
                         text: TextSpan(
-                          text: 'Hey Halal, ',
+                          text: 'Hello $userName, ',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w400,
@@ -200,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           children: [
                             TextSpan(
-                              text: 'Good Afternoon!',
+                              text: '$greeting!',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
@@ -457,6 +461,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String _getGreeting() {
+    final now = DateTime.now();
+    final hour = now.hour;
+    
+    if (hour >= 5 && hour < 12) {
+      return 'Good Morning';
+    } else if (hour >= 12 && hour < 17) {
+      return 'Good Afternoon';
+    } else if (hour >= 17 && hour < 22) {
+      return 'Good Evening';
+    } else {
+      return 'Good Night';
+    }
+  }
+
   String _getImageUrl(String imagePath) {
     if (imagePath.startsWith('http')) {
       return imagePath;
@@ -530,7 +549,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'drink':
       case 'beverage':
       case 'refreshment':
-        return '🧊';
+        return '☕';
       case 'light bites':
         return '🥙';
       case 'dessert':
@@ -561,7 +580,11 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: InkWell(
         onTap: () {
-          Navigator.pushNamed(context, '/products');
+          Navigator.pushNamed(
+            context,
+            '/branch-menu',
+            arguments: branch,
+          );
         },
         borderRadius: BorderRadius.circular(16),
         child: Column(
