@@ -48,9 +48,9 @@
         <span>{{ branch.email }}</span>
       </div>
 
-      <div class="detail-item" v-if="branch.opening_hours">
+      <div class="detail-item" v-if="branch.opening_hours !== undefined && branch.close_hours !== undefined">
         <i class="fas fa-clock"></i>
-        <span>{{ branch.opening_hours }}</span>
+        <span>{{ formatHours(branch.opening_hours) }} - {{ formatHours(branch.close_hours) }}</span>
       </div>
 
       <div class="detail-item" v-if="branch.description">
@@ -99,6 +99,11 @@ export default {
       if (!dateString) return '';
       const date = new Date(dateString);
       return date.toLocaleDateString('vi-VN');
+    },
+
+    formatHours(hour) {
+      if (hour === undefined || hour === null) return '';
+      return `${hour.toString().padStart(2, '0')}:00`;
     }
   }
 };

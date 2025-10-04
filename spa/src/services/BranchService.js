@@ -47,7 +47,15 @@ function makeBranchService() {
     }
 
     async function updateBranch(id, branchData, imageFile = null) {
-        if (imageFile) {
+        if (imageFile === 'KEEP_EXISTING') {
+            return efetch(`${baseUrl}/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(branchData)
+            });
+        } else if (imageFile && imageFile !== 'KEEP_EXISTING') {
             const formData = new FormData();
             
             Object.keys(branchData).forEach(key => {

@@ -5,7 +5,7 @@ const { success } = require('../jsend');
 
 async function createBranch(req, res, next) {
   try {
-    const { name, address_detail, phone, email, manager_id, status, opening_hours, description, province_id, district_id } = req.body;
+    const { name, address_detail, phone, email, manager_id, status, opening_hours, close_hours, description, province_id, district_id } = req.body;
 
     if (!name || !name.trim()) {
       throw new ApiError(400, 'Branch name is required');
@@ -44,7 +44,8 @@ async function createBranch(req, res, next) {
       email: email.trim(),
       manager_id: manager_id ? parseInt(manager_id) : (currentUserId ? parseInt(currentUserId) : null),
       status: status || 'active',
-      opening_hours: opening_hours ? opening_hours.trim() : null,
+      opening_hours: opening_hours ? parseInt(opening_hours) : 7,
+      close_hours: close_hours ? parseInt(close_hours) : 22,
       description: description ? description.trim() : null,
       province_id: parseInt(province_id),
       district_id: parseInt(district_id),
@@ -81,7 +82,7 @@ async function getBranchById(req, res, next) {
 async function updateBranch(req, res, next) {
   try {
     const { id } = req.params;
-    const { name, address_detail, phone, email, manager_id, status, opening_hours, description, province_id, district_id } = req.body;
+    const { name, address_detail, phone, email, manager_id, status, opening_hours, close_hours, description, province_id, district_id } = req.body;
 
     if (name !== undefined && (!name || !name.trim())) {
       throw new ApiError(400, 'Branch name cannot be empty');
@@ -122,7 +123,8 @@ async function updateBranch(req, res, next) {
       branchData.manager_id = manager_id ? parseInt(manager_id) : (currentUserId ? parseInt(currentUserId) : null);
     }
     if (status !== undefined) branchData.status = status;
-    if (opening_hours !== undefined) branchData.opening_hours = opening_hours ? opening_hours.trim() : null;
+    if (opening_hours !== undefined) branchData.opening_hours = opening_hours ? parseInt(opening_hours) : 7;
+    if (close_hours !== undefined) branchData.close_hours = close_hours ? parseInt(close_hours) : 22;
     if (description !== undefined) branchData.description = description ? description.trim() : null;
     if (province_id !== undefined) branchData.province_id = parseInt(province_id);
     if (district_id !== undefined) branchData.district_id = parseInt(district_id);

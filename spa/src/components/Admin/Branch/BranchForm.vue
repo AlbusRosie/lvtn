@@ -90,14 +90,30 @@
         />
       </div>
 
-      <div class="form-group">
-        <label for="opening_hours">Giờ mở cửa</label>
-        <input
-          id="opening_hours"
-          v-model="form.opening_hours"
-          type="text"
-          placeholder="VD: 07:00-22:00"
-        />
+      <div class="form-row">
+        <div class="form-group">
+          <label for="opening_hours">Giờ mở cửa</label>
+          <input
+            id="opening_hours"
+            v-model.number="form.opening_hours"
+            type="number"
+            min="0"
+            max="23"
+            placeholder="VD: 7"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="close_hours">Giờ đóng cửa</label>
+          <input
+            id="close_hours"
+            v-model.number="form.close_hours"
+            type="number"
+            min="0"
+            max="23"
+            placeholder="VD: 22"
+          />
+        </div>
       </div>
 
       <div class="form-group">
@@ -126,6 +142,12 @@
             <button type="button" @click="removeImage" class="remove-image-btn">
               <i class="fas fa-times"></i>
             </button>
+            <div class="image-status" v-if="isEditing && !selectedImage">
+              <small class="existing-image-label">Ảnh hiện tại sẽ được giữ nguyên</small>
+            </div>
+            <div class="image-status" v-if="selectedImage">
+              <small class="new-image-label">Ảnh mới sẽ được cập nhật</small>
+           </div>
           </div>
           <div class="image-placeholder" v-else>
             <i class="fas fa-image"></i>
@@ -181,7 +203,8 @@ export default {
         address_detail: '',
         phone: '',
         email: '',
-        opening_hours: '',
+        opening_hours: 7,
+        close_hours: 22,
         description: '',
         status: 'active',
         province_id: '',
@@ -215,7 +238,8 @@ export default {
             address_detail: newBranch.address_detail || '',
             phone: newBranch.phone,
             email: newBranch.email,
-            opening_hours: newBranch.opening_hours || '',
+            opening_hours: newBranch.opening_hours || 7,
+            close_hours: newBranch.close_hours || 22,
             description: newBranch.description || '',
             status: newBranch.status,
             province_id: newBranch.province_id || '',
@@ -300,7 +324,8 @@ export default {
         address_detail: '',
         phone: '',
         email: '',
-        opening_hours: '',
+        opening_hours: 7,
+        close_hours: 22,
         description: '',
         status: 'active',
         province_id: '',
@@ -337,8 +362,13 @@ export default {
 
     removeImage() {
       this.selectedImage = null;
-      this.imagePreview = null;
       this.$refs.imageInput.value = '';
+      
+      if (!this.isEditing || !this.branch?.image) {
+        this.imagePreview = null;
+      } else {
+        this.imagePreview = this.branch.image;
+      }
     },
 
     handleSubmit() {
@@ -349,7 +379,12 @@ export default {
 
       const formData = { ...this.form };
       
-      this.$emit('submit', { formData, imageFile: this.selectedImage });
+      let imageFile = this.selectedImage;
+      if (this.isEditing && !imageFile) {
+        imageFile = 'KEEP_EXISTING'; // Signal để backend biết giữ ảnh cũ
+      }
+      
+      this.$emit('submit', { formData, imageFile });
     }
   }
 };
@@ -545,6 +580,29 @@ export default {
 .image-info {
   margin-top: 8px;
   color: #6b7280;
+}
+
+.image-status {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.image-status small {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.existing-image-label {
+  color: #34d399;
+  font-weight: 500;
+}
+
+.new-image-label {
+  color: #3b82f6;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {

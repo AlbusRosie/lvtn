@@ -15,7 +15,8 @@ function readBranch(payload) {
         email: payload.email || null,
         manager_id: payload.manager_id || null,
         status: payload.status || 'active',
-        opening_hours: payload.opening_hours || null,
+        opening_hours: payload.opening_hours || 7,
+        close_hours: payload.close_hours || 22,
         description: payload.description || null,
         image: payload.image || null
     };
