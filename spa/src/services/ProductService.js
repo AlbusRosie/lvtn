@@ -28,7 +28,7 @@ function makeProductService() {
 
     async function getProduct(id) {
         const data = await efetch(`${baseUrl}/${id}`);
-        return transformData(data, DEFAULT_PRODUCT_IMAGE);
+        return { data };
     }
 
     async function createProduct(productData) {
@@ -42,10 +42,23 @@ function makeProductService() {
                 return fd;
             })();
 
-        return efetch(baseUrl, {
+        const created = await efetch(baseUrl, {
             method: 'POST',
             body
         });
+        try {
+            if (body instanceof FormData) {
+                const optionsStr = body.get('options');
+                if (optionsStr) {
+                    const options = JSON.parse(optionsStr);
+                    await syncProductOptions(created.id, [], options);
+                }
+            }
+        } catch (e) {
+            // Swallow option sync errors to not block product creation
+            console.error('Option sync failed:', e);
+        }
+        return created;
     }
 
     async function updateProduct(id, productData) {
@@ -58,11 +71,25 @@ function makeProductService() {
                 });
                 return fd;
             })();
-
-        return efetch(`${baseUrl}/${id}`, {
+        const updated = await efetch(`${baseUrl}/${id}`, {
             method: 'PUT',
             body
         });
+        try {
+            if (body instanceof FormData) {
+                const optionsStr = body.get('options');
+                if (optionsStr) {
+                    // Load existing ids to detect deletions
+                    const existing = await getProductOptions(id);
+                    const originalIds = (existing || []).map(o => o.id);
+                    const options = JSON.parse(optionsStr);
+                    await syncProductOptions(id, originalIds, options);
+                }
+            }
+        } catch (e) {
+            console.error('Option sync failed:', e);
+        }
+        return updated;
     }
 
     async function deleteProduct(id) {
@@ -157,6 +184,74 @@ function makeProductService() {
         return efetch(`${baseUrl}/branches/active`);
     }
 
+    async function createProductOption(productId, optionData) {
+        const response = await efetch(`/api/products/${productId}/options`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(optionData)
+        });
+        return response.data;
+    }
+
+    async function updateProductOption(productId, optionTypeId, optionData) {
+        const response = await efetch(`/api/products/${productId}/options/${optionTypeId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(optionData)
+        });
+        return response.data;
+    }
+
+    async function deleteProductOption(productId, optionTypeId) {
+        const response = await efetch(`/api/products/${productId}/options/${optionTypeId}`, {
+            method: 'DELETE'
+        });
+        return response;
+    }
+
+    async function getProductOptions(productId) {
+        return efetch(`/api/products/${productId}/options`);
+    }
+
+    async function syncProductOptions(productId, originalOptionIds = [], options = []) {
+        const currentIds = options.filter(o => o.id).map(o => o.id);
+        const toDelete = originalOptionIds.filter(id => !currentIds.includes(id));
+
+        // Delete removed options
+        for (const id of toDelete) {
+            await deleteProductOption(productId, id);
+        }
+
+        // Upsert options
+        for (const opt of options) {
+            const payload = {
+                name: opt.name,
+                type: opt.type || 'select',
+                required: !!opt.required,
+                display_order: opt.display_order ?? 0,
+                values: (opt.values || []).map((v, idx) => ({
+                    value: v.value,
+                    price_modifier: v.price_modifier ?? 0,
+                    display_order: v.display_order ?? idx,
+                }))
+            };
+            if (opt.id) {
+                // If no values remain, delete the option type
+                if (!payload.values || payload.values.length === 0) {
+                    await deleteProductOption(productId, opt.id);
+                    continue;
+                }
+                await updateProductOption(productId, opt.id, payload);
+            } else {
+                await createProductOption(productId, payload);
+            }
+        }
+    }
+
     return {
         getProducts,
         getAvailableProducts,
@@ -175,7 +270,12 @@ function makeProductService() {
         getProductsByBranch,
         getNotAddedProductsByBranch,
         getBranchProduct,
-        getActiveBranches
+        getActiveBranches,
+        createProductOption,
+        updateProductOption,
+        deleteProductOption,
+        getProductOptions,
+        syncProductOptions
     };
 }
 

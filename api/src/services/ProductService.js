@@ -7,15 +7,24 @@ function productRepository() {
 }
 
 function readProduct(payload) {
-    return {
-        category_id: payload.category_id,
-        name: payload.name,
-        base_price: payload.base_price,
-        description: payload.description,
-        image: payload.image,
-        is_global_available: payload.is_global_available,
-        status: payload.status
-    };
+    const product = {};
+    const fields = [
+        'category_id',
+        'name',
+        'base_price',
+        'description',
+        'image',
+        'is_global_available',
+        'status',
+    ];
+
+    for (const field of fields) {
+        if (Object.prototype.hasOwnProperty.call(payload, field)) {
+            product[field] = payload[field];
+        }
+    }
+
+    return product;
 }
 
 async function autoCreateBranchProducts(productId, basePrice) {

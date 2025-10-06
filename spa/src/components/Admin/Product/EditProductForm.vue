@@ -1,0 +1,91 @@
+<template>
+  <div class="edit-product-form">
+    <ProductForm
+      :product="props.product"
+      :loading="loading"
+      @submit="onFormSubmit"
+      @cancel="$emit('cancel')"
+    />
+  </div>
+  
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { useToast } from 'vue-toastification'
+import ProductService from '@/services/ProductService'
+import ProductForm from './ProductForm.vue'
+
+const props = defineProps({
+  product: {
+    type: Object,
+    required: true
+  },
+  categories: {
+    type: Array,
+    default: () => []
+  },
+  branches: {
+    type: Array,
+    default: () => []
+  }
+})
+
+const emit = defineEmits(['success', 'cancel'])
+const toast = useToast()
+
+const loading = ref(false)
+
+const onFormSubmit = async (submitData) => {
+  loading.value = true
+  try {
+    await ProductService.updateProduct(props.product.id, submitData)
+    toast.success('Sản phẩm đã được cập nhật thành công!')
+    emit('success', props.product)
+  } catch (error) {
+    toast.error('Có lỗi xảy ra: ' + error.message)
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
+<style scoped>
+.edit-product-form {
+  padding: 0;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.form-row {
+  display: flex;
+  gap: 15px;
+}
+
+.form-col {
+  flex: 1;
+}
+</style>

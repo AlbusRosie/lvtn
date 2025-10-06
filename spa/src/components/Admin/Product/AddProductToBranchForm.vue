@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import ProductService from '@/services/ProductService'
 import { DEFAULT_AVATAR } from '@/constants'
+import ProductOptionsManager from './ProductOptionsManager.vue'
 
 const emit = defineEmits(['success', 'cancel'])
 
@@ -32,7 +33,8 @@ const formData = ref({
     category_id: '',
     base_price: 0,
     description: '',
-    image: null
+    image: null,
+    options: []
   },
   branchSettings: {
     price: '',
@@ -101,6 +103,16 @@ const handleSubmit = async () => {
   }
 }
 
+// Product Options Methods
+const updateProductOptions = (options) => {
+  formData.value.newProduct.options = options
+}
+
+const validateProductOption = ({ index, isValid, option }) => {
+  // Optional: Add validation feedback UI
+  
+}
+
 const createNewProduct = async () => {
   const productData = new FormData()
   productData.append('name', formData.value.newProduct.name)
@@ -111,6 +123,11 @@ const createNewProduct = async () => {
   
   if (formData.value.newProduct.image) {
     productData.append('imageFile', formData.value.newProduct.image)
+  }
+
+  // Add product options if available
+  if (formData.value.newProduct.options.length > 0) {
+    productData.append('options', JSON.stringify(formData.value.newProduct.options))
   }
 
   let targetBranches = []
@@ -136,6 +153,22 @@ const createNewProduct = async () => {
   )
 
   await Promise.all(promises)
+
+  // Create product options if they exist
+  if (formData.value.newProduct.options.length > 0) {
+    const optionPromises = formData.value.newProduct.options.map(option => {
+      const optionData = {
+        name: option.name,
+        type: option.type,
+        required: option.required,
+        display_order: option.display_order,
+        values: option.values || []
+      }
+      return ProductService.createProductOption(newProduct.id, optionData)
+    })
+
+    await Promise.all(optionPromises)
+  }
 }
 
 onMounted(() => {
@@ -271,6 +304,14 @@ onMounted(() => {
           ></textarea>
         </div>
       </div>
+
+      <!-- Product Options Section -->
+      <ProductOptionsManager 
+        :options="formData.newProduct.options" 
+        :loading="loading"
+        @update:options="updateProductOptions"
+        @validate-option="validateProductOption"
+      />
 
       <div class="form-group">
         <label>Cài đặt cho chi nhánh</label>

@@ -1,4 +1,5 @@
 const ProductService = require('../services/ProductService');
+const ProductOptionService = require('../services/ProductOptionService');
 const JSend = require('../jsend');
 const ApiError = require('../api-error');
 
@@ -78,7 +79,8 @@ async function getProduct(req, res, next) {
         if (!product) {
             return next(new ApiError(404, 'Product not found'));
         }
-        res.json(JSend.success(product));
+        const options = await ProductOptionService.getProductOptions(req.params.id);
+        res.json(JSend.success({ product, options }));
     } catch (error) {
         next(new ApiError(500, error.message));
     }

@@ -153,6 +153,14 @@
         </div>
       </div>
 
+      <!-- Product Options Section -->
+      <ProductOptionsManager 
+        :options="formData.options" 
+        :loading="loading"
+        @update:options="updateProductOptions"
+        @validate-option="validateProductOption"
+      />
+
       <div class="form-actions">
         <button
           @click="$emit('cancel')"
@@ -178,6 +186,7 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import CategoryService from '@/services/CategoryService';
 import BranchService from '@/services/BranchService';
+import ProductOptionsManager from './ProductOptionsManager.vue';
 
 const props = defineProps({
   product: {
@@ -209,7 +218,8 @@ const formData = reactive({
   status: 'active',
   is_global_available: true,
   selected_branches: [],
-  image: null
+  image: null,
+  options: []
 });
 
 onMounted(async () => {
@@ -249,6 +259,14 @@ watch(() => props.product, (newProduct) => {
     if (newProduct.image) {
       imagePreview.value = getImageUrl(newProduct.image);
     }
+    
+    // Load product options if available
+    if (newProduct.options && Array.isArray(newProduct.options)) {
+      formData.options = newProduct.options.map(option => ({
+        ...option,
+        expanded: false // Don't expand by default when editing
+      }));
+    }
   } else {
     Object.keys(formData).forEach(key => {
       if (key === 'status') {
@@ -262,9 +280,9 @@ watch(() => props.product, (newProduct) => {
     selectedImage.value = null;
     imagePreview.value = null;
   }
-}, { immediate: true });
+}, { immediate: true, deep: true });
 
-const getImageUrl = (imagePath) => {
+function getImageUrl(imagePath) {
   if (!imagePath) return null;
   // Nếu đường dẫn đã có http, trả về nguyên
   if (imagePath.startsWith('http')) return imagePath;
@@ -274,7 +292,7 @@ const getImageUrl = (imagePath) => {
   }
   // Mặc định thêm /public/uploads/
   return `${window.location.origin}/public/uploads/${imagePath}`;
-};
+}
 
 const handleImageChange = (event) => {
   const file = event.target.files[0];
@@ -335,6 +353,16 @@ const deselectAllBranches = () => {
   formData.selected_branches = [];
 };
 
+// Product Options Methods
+const updateProductOptions = (options) => {
+  formData.options = options;
+};
+
+const validateProductOption = ({ index, isValid, option }) => {
+  // Optional: Add validation feedback UI
+  
+};
+
 const handleSubmit = () => {
   if (!formData.name || !formData.category_id || !formData.base_price) {
     alert('Vui lòng điền đầy đủ thông tin bắt buộc');
@@ -347,6 +375,8 @@ const handleSubmit = () => {
     if (key === 'image' && formData[key]) {
       submitData.append('imageFile', formData[key]);
     } else if (key === 'selected_branches' && formData[key].length > 0) {
+      submitData.append(key, JSON.stringify(formData[key]));
+    } else if (key === 'options' && formData[key].length > 0) {
       submitData.append(key, JSON.stringify(formData[key]));
     } else if (formData[key] !== null && formData[key] !== '') {
       submitData.append(key, formData[key]);

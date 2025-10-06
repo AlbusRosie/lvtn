@@ -372,6 +372,35 @@
       </div>
     </div>
 
+    <!-- Modal Edit Product -->
+    <div 
+      v-if="showEditProductModal && editingProductForEdit" 
+      class="modal-overlay" 
+      @click="showEditProductModal = false"
+    >
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fas fa-edit"></i> Chỉnh sửa sản phẩm
+          </h5>
+          <button 
+            type="button" 
+            class="btn-close" 
+            @click="showEditProductModal = false"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <EditProductForm 
+            :product="editingProductForEdit"
+            :categories="categories"
+            :branches="branches"
+            @success="onProductEdited"
+            @cancel="showEditProductModal = false"
+          />
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -383,6 +412,7 @@ import BranchService from '@/services/BranchService'
 import { DEFAULT_AVATAR, DEFAULT_PRODUCT_IMAGE } from '@/constants'
 import AddProductToBranchForm from '@/components/Admin/Product/AddProductToBranchForm.vue'
 import EditBranchProductForm from '@/components/Admin/Product/EditBranchProductForm.vue'
+import EditProductForm from '@/components/Admin/Product/EditProductForm.vue'
 import ProductCard from '@/components/Admin/Product/ProductCard.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
@@ -401,6 +431,8 @@ let searchTimeout = null
 const showAddProductModal = ref(false)
 const showEditModal = ref(false)
 const editingProduct = ref(null)
+const showEditProductModal = ref(false)
+const editingProductForEdit = ref(null)
 
 const filters = ref({
   category: '',
@@ -702,8 +734,25 @@ const onProductUpdated = () => {
   loadProducts()
 }
 
-const editProduct = (product) => {
-  window.location.href = `/admin/products/${product.id}`
+const onProductEdited = () => {
+  showEditProductModal.value = false
+  loadProducts()
+}
+
+const editProduct = async (product) => {
+  // Open modal immediately with current data; it will update after fetch
+  editingProductForEdit.value = product
+  showEditProductModal.value = true
+
+  try {
+    const res = await ProductService.getProduct(product.id)
+    const full = res && res.data
+      ? (res.data.product ? { ...res.data.product, options: res.data.options || [] } : res.data)
+      : product
+    editingProductForEdit.value = full
+  } catch (e) {
+    // keep current product data; optionally notify
+  }
 }
 
 const deleteProduct = async (product) => {
