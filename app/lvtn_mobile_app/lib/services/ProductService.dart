@@ -13,7 +13,6 @@ class ProductService {
       final products = result['products'] as List<dynamic>? ?? [];
       return products.map((json) => Product.fromJson(json)).toList();
     } catch (error) {
-      print('ProductService: Error loading products: $error');
       throw Exception('Không thể tải danh sách sản phẩm: ${error.toString()}');
     }
   }
@@ -36,8 +35,6 @@ class ProductService {
             .join('&');
       }
 
-      print('ProductService: Fetching products endpoint: $endpoint');
-
       final response = await ApiService().get(endpoint);
       
       if (response is Map<String, dynamic>) {
@@ -51,10 +48,8 @@ class ProductService {
         }
       }
       
-      print('ProductService: Unexpected response format: ${response.runtimeType}');
       return {'products': [], 'metadata': null};
     } catch (error) {
-      print('ProductService: Error loading products: $error');
       throw Exception('Không thể tải danh sách sản phẩm: ${error.toString()}');
     }
   }
@@ -64,7 +59,6 @@ class ProductService {
       final response = await ApiService().get('${ApiConstants.products}/$id');
       return Product.fromJson(response);
     } catch (error) {
-      print('ProductService: Error loading product by ID: $error');
       return null;
     }
   }
@@ -85,32 +79,20 @@ class ProductService {
             .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
             .join('&');
       }
-
-      print('ProductService: Fetching branch products endpoint: $endpoint');
-
       final response = await ApiService().get(endpoint);
-      
-      print('ProductService: API Response type: ${response.runtimeType}');
-      print('ProductService: Products field exists: ${response is Map && response.containsKey('products')}');
-      
       List<dynamic> products = [];
       if (response is Map<String, dynamic>) {
         if (response.containsKey('products')) {
           products = response['products'] as List<dynamic>? ?? [];
-          print('ProductService: Extracted ${products.length} products from data.products');
         } else {
           products = response as List<dynamic>? ?? [];
-          print('ProductService: Using response as direct list: ${products.length} items');
         }
       } else if (response is List) {
         products = response;
-        print('ProductService: Response is direct list: ${products.length} items');
       }
       
-      print('ProductService: Found ${products.length} branch products');
       return products.map((json) => Product.fromJson(json)).toList();
     } catch (error) {
-      print('ProductService: Error loading branch products: $error');
       throw Exception('Không thể tải sản phẩm của chi nhánh: ${error.toString()}');
     }
   }

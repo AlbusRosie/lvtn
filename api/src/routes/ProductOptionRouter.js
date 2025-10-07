@@ -13,10 +13,9 @@ module.exports.setup = (app) => {
     router.get('/:optionTypeId', ProductOptionController.getProductOption);
     
     // Protected routes - authentication required
-    router.use(verifyToken);
-    router.post('/', ProductOptionController.createProductOption);
-    router.put('/:optionTypeId', ProductOptionController.updateProductOption);
-    router.delete('/:optionTypeId', ProductOptionController.deleteProductOption);
+    router.post('/', verifyToken, ProductOptionController.createProductOption);
+    router.put('/:optionTypeId', verifyToken, ProductOptionController.updateProductOption);
+    router.delete('/:optionTypeId', verifyToken, ProductOptionController.deleteProductOption);
 
     router.all('/', methodNotAllowed);
     router.all('/:optionTypeId', methodNotAllowed);

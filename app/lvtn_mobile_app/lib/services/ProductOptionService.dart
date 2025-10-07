@@ -9,7 +9,7 @@ class ProductOptionService {
 
   Future<List<ProductOptionType>> getProductOptions(int productId) async {
     try {
-      final response = await ApiService().get('/api/products/$productId/options');
+      final response = await ApiService().get('/products/$productId/options');
       
       if (response is List) {
         return response.map((json) => ProductOptionType.fromJson(json)).toList();
@@ -20,42 +20,27 @@ class ProductOptionService {
       
       return [];
     } catch (error) {
-      print('ProductOptionService: Error loading product options: $error');
       return [];
     }
   }
 
   Future<List<ProductOptionType>> getProductOptionsWithDetails(int productId) async {
     try {
-      print('🔍 ProductOptionService: Loading options for product ID: $productId');
-      final response = await ApiService().get('/api/products/$productId/options');
-      
-      print('📡 ProductOptionService: API Response type: ${response.runtimeType}');
-      print('📡 ProductOptionService: API Response: $response');
-      
+      final response = await ApiService().get('/products/$productId/options');
+
       List<ProductOptionType> options = [];
       
       if (response is List) {
-        print('📋 ProductOptionService: Response is List with ${response.length} items');
         options = response.map((json) => ProductOptionType.fromJson(json)).toList();
       } else if (response is Map<String, dynamic>) {
-        print('📋 ProductOptionService: Response is Map with keys: ${response.keys}');
         if (response.containsKey('data')) {
           final List<dynamic> optionsData = response['data'];
-          print('📋 ProductOptionService: Found data field with ${optionsData.length} items');
           options = optionsData.map((json) => ProductOptionType.fromJson(json)).toList();
         } else if (response.containsKey('options')) {
           final List<dynamic> optionsData = response['options'];
-          print('📋 ProductOptionService: Found options field with ${optionsData.length} items');
           options = optionsData.map((json) => ProductOptionType.fromJson(json)).toList();
-        } else {
-          print('📋 ProductOptionService: No data or options field found');
         }
-      } else {
-        print('📋 ProductOptionService: Unexpected response type: ${response.runtimeType}');
       }
-      
-      print('🎯 ProductOptionService: Parsed ${options.length} options');
       
       // Sort by display order
       options.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
@@ -63,12 +48,10 @@ class ProductOptionService {
       // Sort values within each option by display order
       for (var option in options) {
         option.values.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
-        print('🎯 ProductOptionService: Option "${option.name}" has ${option.values.length} values');
       }
       
       return options;
     } catch (error) {
-      print('❌ ProductOptionService: Error loading product options with details: $error');
       return [];
     }
   }

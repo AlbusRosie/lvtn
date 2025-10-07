@@ -32,13 +32,13 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerOptions));
 app.use('/public', express.static('public'));
 
 UserRouter.setup(app);
+ProductOptionRouter.setup(app);
 ProductRouter.setup(app);
 CategoryRouter.setup(app);
 TableRouter.setup(app);
 BranchRouter.setup(app);
 FloorRouter.setup(app);
 ProvinceRouter.setup(app);
-ProductOptionRouter.setup(app);
 
 app.use(resourceNotFound);
 app.use(handleError);

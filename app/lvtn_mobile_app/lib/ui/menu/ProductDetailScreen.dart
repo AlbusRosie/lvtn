@@ -1,11 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 import '../../models/product.dart';
 import '../../models/branch.dart';
 import '../../models/product_option.dart';
 import '../../providers/CategoryProvider.dart';
 import '../../providers/ProductProvider.dart';
 import '../../services/ProductOptionService.dart';
+
+// Model cho Review
+class ProductReview {
+  final String id;
+  final String userName;
+  final String userAvatar;
+  final double rating;
+  final String comment;
+  final DateTime createdAt;
+  
+  ProductReview({
+    required this.id,
+    required this.userName,
+    required this.userAvatar,
+    required this.rating,
+    required this.comment,
+    required this.createdAt,
+  });
+}
 
 class ProductDetailScreen extends StatefulWidget {
   static const String routeName = '/product-detail';
@@ -14,12 +34,89 @@ class ProductDetailScreen extends StatefulWidget {
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends State<ProductDetailScreen> {
+class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerProviderStateMixin {
   bool _loadedRelated = false;
   bool _loadedOptions = false;
+  bool _isFavorite = false;
   List<ProductOptionType> _productOptions = [];
   List<SelectedOption> _selectedOptions = [];
   final ProductOptionService _optionService = ProductOptionService();
+  
+  // Animation controllers
+  late AnimationController _favoriteAnimationController;
+  Animation<double> _favoriteScaleAnimation = const AlwaysStoppedAnimation(1.0);
+  late AnimationController _ratingPulseController;
+  Animation<double> _ratingPulseAnimation = const AlwaysStoppedAnimation(1.0);
+  
+  // Dữ liệu đánh giá mẫu
+  double _averageRating = 4.5;
+  int _totalReviews = 128;
+  List<ProductReview> _reviews = [
+    ProductReview(
+      id: '1',
+      userName: 'Nguyễn Văn A',
+      userAvatar: 'https://i.pravatar.cc/150?img=1',
+      rating: 5.0,
+      comment: 'Sản phẩm rất ngon, giao hàng nhanh. Sẽ ủng hộ thêm!',
+      createdAt: DateTime.now().subtract(Duration(days: 2)),
+    ),
+    ProductReview(
+      id: '2',
+      userName: 'Trần Thị B',
+      userAvatar: 'https://i.pravatar.cc/150?img=2',
+      rating: 4.0,
+      comment: 'Món ăn ổn, nhưng hơi nhỏ so với giá tiền.',
+      createdAt: DateTime.now().subtract(Duration(days: 5)),
+    ),
+    ProductReview(
+      id: '3',
+      userName: 'Lê Minh C',
+      userAvatar: 'https://i.pravatar.cc/150?img=3',
+      rating: 5.0,
+      comment: 'Tuyệt vời! Đúng khẩu vị của tôi.',
+      createdAt: DateTime.now().subtract(Duration(days: 7)),
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Animation cho nút favorite
+    _favoriteAnimationController = AnimationController(
+      duration: Duration(milliseconds: 400),
+      vsync: this,
+    );
+    
+    _favoriteScaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 50),
+    ]).animate(CurvedAnimation(
+      parent: _favoriteAnimationController,
+      curve: Curves.easeInOut,
+    ));
+
+    // Animation cho rating badge (pulse effect)
+    _ratingPulseController = AnimationController(
+      duration: Duration(milliseconds: 2000),
+      vsync: this,
+    )..repeat(reverse: true);
+    
+    _ratingPulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(
+        parent: _ratingPulseController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _favoriteAnimationController.dispose();
+    _ratingPulseController.dispose();
+    super.dispose();
+  }
+
   String _getImageUrl(String? imagePath) {
     if (imagePath == null || imagePath.isEmpty) {
       return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop';
@@ -36,26 +133,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _loadProductOptions(int productId) async {
     if (_loadedOptions) return;
     
-    print('🔄 ProductDetailScreen: Loading options for product ID: $productId');
-    
     try {
       final options = await _optionService.getProductOptionsWithDetails(productId);
       final defaultSelections = _optionService.createDefaultSelections(options);
-      
-      print('✅ ProductDetailScreen: Loaded ${options.length} options');
-      for (var option in options) {
-        print('  📋 Option: ${option.name} (${option.type}) - ${option.values.length} values');
-      }
       
       setState(() {
         _productOptions = options;
         _selectedOptions = defaultSelections;
         _loadedOptions = true;
       });
-      
-      print('✅ ProductDetailScreen: Options loaded successfully');
     } catch (error) {
-      print('❌ ProductDetailScreen: Error loading product options: $error');
+      print('❌ Error loading product options: $error');
     }
   }
 
@@ -83,13 +171,924 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     });
   }
 
+  // Toggle favorite với animation đẹp
+  void _toggleFavorite() {
+    setState(() {
+      _isFavorite = !_isFavorite;
+    });
+    
+    _favoriteAnimationController.forward(from: 0.0);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              _isFavorite ? Symbols.favorite : Symbols.heart_broken,
+              color: Colors.white,
+              size: 20,
+            ),
+            SizedBox(width: 12),
+            Text(
+              _isFavorite ? 'Đã thêm vào yêu thích' : 'Đã xóa khỏi yêu thích',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        backgroundColor: _isFavorite ? Colors.red.shade600 : Colors.grey[700],
+        duration: Duration(milliseconds: 1500),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  // Mở modal để viết đánh giá
+  void _openReviewSheet(Product product) {
+    double userRating = 5.0;
+    final commentController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                  left: 24,
+                  right: 24,
+                  top: 16,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Đánh giá sản phẩm',
+                      style: TextStyle(
+                          fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(5, (index) {
+                          return GestureDetector(
+                            onTap: () {
+                              setSheetState(() {
+                                userRating = index + 1.0;
+                              });
+                            },
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 4),
+                            child: Icon(
+                                  index < userRating ? Symbols.grade : Symbols.grade,
+                                  color: index < userRating ? Colors.amber[600] : Colors.grey[300],
+                                  size: 44,
+                                ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    TextField(
+                      controller: commentController,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText: 'Chia sẻ trải nghiệm của bạn...',
+                          hintStyle: TextStyle(color: Colors.grey[400]),
+                          filled: true,
+                          fillColor: Colors.grey[50],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.orange, width: 2),
+                        ),
+                          contentPadding: EdgeInsets.all(16),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                        height: 52,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          if (commentController.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Vui lòng nhập nội dung đánh giá'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+                          
+                          setState(() {
+                            _reviews.insert(0, ProductReview(
+                              id: DateTime.now().toString(),
+                              userName: 'Bạn',
+                              userAvatar: 'https://i.pravatar.cc/150?img=10',
+                              rating: userRating,
+                              comment: commentController.text,
+                              createdAt: DateTime.now(),
+                            ));
+                            _totalReviews++;
+                            double sum = _reviews.fold(0, (prev, review) => prev + review.rating);
+                            _averageRating = sum / _reviews.length;
+                          });
+                          
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Symbols.check_circle, color: Colors.white, fill: 1),
+                                    SizedBox(width: 12),
+                                    Text('Cảm ơn bạn đã đánh giá!'),
+                                  ],
+                                ),
+                              backgroundColor: Colors.green,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                margin: EdgeInsets.all(16),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          'Gửi đánh giá',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                  ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Xem tất cả đánh giá
+  void _viewAllReviews() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Customer reviews',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _reviews.length,
+                    itemBuilder: (context, index) {
+                      return _buildReviewCard(_reviews[index]);
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _openOptionsSheet(Product product) async {
+    if (!_loadedOptions) {
+      await _loadProductOptions(product.id);
+    }
+
+    if (_productOptions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added ${product.name} to cart\nTotal: ${_formatPrice(_calculateTotalPrice(product))}'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    int sheetQuantity = 1;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.orange.shade50,
+                Colors.white,
+              ],
+            ),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: StatefulBuilder(
+              builder: (context, setSheetState) {
+                void updateInSheet(ProductOptionType optionType, ProductOptionValue value, bool isSelected) {
+                  setState(() => _updateOptionSelection(optionType, value, isSelected));
+                  setSheetState(() {});
+                }
+
+                Widget optionItem(ProductOptionType option) {
+                  final currentSelection = _selectedOptions.firstWhere(
+                    (s) => s.optionTypeId == option.id,
+                    orElse: () => SelectedOption(
+                      optionTypeId: option.id,
+                      optionName: option.name,
+                      selectedValueIds: [],
+                      selectedValues: [],
+                      totalPriceModifier: 0.0,
+                    ),
+                  );
+
+                  return Container(
+                      margin: EdgeInsets.only(bottom: 16),
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.orange.shade100, width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.orange.withOpacity(0.08),
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                              Container(
+                                padding: EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Colors.orange.shade400, Colors.orange.shade600],
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  option.type == 'select' 
+                                      ? Symbols.radio_button_checked 
+                                      : Symbols.checklist,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  option.name,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey[800],
+                                  ),
+                                ),
+                              ),
+                              if (option.required)
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'Required',
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          SizedBox(height: 12),
+                        if (option.type == 'select') ...[
+                          ...option.values.map((value) {
+                            final isSelected = currentSelection.selectedValueIds.contains(value.id);
+                              return Container(
+                                margin: EdgeInsets.only(bottom: 8),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () => updateInSheet(option, value, true),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? Colors.orange.shade50 : Colors.grey[50],
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: isSelected ? Colors.orange.shade300 : Colors.grey[200]!,
+                                          width: isSelected ? 2 : 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 20,
+                                            height: 20,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: isSelected ? Colors.orange : Colors.grey[400]!,
+                                                width: 2,
+                                              ),
+                                              color: isSelected ? Colors.orange : Colors.transparent,
+                                            ),
+                                            child: isSelected
+                                                ? Center(
+                                                    child: Container(
+                                                      width: 8,
+                                                      height: 8,
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  )
+                                                : null,
+                                          ),
+                                          SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              value.value,
+                                  style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                                color: isSelected ? Colors.grey[800] : Colors.grey[700],
+                                              ),
+                                            ),
+                                          ),
+                                          if (value.priceModifier != 0)
+                                            Container(
+                                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: value.priceModifier > 0
+                                                    ? Colors.green.shade50
+                                                    : Colors.red.shade50,
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                value.formattedPriceModifier,
+                                                style: TextStyle(
+                                                  color: value.priceModifier > 0
+                                                      ? Colors.green[700]
+                                                      : Colors.red[700],
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            );
+                          })
+                        ] else ...[
+                          ...option.values.map((value) {
+                            final isSelected = currentSelection.selectedValueIds.contains(value.id);
+                              return Container(
+                                margin: EdgeInsets.only(bottom: 8),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () => updateInSheet(option, value, !isSelected),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? Colors.orange.shade50 : Colors.grey[50],
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: isSelected ? Colors.orange.shade300 : Colors.grey[200]!,
+                                          width: isSelected ? 2 : 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 20,
+                                            height: 20,
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(5),
+                                              border: Border.all(
+                                                color: isSelected ? Colors.orange : Colors.grey[400]!,
+                                                width: 2,
+                                              ),
+                                              color: isSelected ? Colors.orange : Colors.transparent,
+                                            ),
+                                            child: isSelected
+                                                ? Icon(
+                                                    Symbols.check,
+                                                    color: Colors.white,
+                                                    size: 14,
+                                                  )
+                                                : null,
+                                          ),
+                                          SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              value.value,
+                                  style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                                color: isSelected ? Colors.grey[800] : Colors.grey[700],
+                                              ),
+                                            ),
+                                          ),
+                                          if (value.priceModifier != 0)
+                                            Container(
+                                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: value.priceModifier > 0
+                                                    ? Colors.green.shade50
+                                                    : Colors.red.shade50,
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                value.formattedPriceModifier,
+                                                style: TextStyle(
+                                                  color: value.priceModifier > 0
+                                                      ? Colors.green[700]
+                                                      : Colors.red[700],
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            );
+                          })
+                        ],
+                      ],
+                    ),
+                  );
+                }
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                      // Header
+                      Container(
+                        padding: EdgeInsets.fromLTRB(24, 16, 24, 20),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [Colors.orange.shade400, Colors.orange.shade600],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.orange.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Symbols.tune,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                ),
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Customize',
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.grey[800],
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Make it exactly how you like it',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Options list
+                    Flexible(
+                      child: SingleChildScrollView(
+                          padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          children: _productOptions.map(optionItem).toList(),
+                        ),
+                      ),
+                    ),
+                      
+                      // Bottom section
+                      Container(
+                        padding: EdgeInsets.fromLTRB(20, 16, 20, 20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border(
+                            top: BorderSide(color: Colors.grey[200]!, width: 1),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            // Quantity selector
+                    Row(
+                      children: [
+                                Text(
+                                  'Quantity',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                Spacer(),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey[200]!, width: 1.5),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.04),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.only(
+                                            topLeft: Radius.circular(11),
+                                            bottomLeft: Radius.circular(11),
+                                          ),
+                                          onTap: sheetQuantity > 1
+                                              ? () {
+                                                  setSheetState(() => sheetQuantity -= 1);
+                                                }
+                                              : null,
+                                          child: Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              color: sheetQuantity > 1
+                                                  ? Colors.orange.shade50
+                                                  : Colors.grey[50],
+                                              borderRadius: BorderRadius.only(
+                                                topLeft: Radius.circular(11),
+                                                bottomLeft: Radius.circular(11),
+                                              ),
+                                            ),
+                                            child: Icon(
+                                              Symbols.remove,
+                                              color: sheetQuantity > 1
+                                                  ? Colors.orange.shade700
+                                                  : Colors.grey[400],
+                                              size: 20,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        width: 50,
+                                        height: 40,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          border: Border.symmetric(
+                                            vertical: BorderSide(
+                                              color: Colors.grey[200]!,
+                                              width: 1,
+                                            ),
+                                          ),
+                                        ),
+                          child: Text(
+                                          sheetQuantity.toString(),
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.grey[800],
+                                          ),
+                                        ),
+                                      ),
+                                      Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.only(
+                                            topRight: Radius.circular(11),
+                                            bottomRight: Radius.circular(11),
+                                          ),
+                                          onTap: () {
+                                            setSheetState(() => sheetQuantity += 1);
+                                          },
+                                          child: Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  Colors.orange.shade400,
+                                                  Colors.orange.shade600,
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ),
+                                              borderRadius: BorderRadius.only(
+                                                topRight: Radius.circular(11),
+                                                bottomRight: Radius.circular(11),
+                                              ),
+                                            ),
+                                            child: Icon(
+                                              Symbols.add,
+                                              color: Colors.white,
+                                              size: 20,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 16),
+                            // Total and confirm button
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Total amount',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        _formatPrice(_calculateTotalPrice(product) * sheetQuantity),
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.grey[800],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 54,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              if (!_optionService.validateRequiredOptions(_productOptions, _selectedOptions)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Row(
+                                                children: [
+                                                  Icon(Symbols.warning, color: Colors.white, fill: 1),
+                                                  SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Text('Please select all required options'),
+                                                  ),
+                                                ],
+                                              ),
+                                              backgroundColor: Colors.red,
+                                              behavior: SnackBarBehavior.floating,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              margin: EdgeInsets.all(16),
+                                            ),
+                                );
+                                return;
+                              }
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                            content: Row(
+                                              children: [
+                                                Icon(Symbols.check_circle, color: Colors.white, fill: 1),
+                                                SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Text('Added ${product.name} x$sheetQuantity to cart\nTotal: ${_formatPrice(_calculateTotalPrice(product) * sheetQuantity)}'),
+                                                ),
+                                              ],
+                                            ),
+                                            backgroundColor: Colors.green,
+                                            behavior: SnackBarBehavior.floating,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            margin: EdgeInsets.all(16),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.transparent,
+                                        shadowColor: Colors.transparent,
+                                        padding: EdgeInsets.zero,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(14),
+                                        ),
+                                      ),
+                                      child: Ink(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              Colors.orange.shade400,
+                                              Colors.orange.shade600,
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius: BorderRadius.circular(14),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.orange.withOpacity(0.4),
+                                              blurRadius: 12,
+                                              offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                                        child: Container(
+                                          alignment: Alignment.center,
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Symbols.shopping_bag,
+                                                color: Colors.white,
+                                                size: 20,
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text(
+                                                'Add to cart',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                );
+              },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final Product product = args['product'];
     final Branch branch = args['branch'];
 
-    // Load product options
     if (!_loadedOptions) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _loadProductOptions(product.id);
@@ -97,172 +1096,170 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.white,
+      bottomNavigationBar: _buildBottomBar(product),
       body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              height: MediaQuery.of(context).size.height * 0.5,
-              child: Stack(
-                children: [
-                   Container(
-                     height: MediaQuery.of(context).size.height * 0.32,
-                    decoration: BoxDecoration(
-                       gradient: LinearGradient(
-                         begin: Alignment.topCenter,
-                         end: Alignment.bottomCenter,
-                         colors: [
-                           Colors.orange,
-                           Colors.orange.shade400,
-                         ],
+        child: SingleChildScrollView(
+          physics: BouncingScrollPhysics(),
+          child: Column(
+            children: [
+              // Header with image section
+              Container(
+                height: MediaQuery.of(context).size.height * 0.5,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      height: MediaQuery.of(context).size.height * 0.32,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.orange,
+                            Colors.orange.shade400,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(150),
+                          bottomRight: Radius.circular(150),
+                        ),
                       ),
-                       borderRadius: BorderRadius.only(
-                         bottomLeft: Radius.circular(150),
-                         bottomRight: Radius.circular(150),
-                       ),
                     ),
-                  ),
 
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    right: 16,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.3),
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            icon: Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-                            padding: EdgeInsets.zero,
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withOpacity(0.3)),
-                          ),
-                          child: Consumer<CategoryProvider>(
-                            builder: (context, categoryProvider, child) {
-                              String categoryName = 'Category';
-                              try {
-                                final category = categoryProvider.categories
-                                    .firstWhere((cat) => cat.id == product.categoryId);
-                                categoryName = category.name;
-                              } catch (e) {
-                                categoryName = 'Category';
-                              }
-                              
-                              return Text(
-                                categoryName,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                  fontFamily: 'Inter',
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.3),
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            icon: Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 22),
-                            padding: EdgeInsets.zero,
-                            onPressed: () {},
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-
-                   Positioned(
-                     bottom: -40,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Stack(
-                        alignment: Alignment.center,
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      right: 16,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                           Container(
-                             width: 450,
-                             height: 450,
-                             decoration: BoxDecoration(
-                               shape: BoxShape.circle,
-                               gradient: RadialGradient(
-                                 colors: [
-                                   Colors.orange.shade100.withOpacity(0.4),
-                                   Colors.orange.shade50.withOpacity(0.2),
-                                   Colors.transparent,
-                                 ],
-                               ),
-                             ),
-                           ),
-                           Container(
-                             width: 400,
-                             height: 400,
-                             decoration: BoxDecoration(
-                               shape: BoxShape.circle,
-                               gradient: RadialGradient(
-                                 colors: [
-                                   Colors.orange.shade100.withOpacity(0.3),
-                                   Colors.orange.shade50.withOpacity(0.1),
-                                   Colors.transparent,
-                                 ],
-                               ),
-                             ),
-                           ),
                           Container(
-                            width: 300,
-                            height: 300,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                          ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(160),
-                              child: Image.network(
-                                _getImageUrl(product.image),
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: Colors.grey[200],
-                                    child: Icon(Icons.food_bank, size: 80, color: Colors.grey),
-                                  );
-                                },
-                              ),
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.3),
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              icon: Icon(Symbols.arrow_back_ios, color: Colors.white, size: 20, fill: 1),
+                              padding: EdgeInsets.zero,
+                              onPressed: () => Navigator.pop(context),
                             ),
                           ),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withOpacity(0.3)),
+                            ),
+                            child: Consumer<CategoryProvider>(
+                              builder: (context, categoryProvider, child) {
+                                String categoryName = 'Category';
+                                try {
+                                  final category = categoryProvider.categories
+                                      .firstWhere((cat) => cat.id == product.categoryId);
+                                  categoryName = category.name;
+                                } catch (e) {
+                                  categoryName = 'Category';
+                                }
+                                
+                                return Text(
+                                  categoryName,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                    fontFamily: 'Inter',
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          _buildHeaderCartButton(product),
                         ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
 
-             Expanded(
-               child: Padding(
-                 padding: EdgeInsets.symmetric(horizontal: 24),
-                 child: SingleChildScrollView(
-                   physics: BouncingScrollPhysics(),
-                   child: Column(
-                   children: [
-                     SizedBox(height: 24),
+                    // Rating badge
+                    Positioned(
+                      bottom: -20,
+                      left: 0,
+                      right: 0,
+                      child: Center(child: _buildEnhancedRatingBadge()),
+                    ),
+
+                    Positioned(
+                      bottom: -40,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(
+                              width: 450,
+                              height: 450,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: [
+                                    Colors.orange.shade100.withOpacity(0.4),
+                                    Colors.orange.shade50.withOpacity(0.2),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 400,
+                              height: 400,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: [
+                                    Colors.orange.shade100.withOpacity(0.3),
+                                    Colors.orange.shade50.withOpacity(0.1),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 320,
+                              height: 320,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(175),
+                                child: Image.network(
+                                  _getImageUrl(product.image),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.grey[200],
+                                      child: Icon(Symbols.fastfood, size: 100, color: Colors.grey, fill: 1),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content section
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: [
+                    SizedBox(height: 24),
 
                     Text(
                       product.name,
@@ -309,7 +1306,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ],
                     ),
 
-                    SizedBox(height: 12),
+                    SizedBox(height: 16),
 
                     Text(
                       product.description ?? 'Tomato, Mozzarella, Green basil, Olives, Bell pepper',
@@ -324,293 +1321,253 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
                     SizedBox(height: 24),
 
-                    // Product Options Section
-                    if (_productOptions.isNotEmpty) ...[
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Customize your order',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[800],
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      ..._productOptions.map((option) => _buildOptionWidget(option)),
-                      SizedBox(height: 24),
-                    ] else if (_loadedOptions) ...[
-                      // Show message when no options are available
-                      Container(
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[300]!),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.info_outline, color: Colors.grey[600], size: 20),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'No customization options available for this product',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 24),
-                    ] else ...[
-                      // Show loading indicator while loading options
-                      Container(
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Loading customization options...',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 24),
-                    ],
+                    _buildReviewsList(),
 
-                    Container(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // Validate required options
-                          if (!_optionService.validateRequiredOptions(_productOptions, _selectedOptions)) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Please select all required options'),
-                                backgroundColor: Colors.red,
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                            return;
-                          }
-
-                          // Show selected options in snackbar
-                          final selectedOptionsText = _selectedOptions
-                              .where((s) => s.selectedValues.isNotEmpty)
-                              .map((s) => '${s.optionName}: ${s.selectedValues.join(', ')}')
-                              .join('\n');
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Added ${product.name} to cart'),
-                                  if (selectedOptionsText.isNotEmpty) ...[
-                                    SizedBox(height: 4),
-                                    Text(
-                                      selectedOptionsText,
-                                      style: TextStyle(fontSize: 12),
-                                    ),
-                                  ],
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'Total: ${_formatPrice(_calculateTotalPrice(product))}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: Colors.orange,
-                              duration: Duration(seconds: 3),
-                            ),
-                          );
-                        },
-                         style: ElevatedButton.styleFrom(
-                           backgroundColor: Colors.orange,
-                           shape: RoundedRectangleBorder(
-                             borderRadius: BorderRadius.circular(28),
-                           ),
-                           elevation: 0,
-                         ),
-                        child: Text(
-                          'Add to cart - ${_formatPrice(_calculateTotalPrice(product))}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ),
-                    ),
-
-                     SizedBox(height: 16),
-
-                    SizedBox(height: 24),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'More in this category',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.grey[800],
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Consumer<ProductProvider>(
-                      builder: (context, productProvider, _) {
-                        // Lazy load related products for current branch/category
-                        if (!_loadedRelated) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) async {
-                            await Provider.of<ProductProvider>(context, listen: false)
-                                .loadProducts(branchId: branch.id, categoryId: product.categoryId);
-                            setState(() { _loadedRelated = true; });
-                          });
-                        }
-                        final related = productProvider.allProducts
-                            .where((p) => p.categoryId == product.categoryId && p.id != product.id)
-                            .take(10)
-                            .toList();
-
-                        if (productProvider.isLoading && !_loadedRelated) {
-                          return Center(child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator()));
-                        }
-                        if (related.isEmpty) return SizedBox.shrink();
-
-                        return SizedBox(
-                          height: 160,
-                          child: ListView.separated(
-                            padding: EdgeInsets.symmetric(horizontal: 4),
-                            scrollDirection: Axis.horizontal,
-                            itemCount: related.length,
-                            separatorBuilder: (_, __) => SizedBox(width: 16),
-                            itemBuilder: (ctx, i) {
-                              final rp = related[i];
-                              return GestureDetector(
-                                onTap: () {
-                                  Navigator.pushReplacementNamed(
-                                    context,
-                                    ProductDetailScreen.routeName,
-                                    arguments: {'product': rp, 'branch': branch},
-                                  );
-                                },
-                                child: Container(
-                                  width: 120,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(18),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.06),
-                                        blurRadius: 10,
-                                        offset: Offset(0, 6),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: Image.network(
-                                          _getImageUrl(rp.image),
-                                          width: 90,
-                                          height: 90,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => Container(
-                                            width: 90,
-                                            height: 90,
-                                            color: Colors.grey[200],
-                                            child: Icon(Icons.food_bank, color: Colors.grey),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(height: 8),
-                                      Text(
-                                        rp.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.grey[700],
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                     
-                     SizedBox(height: 16),
+                    SizedBox(height: 80),
                   ],
                 ),
-               ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildOptionWidget(ProductOptionType option) {
-    final currentSelection = _selectedOptions.firstWhere(
-      (s) => s.optionTypeId == option.id,
-      orElse: () => SelectedOption(
-        optionTypeId: option.id,
-        optionName: option.name,
-        selectedValueIds: [],
-        selectedValues: [],
-        totalPriceModifier: 0.0,
+  Widget _buildEnhancedFavoriteButton() {
+    return ScaleTransition(
+      scale: _favoriteScaleAnimation,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          gradient: _isFavorite
+              ? LinearGradient(
+                  colors: [Colors.red.shade400, Colors.red.shade600],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : LinearGradient(
+                  colors: [Colors.white.withOpacity(0.3), Colors.white.withOpacity(0.2)],
+                ),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: _isFavorite ? Colors.red.withOpacity(0.4) : Colors.black.withOpacity(0.1),
+              blurRadius: _isFavorite ? 12 : 8,
+              offset: Offset(0, 4),
+              spreadRadius: _isFavorite ? 2 : 0,
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: _toggleFavorite,
+            child: Center(
+              child: Icon(
+                _isFavorite ? Symbols.favorite : Symbols.favorite, // use filled color to distinguish
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+          ),
+        ),
       ),
     );
+  }
 
+  Widget _buildHeaderCartButton(Product product) {
     return Container(
-      margin: EdgeInsets.only(bottom: 20),
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.25),
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () => _openOptionsSheet(product),
+          child: Center(
+            child: Icon(Symbols.shopping_cart, color: Colors.white, size: 22, fill: 1),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomFavoriteButton() {
+    return ScaleTransition(
+      scale: _favoriteScaleAnimation,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: _isFavorite ? Colors.red.shade50 : Colors.grey[100],
+          border: Border.all(color: _isFavorite ? Colors.red.shade200 : Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: _toggleFavorite,
+            child: Icon(
+              _isFavorite ? Symbols.favorite : Symbols.favorite,
+              color: _isFavorite ? Colors.red : Colors.grey[700],
+              size: 22,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnhancedRatingBadge() {
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final Product? product = args != null ? args['product'] as Product? : null;
+
+    return ScaleTransition(
+      scale: _ratingPulseAnimation,
+      child: GestureDetector(
+        onTap: () {
+          if (product != null) {
+            _openReviewSheet(product);
+          }
+        },
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.amber.shade400,
+                Colors.orange.shade500,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.orange.withOpacity(0.5),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+                spreadRadius: 1,
+              ),
+              BoxShadow(
+                color: Colors.amber.withOpacity(0.3),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+      ),
+      child: Row(
+            mainAxisSize: MainAxisSize.min,
+        children: [
+              Icon(Symbols.grade, color: Colors.white, size: 18, fill: 1),
+          SizedBox(width: 6),
+          Text(
+            _averageRating.toStringAsFixed(1),
+            style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              SizedBox(width: 8),
+              Container(
+                width: 1,
+                height: 14,
+                color: Colors.white.withOpacity(0.5),
+              ),
+              SizedBox(width: 8),
+          Text(
+                '$_totalReviews',
+            style: TextStyle(
+                  fontSize: 13,
+                fontWeight: FontWeight.w600,
+                  color: Colors.white.withOpacity(0.95),
+            ),
+          ),
+        ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewsList() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(Symbols.reviews, color: Colors.orange, size: 20, fill: 1),
+                SizedBox(width: 8),
+            Text(
+                  'Customer reviews',
+              style: TextStyle(
+                    fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+                ),
+              ],
+            ),
+            TextButton(
+              onPressed: _viewAllReviews,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    'See all',
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(Symbols.chevron_right, color: Colors.orange, size: 14, fill: 1),
+                ],
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 12),
+        ..._reviews.take(2).map((review) => _buildReviewCard(review)).toList(),
+      ],
+    );
+  }
+
+  Widget _buildReviewCard(ProductReview review) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[200]!),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
             offset: Offset(0, 2),
           ),
         ],
@@ -620,179 +1577,147 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         children: [
           Row(
             children: [
-              Text(
-                option.name,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[800],
-                  fontFamily: 'Inter',
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.orange.shade100, width: 2),
+                ),
+                child: CircleAvatar(
+                  radius: 18,
+                backgroundImage: NetworkImage(review.userAvatar),
                 ),
               ),
-              if (option.required) ...[
-                SizedBox(width: 8),
-                Text(
-                  '*',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      review.userName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Symbols.grade, color: Colors.amber[700], size: 14, fill: 1),
+                              SizedBox(width: 4),
+                              Text(
+                                review.rating.toStringAsFixed(1),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.amber[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          _getTimeAgo(review.createdAt),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ],
           ),
           SizedBox(height: 12),
-          if (option.type == 'select') ...[
-            // Radio buttons for select type
-            ...option.values.map((value) {
-              final isSelected = currentSelection.selectedValueIds.contains(value.id);
-              return GestureDetector(
-                onTap: () => _updateOptionSelection(option, value, true),
-                child: Container(
-                  margin: EdgeInsets.only(bottom: 8),
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.orange.withOpacity(0.1) : Colors.grey[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isSelected ? Colors.orange : Colors.grey[300]!,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                        color: isSelected ? Colors.orange : Colors.grey[400],
-                        size: 20,
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          value.value,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                            color: isSelected ? Colors.orange[700] : Colors.grey[700],
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ),
-                      if (value.priceModifier != 0)
-                        Text(
-                          value.formattedPriceModifier,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: value.priceModifier > 0 ? Colors.green[600] : Colors.red[600],
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ] else if (option.type == 'checkbox') ...[
-            // Checkboxes for checkbox type
-            ...option.values.map((value) {
-              final isSelected = currentSelection.selectedValueIds.contains(value.id);
-              return GestureDetector(
-                onTap: () => _updateOptionSelection(option, value, !isSelected),
-                child: Container(
-                  margin: EdgeInsets.only(bottom: 8),
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.orange.withOpacity(0.1) : Colors.grey[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isSelected ? Colors.orange : Colors.grey[300]!,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isSelected ? Icons.check_box : Icons.check_box_outline_blank,
-                        color: isSelected ? Colors.orange : Colors.grey[400],
-                        size: 20,
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          value.value,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                            color: isSelected ? Colors.orange[700] : Colors.grey[700],
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ),
-                      if (value.priceModifier != 0)
-                        Text(
-                          value.formattedPriceModifier,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: value.priceModifier > 0 ? Colors.green[600] : Colors.red[600],
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ],
+          Text(
+            review.comment,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[700],
+              height: 1.5,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildRelatedProductCard(String name, String? image) {
+  String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 7) {
+      return '${difference.inDays ~/ 7} tuần trước';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} ngày trước';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} giờ trước';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} phút trước';
+    } else {
+      return 'Vừa xong';
+    }
+  }
+
+  Widget _buildBottomBar(Product product) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Container(
-      width: 100,
-      child: Column(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey[200]!)),
+      ),
+      child: Row(
         children: [
-          Container(
-            width: 90,
-            height: 90,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.orange, width: 3),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(45),
-              child: Image.network(
-                _getImageUrl(image),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.grey[200],
-                    child: Icon(Icons.food_bank, size: 40, color: Colors.grey),
-                  );
-                },
-              ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Total', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                SizedBox(height: 4),
+                Text(
+                  _formatPrice(_calculateTotalPrice(product)),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 8),
-          Text(
-            name,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
-              fontFamily: 'Inter',
+          Container(
+            margin: EdgeInsets.only(right: 12),
+            child: _buildBottomFavoriteButton(),
+          ),
+          SizedBox(
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: () => _openOptionsSheet(product),
+              icon: Icon(Symbols.add_shopping_cart, color: Colors.white, size: 20, fill: 1),
+              label: Text(
+                'Add to cart',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                padding: EdgeInsets.symmetric(horizontal: 18),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 2,
+                shadowColor: Colors.orange.withOpacity(0.4),
+              ),
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 }
-
-// _RelatedCarousel removed; related products are rendered inline above using
-// Consumer<ProductProvider> and a horizontal ListView.

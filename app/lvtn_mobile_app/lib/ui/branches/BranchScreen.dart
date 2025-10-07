@@ -137,7 +137,6 @@ class _BranchScreenState extends State<BranchScreen> {
       );
 
     } catch (e) {
-      print('Error getting location: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Không thể lấy vị trí hiện tại'),
@@ -180,7 +179,6 @@ class _BranchScreenState extends State<BranchScreen> {
         return addressParts.join(', ');
       }
     } catch (e) {
-      print('Reverse geocoding error: $e');
     }
     
     return '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';

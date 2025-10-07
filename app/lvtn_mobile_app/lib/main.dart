@@ -51,7 +51,7 @@ class LVTNRestaurantApp extends StatelessWidget {
           ),
         ),
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
           fontSize: 24,

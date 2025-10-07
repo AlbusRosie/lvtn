@@ -39,7 +39,6 @@ class ProductProvider extends ChangeNotifier {
       }
     } catch (error) {
       _error = error.toString();
-      print('ProductProvider Error: $_error');
     };
     
     _isLoading = false;

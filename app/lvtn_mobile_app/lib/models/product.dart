@@ -21,12 +21,22 @@ class Product {
     required this.createdAt,
   });
 
+  static double _parsePrice(dynamic price) {
+    if (price == null) return 0.0;
+    if (price is double) return price;
+    if (price is int) return price.toDouble();
+    if (price is String) {
+      return double.tryParse(price) ?? 0.0;
+    }
+    return 0.0;
+  }
+
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
       id: json['id'],
       categoryId: json['category_id'],
       name: json['name'],
-      basePrice: json['base_price']?.toDouble() ?? 0.0,
+      basePrice: _parsePrice(json['base_price']),
       description: json['description'],
       image: json['image'],
       isGlobalAvailable: json['is_global_available'] == 1,

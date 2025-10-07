@@ -59,12 +59,22 @@ class ProductOptionValue {
     required this.displayOrder,
   });
 
+  static double _parsePriceModifier(dynamic priceModifier) {
+    if (priceModifier == null) return 0.0;
+    if (priceModifier is double) return priceModifier;
+    if (priceModifier is int) return priceModifier.toDouble();
+    if (priceModifier is String) {
+      return double.tryParse(priceModifier) ?? 0.0;
+    }
+    return 0.0;
+  }
+
   factory ProductOptionValue.fromJson(Map<String, dynamic> json) {
     return ProductOptionValue(
       id: json['id'],
       optionTypeId: json['option_type_id'],
       value: json['value'],
-      priceModifier: (json['price_modifier'] ?? 0).toDouble(),
+      priceModifier: _parsePriceModifier(json['price_modifier']),
       displayOrder: json['display_order'] ?? 0,
     );
   }
