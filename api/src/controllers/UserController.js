@@ -5,9 +5,8 @@ const jwt = require('jsonwebtoken');
 const SECRET_KEY = process.env.JWT_SECRET;
 const EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
 
-async function createUser(req, res, next) {
+async function createUserByAdmin(req, res, next) {
     try {
-
         const requiredFields = ['username', 'password', 'email', 'name', 'role_id'];
         const missingFields = requiredFields.filter(field => !req.body[field]);
 
@@ -53,7 +52,62 @@ async function createUser(req, res, next) {
     }
 }
 
-async function login(req, res, next) {
+async function createUser(req, res, next) {
+    try {
+
+        const requiredFields = ['username', 'password', 'email', 'name', 'role_id'];
+        const missingFields = requiredFields.filter(field => !req.body[field]);
+
+        if (missingFields.length > 0) {
+            return next(new ApiError(400, `Missing required fields: ${missingFields.join(', ')}`));
+        }
+
+        if (isNaN(parseInt(req.body.role_id))) {
+            return next(new ApiError(400, 'Invalid role_id'));
+        }
+
+        // SECURITY: Only allow customer registration from public endpoints
+        // Admin and staff should be created through admin panel only
+        const roleId = parseInt(req.body.role_id);
+        if (roleId !== 4) { // Only allow customer role (4) for public registration
+            return next(new ApiError(403, 'Only customer registration is allowed'));
+        }
+
+        if (req.body.phone && !/^[0-9]{10,11}$/.test(req.body.phone)) {
+            return next(new ApiError(400, 'Invalid phone number format'));
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(req.body.email)) {
+            return next(new ApiError(400, 'Invalid email format'));
+        }
+
+        const user = await UserService.createUser({
+            ...req.body,
+            role_id: parseInt(req.body.role_id),
+            favorite: req.body.favorite === 'true' || req.body.favorite === true ? 1 : 0,
+            avatar: req.file ? `/public/uploads/${req.file.filename}` : null,
+        });
+
+        return res.status(201).set({
+            Location: `${req.baseUrl}/${user.id}`
+        }).json(JSend.success({
+            user,
+        }));
+    } catch (error) {
+        if (error.message === 'Username or email already exists') {
+            return next(new ApiError(400, error.message));
+        }
+        if (error.message === 'Missing required fields') {
+            return next(new ApiError(400, error.message));
+        }
+        return next(
+            new ApiError(500, 'An error occurred while creating the user')
+        );
+    }
+}
+
+async function loginAdmin(req, res, next) {
     try {
         const { username, password } = req.body;
 
@@ -62,18 +116,42 @@ async function login(req, res, next) {
         }
 
         const result = await UserService.login(username, password);
-        const token = jwt.sign({ 
-            id: result.user.id, 
-            username: result.user.username, 
-            role_id: result.user.role_id
-        },
-            SECRET_KEY,
-        { 
-            expiresIn: EXPIRES_IN 
-        });
+        
+        // Only allow admin and staff to login through admin endpoint
+        if (result.user.role_id !== 1 && result.user.role_id !== 3) {
+            return next(new ApiError(403, 'Access denied. Admin/Staff access required'));
+        }
+        
         return res.json({
             status: 'success',
-            data: { token, user: result.user }
+            data: result
+        });
+    } catch (error) {
+        if (error.message === 'Invalid credentials') {
+            return next(new ApiError(401, error.message));
+        }
+        return next(new ApiError(500, 'An error occurred during login'));
+    }
+}
+
+async function loginCustomer(req, res, next) {
+    try {
+        const { username, password } = req.body;
+
+        if (!username || !password) {
+            return next(new ApiError(400, 'Username and password are required'));
+        }
+
+        const result = await UserService.login(username, password);
+        
+        // Only allow customers to login through customer endpoint
+        if (result.user.role_id !== 4) {
+            return next(new ApiError(403, 'Access denied. Customer access required'));
+        }
+        
+        return res.json({
+            status: 'success',
+            data: result
         });
     } catch (error) {
         if (error.message === 'Invalid credentials') {
@@ -194,9 +272,11 @@ async function deleteAllUsers(req, res, next) {
 }
 
 module.exports = {
-    login,
+    loginAdmin,
+    loginCustomer,
     getUser,
     createUser,
+    createUserByAdmin,
     getUsersByFilter,
     updateUser,
     deleteUser,

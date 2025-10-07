@@ -7,7 +7,7 @@ function makeAuthService() {
     const baseUrl = '/api/users';
 
     async function login(username, password) {
-        const data = await efetch(`${baseUrl}/login`, {
+        const data = await efetch(`${baseUrl}/login/admin`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

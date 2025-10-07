@@ -24,6 +24,20 @@ function makeUserService() {
             formData.append(key, value);
         });
 
+        // Use admin endpoint for creating users with any role
+        return efetch(`${baseUrl}/admin/create`, {
+            method: 'POST',
+            body: formData
+        });
+    }
+
+    async function createCustomer(userData) {
+        const formData = new FormData();
+        Object.entries(userData).forEach(([key, value]) => {
+            formData.append(key, value);
+        });
+
+        // Use public endpoint for creating customers only
         return efetch(`${baseUrl}/register`, {
             method: 'POST',
             body: formData
@@ -72,6 +86,7 @@ function makeUserService() {
         fetchUsers,
         fetchUser,
         createUser,
+        createCustomer,
         updateUser,
         deleteUser,
         deleteAllUsers,

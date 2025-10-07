@@ -3,7 +3,7 @@ import '../config/env.dart';
 class ApiConstants {
   static String get baseUrl => Environment.baseUrl;
   
-  static const String login = '/users/login';
+  static const String login = '/users/login/customer';
   static const String register = '/users/register';
   static const String users = '/users';
   
