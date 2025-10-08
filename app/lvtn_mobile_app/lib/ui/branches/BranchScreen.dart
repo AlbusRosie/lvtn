@@ -6,6 +6,8 @@ import 'package:geocoding/geocoding.dart';
 import '../../providers/BranchProvider.dart';
 import '../../models/branch.dart';
 import '../menu/BranchMenuScreen.dart';
+import 'BranchDetailScreen.dart';
+import '../../constants/app_constants.dart';
 
 class BranchScreen extends StatefulWidget {
   const BranchScreen({super.key});
@@ -186,7 +188,7 @@ class _BranchScreenState extends State<BranchScreen> {
 
   String _getImageUrl(String? imagePath) {
     if (imagePath == null || imagePath.isEmpty) {
-      return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop';
+      return AppConstants.defaultProductImage;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
@@ -544,7 +546,7 @@ class _BranchScreenState extends State<BranchScreen> {
         onTap: () {
           Navigator.pushNamed(
             context,
-            BranchMenuScreen.routeName,
+            BranchDetailScreen.routeName,
             arguments: branch,
           );
         },
@@ -564,10 +566,7 @@ class _BranchScreenState extends State<BranchScreen> {
                   _getImageUrl(branch.image),
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
-                    return Image.network(
-                      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop',
-                      fit: BoxFit.cover,
-                    );
+                    return Image.network(_getImageUrl(AppConstants.defaultProductImage), fit: BoxFit.cover);
                   },
                 ),
               ),
@@ -699,7 +698,7 @@ class _BranchScreenState extends State<BranchScreen> {
       onTap: () {
         Navigator.pushNamed(
           context,
-          BranchMenuScreen.routeName,
+          BranchDetailScreen.routeName,
           arguments: branch,
         );
       },
@@ -736,10 +735,7 @@ class _BranchScreenState extends State<BranchScreen> {
                         _getImageUrl(branch.image),
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          return Image.network(
-                            'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop',
-                            fit: BoxFit.cover,
-                          );
+                          return Image.network(_getImageUrl(AppConstants.defaultProductImage), fit: BoxFit.cover);
                         },
                       ),
                     ),

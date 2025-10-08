@@ -1,5 +1,5 @@
 const knex = require('../database/knex');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 class CartService {
     constructor() {
@@ -25,7 +25,7 @@ class CartService {
         const cartData = {
             user_id: userId,
             branch_id: branchId,
-            session_id: sessionId || uuidv4(),
+            session_id: sessionId || crypto.randomUUID(),
             order_type: orderType,
             status: 'pending',
             expires_at: expiresAt

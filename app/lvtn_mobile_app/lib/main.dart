@@ -13,7 +13,10 @@ import 'providers/BranchProvider.dart';
 import 'providers/LocationProvider.dart';
 import 'providers/CategoryProvider.dart';
 import 'providers/ProductProvider.dart';
+import 'ui/cart/CartProvider.dart';
 import 'services/StorageService.dart';
+import 'models/branch.dart';
+import 'ui/tables/TableScreen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,6 +74,7 @@ class LVTNRestaurantApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LocationProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -84,11 +88,11 @@ class LVTNRestaurantApp extends StatelessWidget {
         },
         onGenerateRoute: (settings) {
           if (settings.name == BranchDetailScreen.routeName) {
-            final branchId = settings.arguments as int;
+            final branch = settings.arguments as Branch;
             return MaterialPageRoute(
               builder: (ctx) {
                 return SafeArea(
-                  child: BranchDetailScreen(branchId: branchId),
+                  child: BranchDetailScreen(branch: branch),
                 );
               },
             );
@@ -113,6 +117,16 @@ class LVTNRestaurantApp extends StatelessWidget {
                 );
               },
               settings: settings,
+            );
+          }
+          if (settings.name == TableScreen.routeName) {
+            final branch = settings.arguments as Branch;
+            return MaterialPageRoute(
+              builder: (ctx) {
+                return SafeArea(
+                  child: TableScreen(branch: branch),
+                );
+              },
             );
           }
           

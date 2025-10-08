@@ -19,7 +19,6 @@ const {
     resourceNotFound,
     handleError,
 } = require('./controllers/ErrorController');
-const { specs, swaggerUi, swaggerOptions } = require('./docs/swagger');
 const app = express();
 
 app.use(cors());
@@ -30,7 +29,6 @@ app.get('/', (req, res) => {
     res.send(JSend.success());
 });
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerOptions));
 app.use('/public', express.static('public'));
 
 UserRouter.setup(app);

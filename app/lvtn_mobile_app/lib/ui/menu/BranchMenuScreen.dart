@@ -7,6 +7,7 @@ import '../../models/branch.dart';
 import '../../models/category.dart' as CategoryModel;
 import '../../models/product.dart';
 import 'ProductDetailScreen.dart';
+import '../../constants/app_constants.dart';
 
 class BranchMenuScreen extends StatefulWidget {
   final Branch branch;
@@ -23,7 +24,7 @@ class BranchMenuScreen extends StatefulWidget {
 }
 
 class _BranchMenuScreenState extends State<BranchMenuScreen> {
-  int? selectedCategoryId = 0; // Start with All selected
+  int? selectedCategoryId = 0; 
   
   @override
   void initState() {
@@ -67,7 +68,7 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
 
   String _getImageUrl(String? imagePath) {
     if (imagePath == null || imagePath.isEmpty) {
-      return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop';
+      return AppConstants.defaultProductImage;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;

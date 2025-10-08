@@ -4,9 +4,12 @@ import '../../providers/BranchProvider.dart';
 import '../../providers/AuthProvider.dart';
 import '../../providers/LocationProvider.dart';
 import '../../providers/CategoryProvider.dart';
+import '../../ui/cart/CartProvider.dart';
+import '../../ui/cart/CartScreen.dart';
 import '../../models/province.dart';
 import '../../models/category.dart' as CategoryModel;
 import '../menu/BranchMenuScreen.dart';
+import '../../constants/app_constants.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -84,44 +87,63 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         centerTitle: true,
         actions: [
-          Padding(
-            padding: EdgeInsets.only(right: 16, top: 8, bottom: 8),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Color(0xFF2C2C2C),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.shopping_bag_outlined, color: Colors.white, size: 24),
-                ),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: Color(0xFFFF6B00),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '2',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+          Consumer<CartProvider>(
+            builder: (context, cartProvider, child) {
+              return Padding(
+                padding: EdgeInsets.only(right: 16, top: 8, bottom: 8),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        // Navigate to cart screen with default branch
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CartScreen(
+                              branchId: 5, // Default branch
+                              branchName: 'Beast Bite - The Pearl District',
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Color(0xFF2C2C2C),
+                          shape: BoxShape.circle,
                         ),
+                        child: Icon(Icons.shopping_bag_outlined, color: Colors.white, size: 24),
                       ),
                     ),
-                  ),
+                    if (cartProvider.itemCount > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: Color(0xFFFF6B00),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${cartProvider.itemCount}',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),
@@ -603,16 +625,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         _getImageUrl(branch.image!),
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          return Image.network(
-                            'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop',
-                            fit: BoxFit.cover,
-                          );
+                          return Image.network(AppConstants.defaultProductImage, fit: BoxFit.cover);
                         },
                       )
-                    : Image.network(
-                        'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop',
-                        fit: BoxFit.cover,
-                      ),
+                    : Image.network(AppConstants.defaultProductImage, fit: BoxFit.cover),
               ),
             ),
             

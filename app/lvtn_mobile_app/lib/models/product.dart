@@ -1,3 +1,4 @@
+import '../constants/app_constants.dart';
 class Product {
   final int id;
   final int categoryId;
@@ -65,7 +66,7 @@ class Product {
 
   String get imageUrl {
     if (image == null || image!.isEmpty) {
-      return 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=200&auto=format&fit=crop';
+      return AppConstants.defaultProductImage;
     }
     if (image!.startsWith('http')) {
       return image!;

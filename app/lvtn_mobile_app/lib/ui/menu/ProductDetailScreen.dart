@@ -7,6 +7,10 @@ import '../../models/product_option.dart';
 import '../../providers/CategoryProvider.dart';
 import '../../providers/ProductProvider.dart';
 import '../../services/ProductOptionService.dart';
+import '../../services/CartService.dart';
+import '../../services/AuthService.dart';
+import '../../ui/cart/CartProvider.dart';
+import '../../constants/app_constants.dart';
 
 // Model cho Review
 class ProductReview {
@@ -119,7 +123,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
 
   String _getImageUrl(String? imagePath) {
     if (imagePath == null || imagePath.isEmpty) {
-      return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop';
+      return AppConstants.defaultProductImage;
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
@@ -1555,6 +1559,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
       ],
     );
   }
+
 
   Widget _buildReviewCard(ProductReview review) {
     return Container(
