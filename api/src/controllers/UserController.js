@@ -66,8 +66,6 @@ async function createUser(req, res, next) {
             return next(new ApiError(400, 'Invalid role_id'));
         }
 
-        // SECURITY: Only allow customer registration from public endpoints
-        // Admin and staff should be created through admin panel only
         const roleId = parseInt(req.body.role_id);
         if (roleId !== 4) { // Only allow customer role (4) for public registration
             return next(new ApiError(403, 'Only customer registration is allowed'));
@@ -117,7 +115,6 @@ async function loginAdmin(req, res, next) {
 
         const result = await UserService.login(username, password);
         
-        // Only allow admin and staff to login through admin endpoint
         if (result.user.role_id !== 1 && result.user.role_id !== 3) {
             return next(new ApiError(403, 'Access denied. Admin/Staff access required'));
         }
@@ -144,7 +141,6 @@ async function loginCustomer(req, res, next) {
 
         const result = await UserService.login(username, password);
         
-        // Only allow customers to login through customer endpoint
         if (result.user.role_id !== 4) {
             return next(new ApiError(403, 'Access denied. Customer access required'));
         }

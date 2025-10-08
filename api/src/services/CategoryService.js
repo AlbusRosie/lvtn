@@ -103,7 +103,6 @@ async function deleteCategory(id) {
             if (product.image && product.image.startsWith('/public/uploads')) {
                 unlink(`.${product.image}`, (err) => {
                     if (err) {
-                      // Continue silently
                     }
                 });
             }

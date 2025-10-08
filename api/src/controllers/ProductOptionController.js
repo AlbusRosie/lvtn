@@ -2,9 +2,6 @@ const ProductOptionService = require('../services/ProductOptionService');
 const ApiError = require('../api-error');
 const { success } = require('../jsend');
 
-/**
- * Lấy tất cả options của một sản phẩm
- */
 async function getProductOptions(req, res, next) {
   try {
     const { productId } = req.params;
@@ -15,15 +12,11 @@ async function getProductOptions(req, res, next) {
   }
 }
 
-/**
- * Tạo option type mới cho sản phẩm
- */
 async function createProductOption(req, res, next) {
   try {
     const { productId } = req.params;
     const optionData = req.body;
 
-    // Validate required fields
     if (!optionData.name || !optionData.name.trim()) {
       throw new ApiError(400, 'Option name is required');
     }
@@ -36,7 +29,6 @@ async function createProductOption(req, res, next) {
       throw new ApiError(400, 'At least one option value is required');
     }
 
-    // Validate option values
     for (const value of optionData.values) {
       if (!value.value) {
         throw new ApiError(400, 'Each option value must have "value"');
@@ -57,15 +49,11 @@ async function createProductOption(req, res, next) {
   }
 }
 
-/**
- * Cập nhật option type và values
- */
 async function updateProductOption(req, res, next) {
   try {
     const { optionTypeId } = req.params;
     const optionData = req.body;
 
-    // Validate required fields
     if (!optionData.name || !optionData.name.trim()) {
       throw new ApiError(400, 'Option name is required');
     }
@@ -78,7 +66,6 @@ async function updateProductOption(req, res, next) {
       throw new ApiError(400, 'At least one option value is required');
     }
 
-    // Validate option values
     for (const value of optionData.values) {
       if (!value.value) {
         throw new ApiError(400, 'Each option value must have "value"');
@@ -99,9 +86,6 @@ async function updateProductOption(req, res, next) {
   }
 }
 
-/**
- * Xóa hoàn toàn một option type và tất cả values
- */
 async function deleteProductOption(req, res, next) {
   try {
     const { optionTypeId } = req.params;
@@ -121,9 +105,6 @@ async function deleteProductOption(req, res, next) {
   }
 }
 
-/**
- * Lấy chi tiết một option type với values
- */
 async function getProductOption(req, res, next) {
   try {
     const { optionTypeId } = req.params;
