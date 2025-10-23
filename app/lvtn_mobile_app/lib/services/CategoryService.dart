@@ -1,4 +1,4 @@
-import '../models/category.dart' as CategoryModel;
+import '../models/category.dart';
 import '../constants/api_constants.dart';
 import 'APIService.dart';
 
@@ -7,24 +7,21 @@ class CategoryService {
   factory CategoryService() => _instance;
   CategoryService._internal();
 
-  Future<List<CategoryModel.Category>> getAllCategories() async {
+  Future<List<Category>> getAllCategories() async {
     try {
       final response = await ApiService().get(ApiConstants.categories);
-      if (response is List) {
-        return response.map((json) => CategoryModel.Category.fromJson(json)).toList();
-      }
-      return [];
+      return (response as List).map((json) => Category.fromJson(json)).toList();
     } catch (error) {
-      throw Exception('Không thể tải danh sách danh mục: $error');
+      throw Exception('Không thể tải danh sách danh mục: ${error.toString()}');
     }
   }
 
-  Future<CategoryModel.Category> getCategoryById(int id) async {
+  Future<Category?> getCategoryById(int id) async {
     try {
       final response = await ApiService().get('${ApiConstants.categories}/$id');
-      return CategoryModel.Category.fromJson(response);
+      return Category.fromJson(response);
     } catch (error) {
-      throw Exception('Không thể tải thông tin danh mục: $error');
+      return null;
     }
   }
 }

@@ -12,6 +12,7 @@ module.exports.setup = (app) => {
     router.get('/', ProductController.getProducts);
     router.get('/not-added', ProductController.getNotAddedProducts);
     router.get('/:id', ProductController.getProduct);
+    router.get('/:product_id/branch-price/:cart_id', ProductController.getProductBranchPrice);
     router.use(verifyToken);
 
     router.post('/', productUpload, ProductController.createProduct);

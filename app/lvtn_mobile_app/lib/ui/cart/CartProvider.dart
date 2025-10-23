@@ -1,19 +1,55 @@
 import 'package:flutter/material.dart';
 import '../../models/cart.dart';
+import '../../models/product_option.dart';
+import '../../services/CartService.dart';
+import '../../services/AuthService.dart';
+import '../../services/StorageService.dart';
 
 class CartProvider extends ChangeNotifier {
   Cart? _cart;
   bool _isLoading = false;
+  String? _error;
+  int? _currentBranchId;
+  String? _currentBranchName;
 
   Cart? get cart => _cart;
+  Cart? get currentCart => _cart;
   bool get isLoading => _isLoading;
-  bool get hasCart => _cart != null && !_cart!.isEmpty;
+  String? get error => _error;
+  int get itemCount => _cart?.items.fold(0, (sum, item) => sum + item.quantity)?.toInt() ?? 0;
   double get total => _cart?.total ?? 0.0;
-  int get itemCount => _cart?.items.length ?? 0;
+  int? get currentBranchId => _currentBranchId;
+  String? get currentBranchName => _currentBranchName;
 
   void setCart(Cart? cart) {
     _cart = cart;
+    _error = null;
     notifyListeners();
+  }
+
+  void setCurrentBranch(int branchId, String branchName) {
+    _currentBranchId = branchId;
+    _currentBranchName = branchName;
+    
+    StorageService().setInt('current_branch_id', branchId);
+    StorageService().setString('current_branch_name', branchName);
+    
+    notifyListeners();
+  }
+
+
+  Future<void> loadSavedBranchInfo() async {
+    try {
+      final branchId = await StorageService().getInt('current_branch_id');
+      final branchName = await StorageService().getString('current_branch_name');
+      
+      if (branchId != null && branchName != null) {
+        _currentBranchId = branchId;
+        _currentBranchName = branchName;
+        notifyListeners();
+      }
+    } catch (e) {
+    }
   }
 
   void setLoading(bool loading) {
@@ -21,29 +57,121 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void clearCart() {
-    _cart = null;
+  void setError(String? error) {
+    _error = error;
+    _isLoading = false;
     notifyListeners();
   }
 
-  bool hasProduct(int productId) {
-    if (_cart == null) return false;
-    return _cart!.items.any((item) => item.productId == productId);
+  void clearCart() {
+    _cart = null;
+    _error = null;
+    _isLoading = false;
+    notifyListeners();
   }
 
-  int getProductQuantity(int productId) {
-    if (_cart == null) return 0;
-    final item = _cart!.items.firstWhere(
-      (item) => item.productId == productId,
-      orElse: () => CartItem(
-        id: 0,
-        cartId: 0,
+
+  Future<void> loadCart(int branchId) async {
+    try {
+      setLoading(true);
+      
+      final token = AuthService().token;
+      
+      if (token == null) {
+        setLoading(false);
+        return;
+      }
+
+      
+      final cart = await CartService.getUserCart(
+        token: token,
+        branchId: branchId,
+      );
+
+      if (cart != null) {
+        setCart(cart);
+        _currentBranchId = branchId;
+      } else {
+        setCart(null);
+      }
+    } catch (e) {
+      setError(e.toString());
+    }
+  }
+
+
+  Future<void> refreshCart() async {
+    if (_currentBranchId != null) {
+      await loadCart(_currentBranchId!);
+    }
+  }
+
+
+  // Check if switching to a different branch with items in cart
+  bool needsBranchSwitchConfirmation(int newBranchId) {
+    // If no current cart or cart is empty, no confirmation needed
+    if (_cart == null || _cart!.items.isEmpty) {
+      return false;
+    }
+    
+    // If switching to different branch, need confirmation
+    if (_currentBranchId != null && _currentBranchId != newBranchId) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Clear cart from old branch before switching
+  Future<void> clearCartForBranchSwitch() async {
+    try {
+      final token = AuthService().token;
+      if (token == null || _cart == null) {
+        clearCart();
+        return;
+      }
+
+      // Clear the cart in backend
+      await CartService.clearCart(
+        token: token,
+        cartId: _cart!.id,
+      );
+      
+      // Clear local cart
+      clearCart();
+    } catch (e) {
+      // If error, still clear local cart
+      clearCart();
+    }
+  }
+
+  Future<void> addToCart(int branchId, int productId, {int quantity = 1, String orderType = 'dine_in', List<SelectedOption>? selectedOptions, String? specialInstructions}) async {
+    try {
+      setLoading(true);
+      
+      final token = AuthService().token;
+      
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+
+      final cart = await CartService.addToCart(
+        token: token,
+        branchId: branchId,
         productId: productId,
-        quantity: 0,
-        price: 0,
-        productName: '',
-      ),
-    );
-    return item.quantity;
+        quantity: quantity,
+        orderType: orderType,
+        selectedOptions: selectedOptions,
+        specialInstructions: specialInstructions,
+      );
+
+      setCart(cart);
+      
+      _currentBranchId = branchId;
+      notifyListeners();
+    } catch (e) {
+      setError(e.toString());
+      rethrow;
+    }
   }
 }

@@ -5,9 +5,10 @@ const knex = require('../database/knex');
 
 async function addToCart(req, res, next) {
     try {
-        const { product_id, quantity = 1, order_type = 'dine_in', session_id } = req.body;
+        const { product_id, quantity = 1, order_type = 'delivery', session_id, selected_options = [], special_instructions } = req.body;
         const { branch_id } = req.params;
         const user_id = req.user.id;
+
 
         if (!product_id) {
             throw new ApiError(400, 'Product ID is required');
@@ -23,7 +24,9 @@ async function addToCart(req, res, next) {
             parseInt(product_id), 
             parseInt(quantity),
             order_type,
-            session_id
+            session_id,
+            selected_options,
+            special_instructions
         );
 
         res.status(201).json(success(cart, 'Item added to cart successfully'));
@@ -90,7 +93,9 @@ async function getUserCart(req, res, next) {
         const { session_id } = req.query;
         const user_id = req.user.id;
 
+
         const cart = await CartService.getUserCart(user_id, parseInt(branch_id), session_id);
+        
         
         if (!cart) {
             return res.json(success(null, 'No active cart found'));
@@ -186,10 +191,37 @@ async function clearCart(req, res, next) {
     }
 }
 
+async function updateCartItemOptions(req, res, next) {
+    try {
+        const { cart_id, product_id } = req.params;
+        const { selected_options } = req.body;
+
+        if (!selected_options || !Array.isArray(selected_options)) {
+            throw new ApiError(400, 'Selected options are required');
+        }
+
+        const cart = await CartService.updateCartItemOptions(
+            parseInt(cart_id), 
+            parseInt(product_id), 
+            selected_options
+        );
+
+        res.json(success(cart, 'Cart item options updated successfully'));
+    } catch (error) {
+        if (error.message === 'Cart not found' || 
+            error.message === 'Cart item not found' ||
+            error.message === 'Product not available in this branch') {
+            return next(new ApiError(400, error.message));
+        }
+        next(new ApiError(500, error.message));
+    }
+}
+
 module.exports = {
     addToCart,
     removeFromCart,
     updateCartItemQuantity,
+    updateCartItemOptions,
     getCart,
     getUserCart,
     reserveTable,

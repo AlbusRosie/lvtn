@@ -3,6 +3,7 @@ const crypto = require('crypto');
 
 class CartService {
     constructor() {
+        this.CART_TIMEOUT_MINUTES = 30;
     }
 
     async findPendingCart(userId, branchId, sessionId = null) {
@@ -16,7 +17,10 @@ class CartService {
             query = query.where('session_id', sessionId);
         }
 
-        return await query.first();
+        const cart = await query.first();
+        
+        
+        return cart;
     }
 
     async createCart(userId, branchId, orderType = 'dine_in', sessionId = null) {
@@ -31,11 +35,15 @@ class CartService {
             expires_at: expiresAt
         };
 
+
         const [cartId] = await knex('carts').insert(cartData);
-        return await knex('carts').where('id', cartId).first();
+        const cart = await knex('carts').where('id', cartId).first();
+        
+        return cart;
     }
 
-    async addToCart(userId, branchId, productId, quantity = 1, orderType = 'dine_in', sessionId = null) {
+    async addToCart(userId, branchId, productId, quantity = 1, orderType = 'delivery', sessionId = null, selectedOptions = [], specialInstructions = null) {
+        
         const product = await knex('products')
             .join('branch_products', 'products.id', 'branch_products.product_id')
             .where('products.id', productId)
@@ -44,14 +52,41 @@ class CartService {
             .select('products.*', 'branch_products.price as branch_price')
             .first();
 
+
         if (!product) {
             throw new Error('Product not available in this branch');
+        }
+
+        let finalPrice = parseFloat(product.branch_price);
+        if (selectedOptions && selectedOptions.length > 0) {
+            for (const option of selectedOptions) {
+                for (const valueId of option.selected_value_ids) {
+                    const optionValue = await knex('product_option_values')
+                        .where('id', valueId)
+                        .first();
+                    if (optionValue) {
+                        finalPrice += parseFloat(optionValue.price_modifier || 0);
+                    }
+                }
+            }
         }
 
         let cart = await this.findPendingCart(userId, branchId, sessionId);
         
         if (!cart) {
-            cart = await this.createCart(userId, branchId, orderType, sessionId);
+            try {
+                cart = await this.createCart(userId, branchId, orderType, sessionId);
+            } catch (error) {
+                if (error.message.includes('Duplicate entry')) {
+                    cart = await this.findPendingCart(userId, branchId, sessionId);
+                    
+                    if (!cart) {
+                        cart = await this.createCart(userId, branchId, orderType, null);
+                    }
+                } else {
+                    throw error;
+                }
+            }
         }
 
         const existingItem = await knex('cart_items')
@@ -64,7 +99,8 @@ class CartService {
                 .where('id', existingItem.id)
                 .update({
                     quantity: existingItem.quantity + quantity,
-                    price: product.branch_price,
+                    price: finalPrice,
+                    special_instructions: specialInstructions || (selectedOptions.length > 0 ? JSON.stringify(selectedOptions) : null),
                     updated_at: new Date()
                 });
         } else {
@@ -72,7 +108,10 @@ class CartService {
                 cart_id: cart.id,
                 product_id: productId,
                 quantity: quantity,
-                price: product.branch_price
+                price: finalPrice,
+                special_instructions: specialInstructions || (selectedOptions.length > 0 ? JSON.stringify(selectedOptions) : null),
+                created_at: new Date(),
+                updated_at: new Date()
             });
         }
 
@@ -134,6 +173,18 @@ class CartService {
                 'products.image as product_image',
                 'products.description as product_description'
             );
+
+        items.forEach(item => {
+            if (item.special_instructions) {
+                try {
+                    item.selected_options = JSON.parse(item.special_instructions);
+                } catch (e) {
+                    item.selected_options = null;
+                }
+            } else {
+                item.selected_options = null;
+            }
+        });
 
         cart.items = items;
         cart.total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -302,8 +353,59 @@ class CartService {
         return expiredCarts.length;
     }
 
+    async updateCartItemOptions(cartId, productId, selectedOptions) {
+        const cart = await knex('carts').where('id', cartId).first();
+        if (!cart || cart.status !== 'pending') {
+            throw new Error('Cart not found');
+        }
+
+        const cartItem = await knex('cart_items')
+            .where('cart_id', cartId)
+            .where('product_id', productId)
+            .first();
+        
+        if (!cartItem) {
+            throw new Error('Cart item not found');
+        }
+
+        const branchProduct = await knex('branch_products')
+            .where('branch_id', cart.branch_id)
+            .where('product_id', productId)
+            .first();
+
+        if (!branchProduct) {
+            throw new Error('Product not available in this branch');
+        }
+
+        let totalPriceModifier = 0;
+        for (const option of selectedOptions) {
+            for (const valueId of option.selected_value_ids) {
+                const optionValue = await knex('product_option_values')
+                    .where('id', valueId)
+                    .first();
+                if (optionValue) {
+                    totalPriceModifier += parseFloat(optionValue.price_modifier || 0);
+                }
+            }
+        }
+
+        const newPrice = parseFloat(branchProduct.price) + totalPriceModifier;
+        await knex('cart_items')
+            .where('cart_id', cartId)
+            .where('product_id', productId)
+            .update({
+                price: newPrice,
+                special_instructions: JSON.stringify(selectedOptions),
+                updated_at: new Date()
+            });
+
+        return await this.getCartById(cartId);
+    }
+
     async getUserCart(userId, branchId, sessionId = null) {
+        
         const cart = await this.findPendingCart(userId, branchId, sessionId);
+        
         
         if (!cart) {
             return null;

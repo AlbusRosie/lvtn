@@ -2,6 +2,7 @@ const ProductService = require('../services/ProductService');
 const ProductOptionService = require('../services/ProductOptionService');
 const JSend = require('../jsend');
 const ApiError = require('../api-error');
+const knex = require('../database/knex');
 
 async function createProduct(req, res, next) {
     try {
@@ -219,11 +220,39 @@ async function removeProductFromBranch(req, res, next) {
 
 
 
+async function getProductBranchPrice(req, res, next) {
+    try {
+        const { product_id, cart_id } = req.params;
+        
+        const cart = await knex('carts').where('id', cart_id).first();
+        if (!cart) {
+            return next(new ApiError(404, 'Cart not found'));
+        }
+        
+        const branchProduct = await knex('branch_products')
+            .where('branch_id', cart.branch_id)
+            .where('product_id', product_id)
+            .first();
+            
+        if (!branchProduct) {
+            return next(new ApiError(404, 'Product not available in this branch'));
+        }
+        
+        res.json(JSend.success({
+            base_price: branchProduct.price,
+            branch_id: cart.branch_id
+        }));
+    } catch (error) {
+        next(new ApiError(500, error.message));
+    }
+}
+
 module.exports = {
     createProduct,
     getProducts,
     getNotAddedProducts,
     getProduct,
+    getProductBranchPrice,
     updateProduct,
     deleteProduct,
     addProductToBranch,

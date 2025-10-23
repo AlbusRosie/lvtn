@@ -5,9 +5,13 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:geocoding/geocoding.dart';
 import '../../providers/BranchProvider.dart';
 import '../../models/branch.dart';
-import '../menu/BranchMenuScreen.dart';
+import 'BranchMenuScreen.dart';
 import 'BranchDetailScreen.dart';
 import '../../constants/app_constants.dart';
+import '../../utils/image_utils.dart';
+import '../cart/CartProvider.dart';
+import '../cart/CartScreen.dart';
+import '../widgets/AppBottomNav.dart';
 
 class BranchScreen extends StatefulWidget {
   const BranchScreen({super.key});
@@ -187,16 +191,7 @@ class _BranchScreenState extends State<BranchScreen> {
   }
 
   String _getImageUrl(String? imagePath) {
-    if (imagePath == null || imagePath.isEmpty) {
-      return AppConstants.defaultProductImage;
-    }
-    if (imagePath.startsWith('http')) {
-      return imagePath;
-    }
-    if (imagePath.startsWith('/public')) {
-      return 'http://10.0.2.2:3000$imagePath';
-    }
-    return 'http://10.0.2.2:3000/public/uploads/$imagePath';
+    return ImageUtils.getBranchImageUrl(imagePath);
   }
 
   @override
@@ -220,6 +215,57 @@ class _BranchScreenState extends State<BranchScreen> {
           icon: Icon(Icons.arrow_back_ios, color: Colors.grey[600]),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          Consumer<CartProvider>(
+            builder: (context, cartProvider, child) {
+              return Padding(
+                padding: EdgeInsets.only(right: 16, top: 8, bottom: 8),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _showCartBottomSheet(cartProvider),
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Color(0xFF2C2C2C),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.shopping_bag_outlined, color: Colors.white, size: 24),
+                      ),
+                    ),
+                    if (cartProvider.itemCount > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          padding: EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: BoxConstraints(
+                            minWidth: 20,
+                            minHeight: 20,
+                          ),
+                          child: Text(
+                            '${cartProvider.itemCount}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -256,58 +302,78 @@ class _BranchScreenState extends State<BranchScreen> {
                   
                   Row(
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.navigation_outlined, color: Colors.grey[400], size: 20),
-                          SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                                Text(
-                                  'Delivery to',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.orange,
-                                    fontWeight: FontWeight.w600,
-                                    fontFamily: 'Inter',
-                                  ),
-                                ),
-                              Text(
-                                currentAddress,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey[700],
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      Spacer(),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey[200]!),
-                        ),
+                      Expanded(
+                        flex: 3,
                         child: Row(
                           children: [
-                            Icon(Icons.tune, size: 18, color: Colors.grey[700]),
-                            SizedBox(width: 6),
-                            Text(
-                              'Filter',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[700],
-                                fontWeight: FontWeight.w500,
+                            Icon(Icons.navigation_outlined, color: Colors.grey[400], size: 20),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Delivery to',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.orange,
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                  Text(
+                                    currentAddress,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey[700],
+                                      fontFamily: 'Inter',
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
+                      SizedBox(width: 8),
+                       Flexible(
+                         child: LayoutBuilder(
+                           builder: (context, constraints) {
+                             bool showText = constraints.maxWidth > 200;
+                             return Container(
+                               padding: EdgeInsets.symmetric(
+                                 horizontal: showText ? 12 : 8, 
+                                 vertical: 8
+                               ),
+                               decoration: BoxDecoration(
+                                 color: Colors.white,
+                                 borderRadius: BorderRadius.circular(8),
+                                 border: Border.all(color: Colors.grey[200]!),
+                               ),
+                               child: Row(
+                                 mainAxisSize: MainAxisSize.min,
+                                 children: [
+                                   Icon(Icons.tune, size: 18, color: Colors.grey[700]),
+                                   if (showText) ...[
+                                     SizedBox(width: 6),
+                                     Text(
+                                       'Filter',
+                                       style: TextStyle(
+                                         fontSize: 14,
+                                         color: Colors.grey[700],
+                                         fontWeight: FontWeight.w500,
+                                       ),
+                                     ),
+                                   ],
+                                 ],
+                               ),
+                             );
+                           },
+                         ),
+                       ),
                     ],
                   ),
                 ],
@@ -367,7 +433,7 @@ class _BranchScreenState extends State<BranchScreen> {
                               final deliveryTypes = ['Free shipping', 'Free shipping', 'Free shipping'][index];
                               
                               return Container(
-                                width: 250,
+                                width: MediaQuery.of(context).size.width * 0.7,
                                 margin: EdgeInsets.only(right: index == nearbyBranches.length - 1 ? 0 : 16),
                                 child: _buildBestPartnerCard(branch, distances, deliveryTypes, context),
                               );
@@ -452,20 +518,28 @@ class _BranchScreenState extends State<BranchScreen> {
                           );
                         }
 
-                        return GridView.builder(
-                          shrinkWrap: true,
-                          physics: NeverScrollableScrollPhysics(),
-                          padding: EdgeInsets.only(bottom: 100),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.75,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                          ),
-                          itemCount: branchProvider.branches.length,
-                          itemBuilder: (context, index) {
-                            final branch = branchProvider.branches[index];
-                            return _buildBranchCard(branch, context);
+                        return LayoutBuilder(
+                          builder: (context, constraints) {
+                            double screenWidth = constraints.maxWidth;
+                            int crossAxisCount = screenWidth > 600 ? 3 : 2;
+                            double childAspectRatio = screenWidth > 600 ? 0.8 : 0.75;
+                            
+                            return GridView.builder(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              padding: EdgeInsets.only(bottom: 100),
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                childAspectRatio: childAspectRatio,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
+                              ),
+                              itemCount: branchProvider.branches.length,
+                              itemBuilder: (context, index) {
+                                final branch = branchProvider.branches[index];
+                                return _buildBranchCard(branch, context);
+                              },
+                            );
                           },
                         );
                       },
@@ -477,54 +551,9 @@ class _BranchScreenState extends State<BranchScreen> {
           ],
         ),
       ),
-       bottomNavigationBar: BottomNavigationBar(
-         type: BottomNavigationBarType.fixed,
-         currentIndex: 1, 
-         selectedItemColor: Colors.orange,
-         unselectedItemColor: Colors.grey[400],
-         selectedFontSize: 12,
-         unselectedFontSize: 12,
-         onTap: (index) {
-           switch (index) {
-             case 0:
-               Navigator.pushReplacementNamed(context, '/home');
-               break;
-             case 1:
-               break; 
-             case 2:
-               Navigator.pushNamed(context, '/products');
-               break;
-             case 3:
-               Navigator.pushNamed(context, '/orders');
-               break;
-             case 4:
-               Navigator.pushNamed(context, '/profile');
-               break;
-           }
-         },
-         items: [
-           BottomNavigationBarItem(
-             icon: Icon(Icons.home),
-             label: 'Trang chủ',
-           ),
-           BottomNavigationBarItem(
-             icon: Icon(Icons.store),
-             label: 'Chi nhánh',
-           ),
-           BottomNavigationBarItem(
-             icon: Icon(Icons.restaurant_menu),
-             label: 'Thực đơn',
-           ),
-           BottomNavigationBarItem(
-             icon: Icon(Icons.receipt_long),
-             label: 'Đơn hàng',
-           ),
-           BottomNavigationBarItem(
-             icon: Icon(Icons.person),
-             label: 'Cá nhân',
-           ),
-         ],
-       ),
+      bottomNavigationBar: AppBottomNav(
+        currentIndex: 1,
+      ),
      );
    }
 
@@ -621,68 +650,78 @@ class _BranchScreenState extends State<BranchScreen> {
                         color: Colors.grey[500],
                         fontFamily: 'Inter',
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     
-                    Spacer(),
-                    Row(
-                      children: [
-                        Icon(Icons.star, size: 12, color: Colors.orange),
-                        SizedBox(width: 2),
-                        Text(
-                          '4.5',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[800],
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                        SizedBox(width: 4),
-                        Container(
-                          width: 3,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          distance,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[800],
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                        SizedBox(width: 4),
-                        Container(
-                          width: 3,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            deliveryType,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey[800],
-                              fontFamily: 'Inter',
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
+                     Spacer(),
+                     Wrap(
+                       children: [
+                         Row(
+                           mainAxisSize: MainAxisSize.min,
+                           children: [
+                             Icon(Icons.star, size: 12, color: Colors.orange),
+                             SizedBox(width: 2),
+                             Text(
+                               '4.5',
+                               style: TextStyle(
+                                 fontSize: 12,
+                                 fontWeight: FontWeight.w600,
+                                 color: Colors.grey[800],
+                                 fontFamily: 'Inter',
+                               ),
+                             ),
+                             SizedBox(width: 4),
+                             Container(
+                               width: 3,
+                               height: 3,
+                               decoration: BoxDecoration(
+                                 color: Colors.grey[300],
+                                 shape: BoxShape.circle,
+                               ),
+                             ),
+                             SizedBox(width: 4),
+                             Text(
+                               distance,
+                               style: TextStyle(
+                                 fontSize: 12,
+                                 fontWeight: FontWeight.w600,
+                                 color: Colors.grey[800],
+                                 fontFamily: 'Inter',
+                               ),
+                             ),
+                           ],
+                         ),
+                         SizedBox(height: 4),
+                         Row(
+                           mainAxisSize: MainAxisSize.min,
+                           children: [
+                             Container(
+                               width: 3,
+                               height: 3,
+                               decoration: BoxDecoration(
+                                 color: Colors.grey[300],
+                                 shape: BoxShape.circle,
+                               ),
+                             ),
+                             SizedBox(width: 4),
+                             Flexible(
+                               child: Text(
+                                 deliveryType,
+                                 style: TextStyle(
+                                   fontSize: 12,
+                                   fontWeight: FontWeight.w600,
+                                   color: Colors.grey[800],
+                                   fontFamily: 'Inter',
+                                 ),
+                                 maxLines: 1,
+                                 overflow: TextOverflow.ellipsis,
+                               ),
+                             ),
+                           ],
+                         ),
+                       ],
+                     ),
                   ],
                 ),
               ),
@@ -821,7 +860,7 @@ class _BranchScreenState extends State<BranchScreen> {
                         color: Colors.grey[500],
                         fontFamily: 'Inter',
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -831,6 +870,30 @@ class _BranchScreenState extends State<BranchScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showCartBottomSheet(CartProvider cartProvider) {
+    final currentBranchId = cartProvider.currentBranchId ?? 5;
+    final currentBranchName = cartProvider.currentBranchName ?? 'Beast Bite - The Pearl District';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: CartScreen(
+            branchId: currentBranchId,
+            branchName: currentBranchName,
+          ),
+        );
+      },
     );
   }
 }

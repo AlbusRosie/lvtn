@@ -111,13 +111,17 @@ class _SplashScreenState extends State<SplashScreen>
                         scale: _scaleAnimation.value,
                         child: FadeTransition(
                           opacity: _fadeAnimation,
-                          child: Container(
-                            width: 200,
-                            height: 200,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(32),
-                              color: Colors.white,
-                            ),
+                          child: Material(
+                            elevation: 0,
+                            borderRadius: BorderRadius.circular(32),
+                            color: Colors.white,
+                            child: Container(
+                              width: 200,
+                              height: 200,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(32),
+                                color: Colors.white,
+                              ),
                             child: Padding(
                               padding: const EdgeInsets.all(20.0),
                               child: Image.asset(
@@ -137,6 +141,7 @@ class _SplashScreenState extends State<SplashScreen>
                                   );
                                 },
                               ),
+                            ),
                             ),
                           ),
                         ),

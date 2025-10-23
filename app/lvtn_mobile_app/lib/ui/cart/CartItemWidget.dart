@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../models/cart.dart';
+import '../../constants/api_constants.dart';
 
 class CartItemWidget extends StatelessWidget {
   final CartItem item;
-  final Function(int) onQuantityChanged;
-  final VoidCallback onRemove;
+  final Function(CartItem, int) onQuantityChanged;
+  final Function(CartItem) onRemove;
 
   const CartItemWidget({
     Key? key,
@@ -16,57 +17,67 @@ class CartItemWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         child: Row(
           children: [
-            // Product image
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                item.productImage ?? 'https://via.placeholder.com/80x80',
-                width: 80,
-                height: 80,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 80,
-                    height: 80,
-                    color: Colors.grey[300],
-                    child: const Icon(Icons.fastfood, size: 40),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 16),
 
-            // Product details
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.grey[200],
+              ),
+              child: item.productImage != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        '${ApiConstants.fileBaseUrl}${item.productImage}',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(Icons.fastfood, size: 40, color: Colors.grey);
+                        },
+                      ),
+                    )
+                  : Icon(Icons.fastfood, size: 40, color: Colors.grey),
+            ),
+            
+            SizedBox(width: 16),
+            
+
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     item.productName,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    style: TextStyle(
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  
+                  SizedBox(height: 4),
+                  
                   Text(
-                    '${item.price.toStringAsFixed(0)} VND',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    '${_formatPrice(item.price)}',
+                    style: TextStyle(
+                      fontSize: 14,
                       color: Colors.orange,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (item.specialInstructions != null && item.specialInstructions!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                  
+                  if (item.specialInstructions != null) ...[
+                    SizedBox(height: 4),
                     Text(
                       'Note: ${item.specialInstructions}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      style: TextStyle(
+                        fontSize: 12,
                         color: Colors.grey[600],
                         fontStyle: FontStyle.italic,
                       ),
@@ -77,61 +88,75 @@ class CartItemWidget extends StatelessWidget {
                 ],
               ),
             ),
+            
 
-            // Quantity controls
             Column(
               children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.remove_circle_outline),
-                      onPressed: item.quantity > 1
-                          ? () => onQuantityChanged(item.quantity - 1)
-                          : null,
-                      color: Colors.orange,
+                      onPressed: () {
+                        if (item.quantity > 1) {
+                          onQuantityChanged(item, item.quantity - 1);
+                        } else {
+                          onRemove(item);
+                        }
+                      },
+                      icon: Icon(Icons.remove_circle_outline),
+                      color: Colors.red,
                     ),
+                    
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[300]!),
+                        border: Border.all(color: Colors.grey),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         '${item.quantity}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
+                        style: TextStyle(
                           fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
+                    
                     IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      onPressed: () => onQuantityChanged(item.quantity + 1),
-                      color: Colors.orange,
+                      onPressed: () {
+                        onQuantityChanged(item, item.quantity + 1);
+                      },
+                      icon: Icon(Icons.add_circle_outline),
+                      color: Colors.green,
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '${(item.price * item.quantity).toStringAsFixed(0)} VND',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange,
+                
+                SizedBox(height: 8),
+                
+
+                TextButton(
+                  onPressed: () => onRemove(item),
+                  child: Text(
+                    'Remove',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
-            ),
-
-            // Remove button
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: onRemove,
-              color: Colors.red[400],
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _formatPrice(double price) {
+    return '${price.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    )} VND';
   }
 }

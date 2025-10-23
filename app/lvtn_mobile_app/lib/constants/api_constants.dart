@@ -2,7 +2,6 @@ import '../config/env.dart';
 
 class ApiConstants {
   static String get baseUrl => Environment.baseUrl;
-  // Base origin for static files (e.g., images)
   static String get fileBaseUrl {
     final url = Environment.baseUrl;
     if (url.endsWith('/api')) {
@@ -27,7 +26,6 @@ class ApiConstants {
   static const String provinces = '/provinces';
   static const String districts = '/districts';
   
-  // Cart API endpoints
   static const String cart = '/cart';
   static String addToCart(int branchId) => '/cart/branches/$branchId/add-item';
   static String getUserCart(int branchId) => '/cart/branches/$branchId/user-cart';
@@ -38,6 +36,15 @@ class ApiConstants {
   static String cancelReservation(int cartId) => '/cart/$cartId/cancel-reservation';
   static String checkout(int cartId) => '/cart/$cartId/checkout';
   static String clearCart(int cartId) => '/cart/$cartId/clear';
+  
+  static const String orders = '/orders';
+  static const String reservations = '/reservations';
+  
+  static const String placeOrder = '/payments/place-order';
+  
+  static const String vietqrGenerate = '/payments/vietqr/generate';
+  static const String vietqrBanks = '/payments/vietqr/banks';
+  static const String vietqrTemplates = '/payments/vietqr/templates';
   
   static const Map<String, String> defaultHeaders = {
     'Content-Type': 'application/json',

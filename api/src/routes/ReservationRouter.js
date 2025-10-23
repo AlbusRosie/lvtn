@@ -14,10 +14,12 @@ module.exports.setup = (app) => {
     router.get('/:id', ReservationController.getReservationById);
     
     router.post('/', verifyToken, ReservationController.createReservation);
+    router.post('/quick', verifyToken, ReservationController.createQuickReservation);
     router.put('/:id', verifyToken, ReservationController.updateReservation);
     router.delete('/:id', verifyToken, ReservationController.deleteReservation);
 
     router.all('/', methodNotAllowed);
+    router.all('/quick', methodNotAllowed);
     router.all('/date-range', methodNotAllowed);
     router.all('/table/:tableId/schedule', methodNotAllowed);
     router.all('/:id', methodNotAllowed);

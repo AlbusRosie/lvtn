@@ -42,10 +42,10 @@ class ProductOptionService {
         }
       }
       
-      // Sort by display order
+
       options.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
       
-      // Sort values within each option by display order
+
       for (var option in options) {
         option.values.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
       }
@@ -65,7 +65,7 @@ class ProductOptionService {
     
     for (var option in options) {
       if (option.type == 'select' && option.values.isNotEmpty) {
-        // For select type, select the first value by default
+
         final firstValue = option.values.first;
         selections.add(SelectedOption(
           optionTypeId: option.id,
@@ -75,7 +75,7 @@ class ProductOptionService {
           totalPriceModifier: firstValue.priceModifier,
         ));
       } else if (option.type == 'checkbox') {
-        // For checkbox type, start with no selections
+
         selections.add(SelectedOption(
           optionTypeId: option.id,
           optionName: option.name,
@@ -100,12 +100,12 @@ class ProductOptionService {
     double newPriceModifier = currentSelection.totalPriceModifier;
 
     if (optionType.type == 'select') {
-      // For select type, replace current selection
+
       newValueIds = [value.id];
       newValues = [value.value];
       newPriceModifier = value.priceModifier;
     } else if (optionType.type == 'checkbox') {
-      // For checkbox type, add or remove selection
+
       if (isSelected) {
         if (!newValueIds.contains(value.id)) {
           newValueIds.add(value.id);

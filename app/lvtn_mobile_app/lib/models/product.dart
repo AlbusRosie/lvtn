@@ -1,4 +1,4 @@
-import '../constants/app_constants.dart';
+import '../config/env.dart';
 class Product {
   final int id;
   final int categoryId;
@@ -66,15 +66,15 @@ class Product {
 
   String get imageUrl {
     if (image == null || image!.isEmpty) {
-      return AppConstants.defaultProductImage;
+      return '${Environment.baseUrl.replaceAll('/api', '')}/public/images/blank-profile-picture.jpg';
     }
     if (image!.startsWith('http')) {
       return image!;
     }
     if (image!.startsWith('/public')) {
-      return 'http://10.0.2.2:3000$image';
+      return '${Environment.baseUrl.replaceAll('/api', '')}$image';
     }
-    return 'http://10.0.2.2:3000/public/uploads/$image';
+    return '${Environment.baseUrl.replaceAll('/api', '')}/public/uploads/$image';
   }
 
   Product copyWith({

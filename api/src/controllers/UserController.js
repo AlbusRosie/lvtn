@@ -67,7 +67,7 @@ async function createUser(req, res, next) {
         }
 
         const roleId = parseInt(req.body.role_id);
-        if (roleId !== 4) { // Only allow customer role (4) for public registration
+        if (roleId !== 4) {
             return next(new ApiError(403, 'Only customer registration is allowed'));
         }
 

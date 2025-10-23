@@ -1,3 +1,5 @@
+import 'product_option.dart';
+
 class CartItem {
   final int id;
   final int cartId;
@@ -8,6 +10,7 @@ class CartItem {
   final String productName;
   final String? productImage;
   final String? productDescription;
+  final List<SelectedOption>? selectedOptions;
 
   CartItem({
     required this.id,
@@ -19,6 +22,7 @@ class CartItem {
     required this.productName,
     this.productImage,
     this.productDescription,
+    this.selectedOptions,
   });
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
@@ -27,11 +31,14 @@ class CartItem {
       cartId: json['cart_id'],
       productId: json['product_id'],
       quantity: json['quantity'],
-      price: (json['price'] as num).toDouble(),
+      price: double.tryParse(json['price'].toString()) ?? 0.0,
       specialInstructions: json['special_instructions'],
       productName: json['product_name'],
       productImage: json['product_image'],
       productDescription: json['product_description'],
+      selectedOptions: (json['selected_options'] as List<dynamic>?)
+          ?.map((option) => SelectedOption.fromJson(option))
+          .toList(),
     );
   }
 
@@ -46,6 +53,7 @@ class CartItem {
       'product_name': productName,
       'product_image': productImage,
       'product_description': productDescription,
+      'selected_options': selectedOptions?.map((option) => option.toJson()).toList(),
     };
   }
 
@@ -59,6 +67,7 @@ class CartItem {
     String? productName,
     String? productImage,
     String? productDescription,
+    List<SelectedOption>? selectedOptions,
   }) {
     return CartItem(
       id: id ?? this.id,
@@ -70,6 +79,7 @@ class CartItem {
       productName: productName ?? this.productName,
       productImage: productImage ?? this.productImage,
       productDescription: productDescription ?? this.productDescription,
+      selectedOptions: selectedOptions ?? this.selectedOptions,
     );
   }
 }
@@ -87,6 +97,7 @@ class Cart {
   final String status;
   final DateTime expiresAt;
   final String? specialRequests;
+  final String? note; // Thêm field note
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? tableNumber;
@@ -108,6 +119,7 @@ class Cart {
     required this.status,
     required this.expiresAt,
     this.specialRequests,
+    this.note,
     required this.createdAt,
     required this.updatedAt,
     this.tableNumber,
@@ -131,6 +143,7 @@ class Cart {
       status: json['status'],
       expiresAt: DateTime.parse(json['expires_at']),
       specialRequests: json['special_requests'],
+      note: json['note'],
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
       tableNumber: json['table_number'],
@@ -139,7 +152,7 @@ class Cart {
       items: (json['items'] as List<dynamic>?)
           ?.map((item) => CartItem.fromJson(item))
           .toList() ?? [],
-      total: (json['total'] as num?)?.toDouble() ?? 0.0,
+      total: double.tryParse(json['total']?.toString() ?? '0') ?? 0.0,
     );
   }
 
@@ -157,6 +170,7 @@ class Cart {
       'status': status,
       'expires_at': expiresAt.toIso8601String(),
       'special_requests': specialRequests,
+      'note': note,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'table_number': tableNumber,
@@ -180,6 +194,7 @@ class Cart {
     String? status,
     DateTime? expiresAt,
     String? specialRequests,
+    String? note,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? tableNumber,
@@ -201,6 +216,7 @@ class Cart {
       status: status ?? this.status,
       expiresAt: expiresAt ?? this.expiresAt,
       specialRequests: specialRequests ?? this.specialRequests,
+      note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       tableNumber: tableNumber ?? this.tableNumber,
@@ -215,6 +231,5 @@ class Cart {
   bool get isEmpty => items.isEmpty;
   bool get hasTableReservation => tableId != null;
   bool get isDineIn => orderType == 'dine_in';
-  bool get isTakeaway => orderType == 'takeaway';
   bool get isDelivery => orderType == 'delivery';
 }

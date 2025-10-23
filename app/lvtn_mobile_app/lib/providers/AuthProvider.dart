@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/user.dart';
 import '../services/AuthService.dart';
+import '../ui/cart/CartProvider.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -8,9 +9,16 @@ class AuthProvider extends ChangeNotifier {
   User? get currentUser => _authService.currentUser;
   bool get isAuth => _authService.isAuthenticated;
 
-  Future<User> login(String username, String password) async {
+  Future<User> login(String username, String password, {CartProvider? cartProvider}) async {
     try {
       final user = await _authService.login(username, password);
+      
+
+      if (cartProvider != null) {
+        await cartProvider.loadSavedBranchInfo();
+
+      }
+      
       notifyListeners();
       return user;
     } catch (error) {

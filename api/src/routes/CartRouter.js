@@ -12,6 +12,7 @@ module.exports.setup = (app) => {
     router.get('/branches/:branch_id/user-cart', verifyToken, CartController.getUserCart);
     router.get('/:cart_id', verifyToken, CartController.getCart);
     router.put('/:cart_id/items/:product_id/quantity', verifyToken, CartController.updateCartItemQuantity);
+    router.put('/:cart_id/items/:product_id/options', verifyToken, CartController.updateCartItemOptions);
     router.delete('/:cart_id/items/:product_id', verifyToken, CartController.removeFromCart);
     router.post('/:cart_id/reserve-table', verifyToken, CartController.reserveTable);
     router.delete('/:cart_id/cancel-reservation', verifyToken, CartController.cancelTableReservation);
@@ -22,6 +23,7 @@ module.exports.setup = (app) => {
     router.all('/branches/:branch_id/user-cart', methodNotAllowed);
     router.all('/:cart_id', methodNotAllowed);
     router.all('/:cart_id/items/:product_id/quantity', methodNotAllowed);
+    router.all('/:cart_id/items/:product_id/options', methodNotAllowed);
     router.all('/:cart_id/items/:product_id', methodNotAllowed);
     router.all('/:cart_id/reserve-table', methodNotAllowed);
     router.all('/:cart_id/cancel-reservation', methodNotAllowed);

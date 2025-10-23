@@ -2,27 +2,31 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../constants/api_constants.dart';
 import '../models/cart.dart';
+import '../models/product_option.dart';
 import '../services/StorageService.dart';
 
 class CartService {
   static const String _storageKey = 'cart_session_id';
 
-  /// Get stored session ID
+
   static Future<String?> _getSessionId() async {
-    return await StorageService.getString(_storageKey);
+    final storage = StorageService();
+    final sessionId = await storage.getString(_storageKey);
+    return sessionId;
   }
 
-  /// Store session ID
+
   static Future<void> _setSessionId(String sessionId) async {
-    await StorageService.setString(_storageKey, sessionId);
+    final storage = StorageService();
+    await storage.setString(_storageKey, sessionId);
   }
 
-  /// Generate new session ID
+
   static String _generateSessionId() {
     return DateTime.now().millisecondsSinceEpoch.toString();
   }
 
-  /// Add item to cart
+
   static Future<Cart> addToCart({
     required String token,
     required int branchId,
@@ -30,6 +34,8 @@ class CartService {
     int quantity = 1,
     String orderType = 'dine_in',
     String? sessionId,
+    List<SelectedOption>? selectedOptions,
+    String? specialInstructions,
   }) async {
     try {
       final storedSessionId = await _getSessionId();
@@ -47,14 +53,16 @@ class CartService {
           'quantity': quantity,
           'order_type': orderType,
           'session_id': currentSessionId,
+          'selected_options': selectedOptions?.map((o) => o.toJson()).toList() ?? [],
+          'special_instructions': specialInstructions,
         }),
       );
+
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
         final cart = Cart.fromJson(data['data']);
         
-        // Store session ID from response
         await _setSessionId(cart.sessionId);
         
         return cart;
@@ -67,7 +75,7 @@ class CartService {
     }
   }
 
-  /// Get user's current cart
+
   static Future<Cart?> getUserCart({
     required String token,
     required int branchId,
@@ -75,16 +83,22 @@ class CartService {
   }) async {
     try {
       final storedSessionId = await _getSessionId();
-      final currentSessionId = sessionId ?? storedSessionId;
+      String? currentSessionId = sessionId ?? storedSessionId;
+
 
       if (currentSessionId == null) {
-        return null;
+        final newSessionId = _generateSessionId();
+        await _setSessionId(newSessionId);
+        currentSessionId = newSessionId;
       }
 
+      final url = '${ApiConstants.baseUrl}${ApiConstants.getUserCart(branchId)}?session_id=$currentSessionId';
+
       final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getUserCart(branchId)}?session_id=$currentSessionId'),
+        Uri.parse(url),
         headers: ApiConstants.authHeaders(token),
       );
+
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -101,7 +115,7 @@ class CartService {
     }
   }
 
-  /// Get cart by ID
+
   static Future<Cart> getCart({
     required String token,
     required int cartId,
@@ -124,7 +138,7 @@ class CartService {
     }
   }
 
-  /// Update cart item quantity
+
   static Future<Cart> updateCartItemQuantity({
     required String token,
     required int cartId,
@@ -150,7 +164,7 @@ class CartService {
     }
   }
 
-  /// Remove item from cart
+
   static Future<Cart> removeFromCart({
     required String token,
     required int cartId,
@@ -174,7 +188,7 @@ class CartService {
     }
   }
 
-  /// Reserve table for cart
+
   static Future<Cart> reserveTable({
     required String token,
     required int cartId,
@@ -182,6 +196,7 @@ class CartService {
     required String reservationDate,
     required String reservationTime,
     required int guestCount,
+    String? note,
   }) async {
     try {
       final response = await http.post(
@@ -192,6 +207,7 @@ class CartService {
           'reservation_date': reservationDate,
           'reservation_time': reservationTime,
           'guest_count': guestCount,
+          if (note != null && note.isNotEmpty) 'note': note,
         }),
       );
 
@@ -207,7 +223,7 @@ class CartService {
     }
   }
 
-  /// Cancel table reservation
+
   static Future<Cart> cancelTableReservation({
     required String token,
     required int cartId,
@@ -230,7 +246,7 @@ class CartService {
     }
   }
 
-  /// Checkout cart
+
   static Future<Map<String, dynamic>> checkout({
     required String token,
     required int cartId,
@@ -253,7 +269,7 @@ class CartService {
     }
   }
 
-  /// Clear cart
+
   static Future<void> clearCart({
     required String token,
     required int cartId,
@@ -265,8 +281,8 @@ class CartService {
       );
 
       if (response.statusCode == 200) {
-        // Clear stored session ID
-        await StorageService.remove(_storageKey);
+        final storage = StorageService();
+        await storage.remove(_storageKey);
       } else {
         final error = jsonDecode(response.body);
         throw Exception(error['message'] ?? 'Failed to clear cart');
@@ -276,8 +292,42 @@ class CartService {
     }
   }
 
-  /// Clear session ID
+
+  static Future<Cart> updateCartItemOptions({
+    required String token,
+    required int cartId,
+    required int productId,
+    required List<SelectedOption> selectedOptions,
+    String? specialInstructions,
+  }) async {
+    try {
+
+      final response = await http.put(
+        Uri.parse('${ApiConstants.baseUrl}/cart/$cartId/items/$productId/options'),
+        headers: ApiConstants.authHeaders(token),
+        body: jsonEncode({
+          'selected_options': selectedOptions.map((o) => o.toJson()).toList(),
+          if (specialInstructions != null) 'special_instructions': specialInstructions,
+        }),
+      );
+
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final cart = Cart.fromJson(data['data']);
+        return cart;
+      } else {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to update cart item options');
+      }
+    } catch (e) {
+      throw Exception('Error updating cart item options: $e');
+    }
+  }
+
+
   static Future<void> clearSession() async {
-    await StorageService.remove(_storageKey);
+    final storage = StorageService();
+    await storage.remove(_storageKey);
   }
 }

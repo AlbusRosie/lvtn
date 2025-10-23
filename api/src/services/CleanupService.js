@@ -8,26 +8,19 @@ class CleanupService {
 
     async cleanupExpiredCarts() {
         if (this.isRunning) {
-            console.log('Cleanup job is already running, skipping...');
             return;
         }
 
         this.isRunning = true;
-        console.log('Starting cleanup job...');
 
         try {
             const expiredCartsCount = await CartService.cleanupExpiredCarts();
-            console.log(`Cleaned up ${expiredCartsCount} expired carts`);
 
             const expiredTablesCount = await this.cleanupExpiredTableReservations();
-            console.log(`Released ${expiredTablesCount} expired table reservations`);
 
             const oldCartsCount = await this.cleanupOldCarts();
-            console.log(`Cleaned up ${oldCartsCount} old completed carts`);
 
-            console.log('Cleanup job completed successfully');
         } catch (error) {
-            console.error('Cleanup job failed:', error);
         } finally {
             this.isRunning = false;
         }
@@ -73,7 +66,6 @@ class CleanupService {
     }
 
     startCleanupJob(intervalMinutes = 30) {
-        console.log(`Starting cleanup job every ${intervalMinutes} minutes`);
         
         this.cleanupExpiredCarts();
         

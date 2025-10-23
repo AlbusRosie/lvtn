@@ -29,7 +29,7 @@ async function createReservation(req, res, next) {
             branch_id: parseInt(branch_id),
             table_id: parseInt(table_id),
             reservation_date: reservation_date,
-            reservation_time: reservation_time + ':00', // Add seconds
+            reservation_time: reservation_time + ':00',
             guest_count: parseInt(guest_count),
             special_requests: special_requests || null,
             status: 'pending'
@@ -142,8 +142,61 @@ async function deleteReservation(req, res, next) {
     }
 }
 
+async function createQuickReservation(req, res, next) {
+    try {
+        const { branch_id, reservation_date, reservation_time, guest_count, special_requests } = req.body;
+        const user_id = req.user?.id;
+
+        if (!user_id) {
+            throw new ApiError(401, 'User not authenticated');
+        }
+
+        if (!branch_id || !reservation_date || !reservation_time || !guest_count) {
+            throw new ApiError(400, 'Missing required fields: branch_id, reservation_date, reservation_time, guest_count');
+        }
+
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(reservation_date)) {
+            throw new ApiError(400, 'Invalid reservation_date format. Use YYYY-MM-DD');
+        }
+
+        const timeRegex = /^\d{2}:\d{2}(:\d{2})?$/;
+        if (!timeRegex.test(reservation_time)) {
+            throw new ApiError(400, 'Invalid reservation_time format. Use HH:MM or HH:MM:SS');
+        }
+
+        if (guest_count < 1) {
+            throw new ApiError(400, 'Guest count must be at least 1');
+        }
+
+        const formattedTime = reservation_time.length === 5 
+            ? reservation_time + ':00' 
+            : reservation_time;
+
+        const reservationData = {
+            user_id: parseInt(user_id),
+            branch_id: parseInt(branch_id),
+            reservation_date: reservation_date,
+            reservation_time: formattedTime,
+            guest_count: parseInt(guest_count),
+            special_requests: special_requests || null,
+        };
+
+        const reservation = await ReservationService.createQuickReservation(reservationData);
+        res.status(201).json(success(reservation, 'Reservation created successfully'));
+    } catch (error) {
+        if (error.message.includes('No available table') || 
+            error.message === 'Branch not found' ||
+            error.message === 'User not found') {
+            return next(new ApiError(400, error.message));
+        }
+        next(error);
+    }
+}
+
 module.exports = {
     createReservation,
+    createQuickReservation,
     getReservations,
     getReservationsByDateRange,
     getTableSchedule,

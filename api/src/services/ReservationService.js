@@ -14,8 +14,7 @@ function readReservation(payload) {
         guest_count: payload.guest_count,
         status: payload.status || 'pending',
         special_requests: payload.special_requests || null,
-        created_at: new Date(),
-        updated_at: new Date()
+        created_at: new Date()
     };
 }
 
@@ -151,12 +150,7 @@ async function updateReservation(id, payload) {
         throw new Error('Reservation not found');
     }
 
-    const updateData = {
-        ...payload,
-        updated_at: new Date()
-    };
-
-    await reservationRepository().where('id', id).update(updateData);
+    await reservationRepository().where('id', id).update(payload);
     return await getReservationById(id);
 }
 
@@ -170,8 +164,83 @@ async function deleteReservation(id) {
     return { message: 'Reservation deleted successfully' };
 }
 
+async function createQuickReservation(payload) {
+    if (!payload.user_id || !payload.branch_id || 
+        !payload.reservation_date || !payload.reservation_time || !payload.guest_count) {
+        throw new Error('Missing required fields');
+    }
+
+    const user = await knex('users').where('id', payload.user_id).first();
+    if (!user) {
+        throw new Error('User not found');
+    }
+
+    const branch = await knex('branches').where('id', payload.branch_id).first();
+    if (!branch) {
+        throw new Error('Branch not found');
+    }
+
+    const availableTables = await knex('tables')
+        .where('branch_id', payload.branch_id)
+        .where('status', 'available')
+        .where('capacity', '>=', payload.guest_count)
+        .orderBy('capacity', 'asc')
+        .select('*');
+
+    if (availableTables.length === 0) {
+        throw new Error('No available table found for the requested capacity at this branch');
+    }
+
+    let selectedTable = null;
+    for (const table of availableTables) {
+        const conflictingReservation = await reservationRepository()
+            .where('table_id', table.id)
+            .where('reservation_date', payload.reservation_date)
+            .where('status', '!=', 'cancelled')
+            .whereRaw(`
+                ABS(TIMESTAMPDIFF(MINUTE, 
+                    CONCAT(reservation_date, ' ', reservation_time), 
+                    CONCAT(?, ' ', ?)
+                )) < 120
+            `, [payload.reservation_date, payload.reservation_time])
+            .first();
+
+        if (!conflictingReservation) {
+            selectedTable = table;
+            break;
+        }
+    }
+
+    if (!selectedTable) {
+        throw new Error('No available table found for the requested date and time. Please try a different time slot.');
+    }
+
+    const reservation = readReservation({
+        ...payload,
+        table_id: selectedTable.id
+    });
+
+    const [id] = await reservationRepository().insert(reservation);
+    
+    await knex('tables')
+        .where('id', selectedTable.id)
+        .update({
+            status: 'reserved',
+            reservation_id: id
+        });
+
+    return {
+        id,
+        ...reservation,
+        table_number: selectedTable.table_number,
+        table_capacity: selectedTable.capacity,
+        floor_id: selectedTable.floor_id
+    };
+}
+
 module.exports = {
     createReservation,
+    createQuickReservation,
     getReservationsByDateRange,
     getTableSchedule,
     getAllReservations,

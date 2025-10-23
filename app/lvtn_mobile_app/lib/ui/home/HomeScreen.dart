@@ -8,8 +8,12 @@ import '../../ui/cart/CartProvider.dart';
 import '../../ui/cart/CartScreen.dart';
 import '../../models/province.dart';
 import '../../models/category.dart' as CategoryModel;
-import '../menu/BranchMenuScreen.dart';
+import '../branches/BranchDetailScreen.dart';
+import '../branches/BranchMenuScreen.dart';
 import '../../constants/app_constants.dart';
+import '../../utils/image_utils.dart';
+import '../orders/QuickOrderScreen.dart';
+import '../widgets/AppBottomNav.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,15 +24,83 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<BranchProvider>(context, listen: false).loadBranches();
       Provider.of<LocationProvider>(context, listen: false).loadProvinces();
       Provider.of<CategoryProvider>(context, listen: false).loadCategories();
+      
+
+      _loadUserCart();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    if (state == AppLifecycleState.resumed) {
+
+      _refreshCart();
+    }
+  }
+
+  Future<void> _refreshCart() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      
+      if (authProvider.isAuth && cartProvider.currentBranchId != null) {
+        await cartProvider.refreshCart();
+      }
+    } catch (e) {
+    }
+  }
+
+  Future<void> _loadUserCart() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      
+      if (authProvider.isAuth && authProvider.currentUser != null) {
+
+        await cartProvider.loadSavedBranchInfo();
+        
+
+        final branchProvider = Provider.of<BranchProvider>(context, listen: false);
+        
+        if (branchProvider.branches.isNotEmpty) {
+          int branchId;
+          String branchName;
+          
+
+          if (cartProvider.currentBranchId != null) {
+            branchId = cartProvider.currentBranchId!;
+            branchName = cartProvider.currentBranchName ?? 'Unknown Branch';
+          } else {
+            branchId = branchProvider.branches.first.id;
+            branchName = branchProvider.branches.first.name ?? 'Unknown Branch';
+            
+            cartProvider.setCurrentBranch(branchId, branchName);
+          }
+          
+
+          await cartProvider.loadCart(branchId);
+        }
+      }
+    } catch (e) {
+    }
   }
 
   @override
@@ -96,16 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        // Navigate to cart screen with default branch
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CartScreen(
-                              branchId: 5, // Default branch
-                              branchName: 'Beast Bite - The Pearl District',
-                            ),
-                          ),
-                        );
+                        _showCartBottomSheet();
                       },
                       child: Container(
                         width: 48,
@@ -242,6 +305,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 
                 SizedBox(height: 16),
+
+
+                _buildQuickOrderSection(),
+
+                SizedBox(height: 8),
                 
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
@@ -432,53 +500,8 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
+      bottomNavigationBar: AppBottomNav(
         currentIndex: 0,
-        selectedItemColor: Colors.orange,
-        unselectedItemColor: Colors.grey[400],
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              break;
-            case 1:
-              Navigator.pushNamed(context, '/branches');
-              break;
-            case 2:
-              Navigator.pushNamed(context, '/products');
-              break;
-            case 3:
-              Navigator.pushNamed(context, '/orders');
-              break;
-            case 4:
-              Navigator.pushNamed(context, '/profile');
-              break;
-          }
-        },
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Trang chủ',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.store),
-            label: 'Chi nhánh',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.restaurant_menu),
-            label: 'Thực đơn',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Đơn hàng',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Cá nhân',
-          ),
-        ],
       ),
     );
   }
@@ -499,13 +522,284 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _getImageUrl(String imagePath) {
-    if (imagePath.startsWith('http')) {
-      return imagePath;
-    }
-    if (imagePath.startsWith('/public')) {
-      return 'http://10.0.2.2:3000$imagePath';
-    }
-    return 'http://10.0.2.2:3000/public/uploads/$imagePath';
+    return ImageUtils.getBranchImageUrl(imagePath);
+  }
+
+  Widget _buildQuickOrderSection() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade400, Colors.deepOrange],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.2),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.flash_on, color: Colors.white, size: 22),
+              SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Quick Order',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Đặt bàn trước hoặc đặt món mang về',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildQuickOrderButton(
+                  title: 'Dine-in',
+                  icon: Icons.table_restaurant,
+                  onTap: _showReservationDialog,
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: _buildQuickOrderButton(
+                  title: 'Takeaway',
+                  icon: Icons.takeout_dining,
+                  onTap: _showQuickTakeawayDialog,
+                ),
+              ),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickOrderButton({
+    required String title,
+    String? subtitle,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.25)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 28),
+            SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (subtitle != null) ...[
+              SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.85),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w400,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReservationDialog() {
+    // Navigate directly to reservation screen (QuickOrderScreen)
+    Navigator.pushNamed(context, QuickOrderScreen.routeName);
+  }
+
+  void _showQuickTakeawayDialog() {
+    _showTakeawayBranchPicker();
+  }
+
+  void _showCartBottomSheet() {
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    final currentBranchId = cartProvider.currentBranchId ?? 5;
+    final currentBranchName = cartProvider.currentBranchName ?? 'Beast Bite - The Pearl District';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: CartScreen(
+            branchId: currentBranchId,
+            branchName: currentBranchName,
+          ),
+        );
+      },
+    );
+  }
+
+  void _showTakeawayBranchPicker() {
+    final branchProvider = Provider.of<BranchProvider>(context, listen: false);
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    final branches = _getSuggestedBranches(
+      branchProvider,
+      provinceId: branchProvider.selectedProvinceId ?? locationProvider.selectedProvince?.id,
+      districtId: branchProvider.selectedDistrictId ?? locationProvider.selectedDistrict?.id,
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: Offset(0, 2)),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.store_mall_directory, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Chọn chi nhánh (Takeaway)',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 8),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Gợi ý gần bạn',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: branches.length,
+                    separatorBuilder: (_, __) => Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final b = branches[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.orange.withOpacity(0.1),
+                          child: Icon(Icons.store, color: Colors.orange),
+                        ),
+                        title: Text(b.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(b.address, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        trailing: Icon(Icons.chevron_right),
+                        onTap: () async {
+
+                          await Provider.of<CartProvider>(context, listen: false).loadCart(b.id);
+                          
+                          Navigator.pop(context);
+                          Navigator.pushNamed(
+                            context,
+                            BranchMenuScreen.routeName,
+                            arguments: b,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  List<dynamic> _getSuggestedBranches(BranchProvider branchProvider, {int? provinceId, int? districtId}) {
+    final list = List.from(branchProvider.branches);
+    list.sort((a, b) {
+      int scoreA = 0;
+      int scoreB = 0;
+      if (provinceId != null) {
+        if (a.provinceId == provinceId) scoreA += 2;
+        if (b.provinceId == provinceId) scoreB += 2;
+      }
+      if (districtId != null) {
+        if (a.districtId == districtId) scoreA += 3;
+        if (b.districtId == districtId) scoreB += 3;
+      }
+      return scoreB.compareTo(scoreA);
+    });
+    return list;
   }
 
   Widget _buildCategoryChip(String title, String emoji, bool isSelected, CategoryModel.Category? category) {
@@ -604,7 +898,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: () {
           Navigator.pushNamed(
             context,
-            '/branch-menu',
+            BranchDetailScreen.routeName,
             arguments: branch,
           );
         },

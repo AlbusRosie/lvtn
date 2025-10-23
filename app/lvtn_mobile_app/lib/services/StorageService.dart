@@ -16,7 +16,8 @@ class StorageService {
   }
 
   Future<String?> getString(String key) async {
-    return _prefs?.getString(key);
+    final value = _prefs?.getString(key);
+    return value;
   }
 
   Future<void> setInt(String key, int value) async {

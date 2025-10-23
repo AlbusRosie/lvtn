@@ -49,9 +49,17 @@ dependencies:
   
   google_maps_flutter: ^2.5.0
   
+  # Payment
   url_launcher: ^6.2.2
+  qr_flutter: ^4.1.0
   google_fonts: ^6.1.0
   material_symbols_icons: ^4.2719.0
+  
+  # Chatbot
+  flutter_markdown: ^0.6.18
+  uuid: ^4.2.2
+  flutter_chat_ui: ^1.6.13
+  bubble: ^1.2.1
 
 dev_dependencies:
   flutter_test:

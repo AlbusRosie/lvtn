@@ -4,15 +4,18 @@ import 'package:material_symbols_icons/material_symbols_icons.dart';
 import '../../models/product.dart';
 import '../../models/branch.dart';
 import '../../models/product_option.dart';
+import '../../providers/AuthProvider.dart';
 import '../../providers/CategoryProvider.dart';
 import '../../providers/ProductProvider.dart';
 import '../../services/ProductOptionService.dart';
+import '../../utils/image_utils.dart';
 import '../../services/CartService.dart';
 import '../../services/AuthService.dart';
 import '../../ui/cart/CartProvider.dart';
+import '../../ui/cart/CartScreen.dart';
 import '../../constants/app_constants.dart';
 
-// Model cho Review
+
 class ProductReview {
   final String id;
   final String userName;
@@ -33,6 +36,9 @@ class ProductReview {
 
 class ProductDetailScreen extends StatefulWidget {
   static const String routeName = '/product-detail';
+  final int? branchId; // Add branchId parameter
+
+  const ProductDetailScreen({Key? key, this.branchId}) : super(key: key);
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
@@ -46,13 +52,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
   List<SelectedOption> _selectedOptions = [];
   final ProductOptionService _optionService = ProductOptionService();
   
-  // Animation controllers
+
   late AnimationController _favoriteAnimationController;
   Animation<double> _favoriteScaleAnimation = const AlwaysStoppedAnimation(1.0);
   late AnimationController _ratingPulseController;
   Animation<double> _ratingPulseAnimation = const AlwaysStoppedAnimation(1.0);
   
-  // Dữ liệu đánh giá mẫu
+
   double _averageRating = 4.5;
   int _totalReviews = 128;
   List<ProductReview> _reviews = [
@@ -86,7 +92,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
   void initState() {
     super.initState();
     
-    // Animation cho nút favorite
+
     _favoriteAnimationController = AnimationController(
       duration: Duration(milliseconds: 400),
       vsync: this,
@@ -100,7 +106,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
       curve: Curves.easeInOut,
     ));
 
-    // Animation cho rating badge (pulse effect)
+
     _ratingPulseController = AnimationController(
       duration: Duration(milliseconds: 2000),
       vsync: this,
@@ -122,16 +128,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
   }
 
   String _getImageUrl(String? imagePath) {
-    if (imagePath == null || imagePath.isEmpty) {
-      return AppConstants.defaultProductImage;
-    }
-    if (imagePath.startsWith('http')) {
-      return imagePath;
-    }
-    if (imagePath.startsWith('/public')) {
-      return 'http://10.0.2.2:3000$imagePath';
-    }
-    return 'http://10.0.2.2:3000/public/uploads/$imagePath';
+    return ImageUtils.getImageUrl(imagePath);
   }
 
   Future<void> _loadProductOptions(int productId) async {
@@ -147,7 +144,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
         _loadedOptions = true;
       });
     } catch (error) {
-      print('❌ Error loading product options: $error');
     }
   }
 
@@ -175,7 +171,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
     });
   }
 
-  // Toggle favorite với animation đẹp
+
   void _toggleFavorite() {
     setState(() {
       _isFavorite = !_isFavorite;
@@ -208,7 +204,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
     );
   }
 
-  // Mở modal để viết đánh giá
+
   void _openReviewSheet(Product product) {
     double userRating = 5.0;
     final commentController = TextEditingController();
@@ -375,7 +371,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
     );
   }
 
-  // Xem tất cả đánh giá
+
   void _viewAllReviews() {
     showModalBottomSheet(
       context: context,
@@ -434,23 +430,79 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
     );
   }
 
-  Future<void> _openOptionsSheet(Product product) async {
+  Future<void> _openOptionsSheet(Product product, int branchId, String branchName) async {
     if (!_loadedOptions) {
       await _loadProductOptions(product.id);
     }
 
     if (_productOptions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Added ${product.name} to cart\nTotal: ${_formatPrice(_calculateTotalPrice(product))}'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
+
+                          try {
+                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                            if (!authProvider.isAuth) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Please log in to add items to cart.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            final token = AuthService().token;
+                            
+                            if (token == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Authentication token not found. Please log in again.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            final cartProvider = Provider.of<CartProvider>(context, listen: false);
+                            
+                            // Check if switching branches with items in cart
+                            if (cartProvider.needsBranchSwitchConfirmation(branchId)) {
+                              final shouldSwitch = await _showBranchSwitchDialog(
+                                cartProvider.currentBranchName ?? 'previous branch',
+                                branchName,
+                              );
+                              
+                              if (shouldSwitch != true) {
+                                return; // User cancelled
+                              }
+                              
+                              // Clear old cart before adding to new branch
+                              await cartProvider.clearCartForBranchSwitch();
+                            }
+                            
+                            await cartProvider.addToCart(
+                              branchId, // Use the correct branch ID
+                              product.id,
+                              quantity: 1,
+                              orderType: 'dine_in', // Default to dine_in
+                              selectedOptions: [], // No options for products without options
+                            );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Added ${product.name} to cart\nTotal: ${_formatPrice(cartProvider.currentCart?.total ?? 0.0)}'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to add to cart: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       return;
     }
-
-    int sheetQuantity = 1;
 
     await showModalBottomSheet(
       context: context,
@@ -476,6 +528,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
             ),
             child: StatefulBuilder(
               builder: (context, setSheetState) {
+                int sheetQuantity = 1; // Move inside StatefulBuilder
+                
                 void updateInSheet(ProductOptionType optionType, ProductOptionValue value, bool isSelected) {
                   setState(() => _updateOptionSelection(optionType, value, isSelected));
                   setSheetState(() {});
@@ -731,7 +785,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                      // Header
+
                       Container(
                         padding: EdgeInsets.fromLTRB(24, 16, 24, 20),
                         child: Column(
@@ -798,7 +852,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                         ),
                       ),
                       
-                      // Options list
+
                     Flexible(
                       child: SingleChildScrollView(
                           padding: EdgeInsets.symmetric(horizontal: 20),
@@ -808,7 +862,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                       ),
                     ),
                       
-                      // Bottom section
+
                       Container(
                         padding: EdgeInsets.fromLTRB(20, 16, 20, 20),
                         decoration: BoxDecoration(
@@ -819,7 +873,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                         ),
                         child: Column(
                           children: [
-                            // Quantity selector
+
                     Row(
                       children: [
                                 Text(
@@ -943,7 +997,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                               ],
                             ),
                             SizedBox(height: 16),
-                            // Total and confirm button
+
                             Row(
                               children: [
                                 Expanded(
@@ -974,7 +1028,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                                   child: SizedBox(
                                     height: 54,
                           child: ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
                               if (!_optionService.validateRequiredOptions(_productOptions, _selectedOptions)) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                             SnackBar(
@@ -997,26 +1051,86 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                                 );
                                 return;
                               }
-                              Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                            content: Row(
-                                              children: [
-                                                Icon(Symbols.check_circle, color: Colors.white, fill: 1),
-                                                SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Text('Added ${product.name} x$sheetQuantity to cart\nTotal: ${_formatPrice(_calculateTotalPrice(product) * sheetQuantity)}'),
-                                                ),
-                                              ],
-                                            ),
-                                            backgroundColor: Colors.green,
-                                            behavior: SnackBarBehavior.floating,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            margin: EdgeInsets.all(16),
-                                ),
-                              );
+                              
+                              try {
+                                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                                if (!authProvider.isAuth) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Please log in to add items to cart.'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                final token = AuthService().token;
+                                
+                                if (token == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Authentication token not found. Please log in again.'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                final cartProvider = Provider.of<CartProvider>(context, listen: false);
+                                
+                                // Check if switching branches with items in cart
+                                if (cartProvider.needsBranchSwitchConfirmation(branchId)) {
+                                  final shouldSwitch = await _showBranchSwitchDialog(
+                                    cartProvider.currentBranchName ?? 'previous branch',
+                                    branchName,
+                                  );
+                                  
+                                  if (shouldSwitch != true) {
+                                    return; // User cancelled, keep bottom sheet open
+                                  }
+                                  
+                                  // Clear old cart before adding to new branch
+                                  await cartProvider.clearCartForBranchSwitch();
+                                }
+                                
+                                // Close the bottom sheet
+                                Navigator.pop(ctx);
+                                
+                                await cartProvider.addToCart(
+                                  branchId,
+                                  product.id,
+                                  quantity: sheetQuantity,
+                                  orderType: 'dine_in',
+                                  selectedOptions: _selectedOptions,
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        Icon(Symbols.check_circle, color: Colors.white, fill: 1),
+                                        SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text('Added ${product.name} x$sheetQuantity to cart\nTotal: ${_formatPrice(_calculateTotalPrice(product) * sheetQuantity)}'),
+                                        ),
+                                      ],
+                                    ),
+                                    backgroundColor: Colors.green,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    margin: EdgeInsets.all(16),
+                                  ),
+                                );
+                              } catch (e) {
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Failed to add to cart: $e'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.transparent,
@@ -1087,11 +1201,121 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
     );
   }
 
+  Future<bool?> _showBranchSwitchDialog(String currentBranchName, String newBranchName) async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+              SizedBox(width: 12),
+              Text('Switch Branch?'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'You have items in your cart from:',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+              SizedBox(height: 8),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.store, color: Colors.orange, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        currentBranchName,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange[900],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Adding items from "$newBranchName" will clear your current cart.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                  height: 1.4,
+                ),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Do you want to continue?',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[900],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey[700],
+              ),
+              child: Text(
+                'Cancel',
+                style: TextStyle(fontSize: 15),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                'Clear & Continue',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final Product product = args['product'];
     final Branch branch = args['branch'];
+    
+
+    final int branchId = widget.branchId ?? branch.id;
 
     if (!_loadedOptions) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1101,13 +1325,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
 
     return Scaffold(
       backgroundColor: Colors.white,
-      bottomNavigationBar: _buildBottomBar(product),
+      bottomNavigationBar: _buildBottomBar(product, branchId, branch.name),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: BouncingScrollPhysics(),
           child: Column(
             children: [
-              // Header with image section
+
               Container(
                 height: MediaQuery.of(context).size.height * 0.5,
                 child: Stack(
@@ -1181,12 +1405,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                               },
                             ),
                           ),
-                          _buildHeaderCartButton(product),
+                          _buildHeaderCartButton(product, branchId),
                         ],
                       ),
                     ),
 
-                    // Rating badge
+
                     Positioned(
                       bottom: -20,
                       left: 0,
@@ -1258,7 +1482,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                 ),
               ),
 
-              // Content section
+
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
@@ -1325,9 +1549,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
 
                     SizedBox(height: 24),
 
-                    _buildReviewsList(),
+                    SizedBox(height: 24),
 
-                    SizedBox(height: 80),
+                    _buildReviewsList(),
                   ],
                 ),
               ),
@@ -1382,7 +1606,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
     );
   }
 
-  Widget _buildHeaderCartButton(Product product) {
+  Widget _buildHeaderCartButton(Product product, int branchId) {
     return Container(
       width: 44,
       height: 44,
@@ -1401,7 +1625,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
-          onTap: () => _openOptionsSheet(product),
+          onTap: () {
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CartScreen(
+                  branchId: branchId,
+                  branchName: 'Beast Bite Branch $branchId', // You can get actual branch name from context
+                ),
+              ),
+            );
+          },
           child: Center(
             child: Icon(Symbols.shopping_cart, color: Colors.white, size: 22, fill: 1),
           ),
@@ -1675,7 +1910,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
     }
   }
 
-  Widget _buildBottomBar(Product product) {
+  Widget _buildBottomBar(Product product, int branchId, String branchName) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
@@ -1706,7 +1941,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
           SizedBox(
             height: 52,
             child: ElevatedButton.icon(
-              onPressed: () => _openOptionsSheet(product),
+              onPressed: () => _openOptionsSheet(product, branchId, branchName),
               icon: Icon(Symbols.add_shopping_cart, color: Colors.white, size: 20, fill: 1),
               label: Text(
                 'Add to cart',

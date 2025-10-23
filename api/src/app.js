@@ -14,6 +14,8 @@ const ProvinceRouter = require('./routes/ProvinceRouter');
 const ProductOptionRouter = require('./routes/ProductOptionRouter');
 const ReservationRouter = require('./routes/ReservationRouter');
 const CartRouter = require('./routes/CartRouter');
+const OrderRouter = require('./routes/OrderRouter');
+const ChatRouter = require('./routes/ChatRouter');
 
 const {
     resourceNotFound,
@@ -41,6 +43,8 @@ FloorRouter.setup(app);
 ProvinceRouter.setup(app);
 ReservationRouter.setup(app);
 CartRouter.setup(app);
+OrderRouter.setup(app);
+ChatRouter.setup(app);
 
 app.use(resourceNotFound);
 app.use(handleError);

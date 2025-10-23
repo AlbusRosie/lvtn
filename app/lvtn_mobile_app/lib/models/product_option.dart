@@ -114,6 +114,20 @@ class SelectedOption {
     required this.totalPriceModifier,
   });
 
+  factory SelectedOption.fromJson(Map<String, dynamic> json) {
+    return SelectedOption(
+      optionTypeId: json['option_type_id'],
+      optionName: json['option_name'],
+      selectedValueIds: (json['selected_value_ids'] as List<dynamic>?)
+          ?.map((id) => id as int)
+          .toList() ?? [],
+      selectedValues: (json['selected_values'] as List<dynamic>?)
+          ?.map((value) => value as String)
+          .toList() ?? [],
+      totalPriceModifier: double.tryParse(json['total_price_modifier'].toString()) ?? 0.0,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'option_type_id': optionTypeId,

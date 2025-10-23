@@ -5,7 +5,7 @@ import '../constants/api_constants.dart';
 class ReservationService {
   static String get _baseUrl => ApiConstants.baseUrl;
 
-  // Lấy lịch đặt bàn theo bàn và ngày
+
   static Future<List<Map<String, dynamic>>> getTableSchedule({
     required int tableId,
     required String startDate,
@@ -26,23 +26,20 @@ class ReservationService {
             : data['reservations'];
         return List<Map<String, dynamic>>.from(reservations ?? []);
       } else {
-        print('❌ Error fetching table schedule: ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('❌ Exception fetching table schedule: $e');
       return [];
     }
   }
 
-  // Lấy tất cả reservations trong khoảng thời gian
+
   static Future<List<Map<String, dynamic>>> getReservationsByDateRange({
     required String startDate,
     required String endDate,
   }) async {
     try {
       final url = '$_baseUrl/reservations?start_date=$startDate&end_date=$endDate';
-      print('🔍 Debug - API URL: $url');
       
       final response = await http.get(
         Uri.parse(url),
@@ -51,8 +48,6 @@ class ReservationService {
         },
       );
 
-      print('🔍 Debug - Response status: ${response.statusCode}');
-      print('🔍 Debug - Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -61,16 +56,14 @@ class ReservationService {
             : data['reservations'];
         return List<Map<String, dynamic>>.from(reservations ?? []);
       } else {
-        print('❌ Error fetching reservations: ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('❌ Exception fetching reservations: $e');
       return [];
     }
   }
 
-  // Tạo reservation mới
+
   static Future<Map<String, dynamic>?> createReservation({
     required int userId,
     required int branchId,
@@ -101,16 +94,51 @@ class ReservationService {
         final data = json.decode(response.body);
         return data['reservation'];
       } else {
-        print('❌ Error creating reservation: ${response.statusCode}');
         return null;
       }
     } catch (e) {
-      print('❌ Exception creating reservation: $e');
       return null;
     }
   }
 
-  // Kiểm tra xem slot có bận không
+  // Quick Reservation - Backend will auto-assign suitable table
+  Future<Map<String, dynamic>?> createQuickReservation({
+    required String token,
+    required int branchId,
+    required String reservationDate,
+    required String reservationTime,
+    required int guestCount,
+    String? specialRequests,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/reservations/quick'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'branch_id': branchId,
+          'reservation_date': reservationDate,
+          'reservation_time': reservationTime,
+          'guest_count': guestCount,
+          'special_requests': specialRequests,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return data['data'] ?? data;
+      } else {
+        final error = json.decode(response.body);
+        throw Exception(error['message'] ?? 'Failed to create reservation');
+      }
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+
   static bool isSlotReserved({
     required List<Map<String, dynamic>> reservations,
     required String date,
@@ -124,7 +152,7 @@ class ReservationService {
       final reservationTime = reservation['reservation_time']?.toString();
       final status = reservation['status']?.toString();
       
-      // Extract date part from reservation_date (handle both "2025-10-09" and "2025-10-09T17:00:00.000Z" formats)
+
       String reservationDateOnly;
       if (reservationDate != null) {
         if (reservationDate.contains('T')) {
@@ -140,17 +168,17 @@ class ReservationService {
         return false;
       }
       
-      // Parse reservation time (HH:MM:SS format)
+
       final reservationHour = int.parse(reservationTime!.split(':')[0]);
       final slotStartHour = int.parse(startTime.split(':')[0]);
       final slotEndHour = int.parse(endTime.split(':')[0]);
       
-      // Check if reservation time overlaps with slot
+
       return reservationHour >= slotStartHour && reservationHour < slotEndHour;
     });
   }
 
-  // Tạo time slots từ 7h đến 22h
+
   static List<String> generateTimeSlots() {
     final slots = <String>[];
     for (int hour = 7; hour < 22; hour += 2) {
@@ -162,7 +190,7 @@ class ReservationService {
     return slots;
   }
 
-  // Merge consecutive available slots (only merge available, not reserved)
+
   static List<Map<String, dynamic>> mergeTimeSlots({
     required List<String> timeSlots,
     required List<Map<String, dynamic>> reservations,
@@ -170,7 +198,7 @@ class ReservationService {
   }) {
     final mergedSlots = <Map<String, dynamic>>[];
     
-    // Check status for each slot
+
     final slotStatuses = <String, String>{};
     for (final timeSlot in timeSlots) {
       final isReserved = isSlotReserved(
@@ -181,7 +209,7 @@ class ReservationService {
       slotStatuses[timeSlot] = isReserved ? 'reserved' : 'available';
     }
     
-    // Process each slot individually
+
     for (int i = 0; i < timeSlots.length; i++) {
       final timeSlot = timeSlots[i];
       final status = slotStatuses[timeSlot]!;
@@ -189,15 +217,15 @@ class ReservationService {
       final endTime = timeSlot.split('-')[1];
       
       if (status == 'available') {
-        // For available slots, try to merge with previous available slot
+
         if (mergedSlots.isNotEmpty && 
             mergedSlots.last['status'] == 'available' &&
             mergedSlots.last['end'] == startTime) {
-          // Merge with previous available slot
+
           mergedSlots.last['end'] = endTime;
           mergedSlots.last['time'] = '${mergedSlots.last['start']}-$endTime';
         } else {
-          // Add new available slot
+
           mergedSlots.add({
             'time': timeSlot,
             'status': status,
@@ -207,7 +235,7 @@ class ReservationService {
           });
         }
       } else {
-        // For reserved slots, always add individually (no merging)
+
         mergedSlots.add({
           'time': timeSlot,
           'status': status,

@@ -1,13 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/branch.dart';
 import '../../services/TableService.dart';
 import '../../services/FloorService.dart';
 import '../../services/ReservationService.dart';
+import '../cart/CartProvider.dart';
+import '../cart/CartScreen.dart';
+import '../widgets/AppBottomNav.dart';
 
 class TableScreen extends StatefulWidget {
   final Branch branch;
+  final String? prefilledDate;
+  final String? prefilledTime;
+  final int? prefilledGuestCount;
+  final String? prefilledNote;
 
-  const TableScreen({super.key, required this.branch});
+  const TableScreen({
+    super.key, 
+    required this.branch,
+    this.prefilledDate,
+    this.prefilledTime,
+    this.prefilledGuestCount,
+    this.prefilledNote,
+  });
 
   static const String routeName = '/tables';
 
@@ -26,7 +41,7 @@ class _TableScreenState extends State<TableScreen> {
   bool _isLoading = true;
   String? _error;
 
-  // floors
+
   List<Map<String, dynamic>> _floors = [];
   int? _selectedFloorId; // null means all floors
 
@@ -118,11 +133,62 @@ class _TableScreenState extends State<TableScreen> {
         ),
         foregroundColor: Colors.grey[900],
         centerTitle: true,
+        actions: [
+          Consumer<CartProvider>(
+            builder: (context, cartProvider, child) {
+              return Padding(
+                padding: EdgeInsets.only(right: 16, top: 8, bottom: 8),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _showCartBottomSheet(cartProvider),
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Color(0xFF2C2C2C),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.shopping_bag_outlined, color: Colors.white, size: 24),
+                      ),
+                    ),
+                    if (cartProvider.itemCount > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          padding: EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: BoxConstraints(
+                            minWidth: 20,
+                            minHeight: 20,
+                          ),
+                          child: Text(
+                            '${cartProvider.itemCount}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Header
+
             Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -184,13 +250,13 @@ class _TableScreenState extends State<TableScreen> {
               Expanded(
                 child: Column(
                   children: [
-                    // Filters section
+
                     Container(
                       padding: EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Search + Floor in same row
+
                           Row(
                             children: [
                               Expanded(
@@ -253,7 +319,7 @@ class _TableScreenState extends State<TableScreen> {
                             ],
                           ),
                           SizedBox(height: 10),
-                          // Status + Min capacity in same row
+
                           Row(
                             children: [
                               Expanded(
@@ -322,7 +388,7 @@ class _TableScreenState extends State<TableScreen> {
                         ],
                       ),
                     ),
-                    // Grid
+
                     Expanded(
                       child: _filteredTables.isEmpty
                           ? Center(child: Text('No table found matching your criteria'))
@@ -367,6 +433,9 @@ class _TableScreenState extends State<TableScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: AppBottomNav(
+        currentIndex: 1,
+      ),
     );
   }
 
@@ -387,7 +456,7 @@ class _TableScreenState extends State<TableScreen> {
               setSheetState(() => isLoadingSchedule = true);
               
               try {
-                // Lấy danh sách ngày cần load
+
                 final today = DateTime.now();
                 List<DateTime> datesToShow = [];
                 
@@ -410,7 +479,7 @@ class _TableScreenState extends State<TableScreen> {
                     break;
                 }
                 
-                // Lấy reservations từ database
+
                 final startDate = datesToShow.first;
                 final endDate = datesToShow.last;
                 final reservations = await ReservationService.getReservationsByDateRange(
@@ -418,48 +487,42 @@ class _TableScreenState extends State<TableScreen> {
                   endDate: '${endDate.year}-${endDate.month.toString().padLeft(2,'0')}-${endDate.day.toString().padLeft(2,'0')}',
                 );
                 
-                print('🔍 Debug - Date range: ${startDate.year}-${startDate.month.toString().padLeft(2,'0')}-${startDate.day.toString().padLeft(2,'0')} to ${endDate.year}-${endDate.month.toString().padLeft(2,'0')}-${endDate.day.toString().padLeft(2,'0')}');
-                print('🔍 Debug - All reservations: ${reservations.length}');
                 for (var r in reservations) {
-                  print('🔍 Debug - Reservation: table_id=${r['table_id']}, date=${r['reservation_date']}, time=${r['reservation_time']}');
                 }
                 
-                // Lọc reservations cho bàn hiện tại
+
                 final tableReservations = reservations.where((reservation) {
                   final tableId = table['id'];
                   final reservationTableId = reservation['table_id'];
                   
-                  // Convert both to int for comparison
+
                   final tableIdInt = tableId is int ? tableId : int.tryParse(tableId.toString());
                   final reservationTableIdInt = reservationTableId is int ? reservationTableId : int.tryParse(reservationTableId.toString());
                   
                   final isMatch = tableIdInt == reservationTableIdInt;
                   if (isMatch) {
-                    print('✅ Found matching reservation for table ${tableIdInt}');
                   }
                   
                   return isMatch;
                 }).toList();
                 
-                print('🔍 Debug - Table ID: ${table['id']} (${table['id'].runtimeType})');
-                print('🔍 Debug - Table reservations: ${tableReservations.length}');
                 
-                // Tạo time slots
+
                 final timeSlots = ReservationService.generateTimeSlots();
                 
-                // Tạo schedule cho từng ngày
+
                 tableSchedule = [];
                 for (final date in datesToShow) {
                   final dateStr = '${date.year}-${date.month.toString().padLeft(2,'0')}-${date.day.toString().padLeft(2,'0')}';
                   
-                  // Merge time slots cho ngày này
+
                   final mergedSlots = ReservationService.mergeTimeSlots(
                     timeSlots: timeSlots,
                     reservations: tableReservations,
                     date: dateStr,
                   );
                   
-                  // Thêm vào tableSchedule
+
                   for (final slot in mergedSlots) {
                     tableSchedule.add({
                       'date': dateStr,
@@ -482,14 +545,14 @@ class _TableScreenState extends State<TableScreen> {
               }
             }
 
-            // Function to get merged time slots for grid cells (combine consecutive available slots)
+
             List<Map<String, dynamic>> getMergedTimeSlotsForDate(String dateStr) {
-              // Lấy slots cho ngày cụ thể từ tableSchedule
+
               final daySlots = tableSchedule.where((slot) => slot['date'] == dateStr).toList();
               return daySlots;
             }
 
-            // Load schedule automatically when sheet opens
+
             if (tableSchedule.isEmpty && !isLoadingSchedule) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 doLoadSchedule();
@@ -598,7 +661,7 @@ class _TableScreenState extends State<TableScreen> {
                 return;
               }
               
-              // Show loading
+
               setSheetState(() {
                 isLoadingSchedule = true;
               });
@@ -607,7 +670,7 @@ class _TableScreenState extends State<TableScreen> {
                 final reservationDate = '${selectedDate!.year}-${selectedDate!.month.toString().padLeft(2,'0')}-${selectedDate!.day.toString().padLeft(2,'0')}';
                 final reservationTime = '${selectedTime!.hour.toString().padLeft(2,'0')}:${selectedTime!.minute.toString().padLeft(2,'0')}:00';
                 
-                // Tạo reservation trong database
+
                 final reservation = await ReservationService.createReservation(
                   userId: 2, // TODO: Lấy từ user hiện tại
                   branchId: widget.branch.id,
@@ -636,7 +699,6 @@ class _TableScreenState extends State<TableScreen> {
                   );
                 }
               } catch (e) {
-                print('❌ Error creating reservation: $e');
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('Có lỗi xảy ra. Vui lòng thử lại.'),
@@ -676,7 +738,7 @@ class _TableScreenState extends State<TableScreen> {
                       SizedBox(height: 12),
                       Text('Reserve Table ${table['table_number']}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                       SizedBox(height: 12),
-                      // Date filter row
+
                       Row(
                         children: [
                           Text('View:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[700])),
@@ -699,7 +761,7 @@ class _TableScreenState extends State<TableScreen> {
                                   onChanged: (v) {
                                     setSheetState(() {
                                       selectedDateFilter = v ?? 'week';
-                                      // Reload schedule with new filter
+
                                       doLoadSchedule();
                                     });
                                   },
@@ -725,12 +787,12 @@ class _TableScreenState extends State<TableScreen> {
                           ),
                           child: Column(
                             children: [
-                              // Y-axis labels (time slots)
+
                               Expanded(
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Time labels column
+
                                     Container(
                                       width: 60,
                                       child: Column(
@@ -748,11 +810,11 @@ class _TableScreenState extends State<TableScreen> {
                                       ),
                                     ),
                                     SizedBox(width: 8),
-                                    // Chart area
+
                                     Expanded(
                                       child: Column(
                                         children: [
-                                          // X-axis labels (dates)
+
                                           Container(
                                             height: 20,
                                             child: Row(
@@ -793,7 +855,7 @@ class _TableScreenState extends State<TableScreen> {
                                             ),
                                           ),
                                           SizedBox(height: 4),
-                                          // Grid cells
+
                                           Expanded(
                                             child: Row(
                                               children: selectedDateFilter == 'week' 
@@ -853,7 +915,7 @@ class _TableScreenState extends State<TableScreen> {
                                                       );
                                                     })
                                                   : [
-                                                      // Single day view - show as one column
+
                                                         Expanded(
                                                           child: Column(
                                                         children: getMergedTimeSlotsForDate('${DateTime.now().add(Duration(days: selectedDateFilter == 'tomorrow' ? 1 : 0)).year}-${DateTime.now().add(Duration(days: selectedDateFilter == 'tomorrow' ? 1 : 0)).month.toString().padLeft(2,'0')}-${DateTime.now().add(Duration(days: selectedDateFilter == 'tomorrow' ? 1 : 0)).day.toString().padLeft(2,'0')}').map((slot) {
@@ -889,7 +951,7 @@ class _TableScreenState extends State<TableScreen> {
                                 ),
                               ),
                               SizedBox(height: 8),
-                              // Legend
+
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -1026,6 +1088,30 @@ class _TableScreenState extends State<TableScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showCartBottomSheet(CartProvider cartProvider) {
+    final currentBranchId = cartProvider.currentBranchId ?? widget.branch.id;
+    final currentBranchName = cartProvider.currentBranchName ?? widget.branch.name;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: CartScreen(
+            branchId: currentBranchId,
+            branchName: currentBranchName,
+          ),
+        );
+      },
     );
   }
 }
