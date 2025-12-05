@@ -12,7 +12,7 @@ class Reservation {
   final String? specialRequests;
   final DateTime createdAt;
   final String? branchName;
-  final String? tableNumber;
+  final int? tableIdDisplay;
 
   Reservation({
     required this.id,
@@ -26,11 +26,10 @@ class Reservation {
     this.specialRequests,
     required this.createdAt,
     this.branchName,
-    this.tableNumber,
+    this.tableIdDisplay,
   });
 
   factory Reservation.fromJson(Map<String, dynamic> json) {
-    // Parse time from string format "HH:MM"
     final timeString = json['reservation_time'] as String;
     final timeParts = timeString.split(':');
     final time = TimeOfDay(
@@ -50,7 +49,7 @@ class Reservation {
       specialRequests: json['special_requests'],
       createdAt: DateTime.parse(json['created_at']),
       branchName: json['branch_name'],
-      tableNumber: json['table_number'],
+      tableIdDisplay: json['table_id'],
     );
   }
 
@@ -67,7 +66,7 @@ class Reservation {
       'special_requests': specialRequests,
       'created_at': createdAt.toIso8601String(),
       'branch_name': branchName,
-      'table_number': tableNumber,
+      'table_id': tableIdDisplay,
     };
   }
 }

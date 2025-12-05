@@ -24,9 +24,11 @@ class QuickOrderScreen extends StatefulWidget {
 }
 
 class _QuickOrderScreenState extends State<QuickOrderScreen> {
-  int _currentStep = 0; // 0: Chi nhánh, 1: Đặt bàn, 2: Chọn món
+  int _currentStep = 0;
   Branch? _selectedBranch;
   final Map<int, int> _cartItems = {};
+  final Map<int, List<SelectedOption>> _cartItemOptions = {};
+  final Map<int, String> _cartItemSpecialInstructions = {};
   bool _isLoading = false;
 
 
@@ -36,7 +38,7 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
   String _specialRequests = '';
 
 
-  int? _selectedCategoryId = 0; // 0 = All categories
+  int? _selectedCategoryId = 0;
 
   @override
   void initState() {
@@ -211,74 +213,136 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.grey[800]),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Đặt hàng nhanh',
-          style: TextStyle(
-            color: Colors.grey[800],
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          Consumer<CartProvider>(
-            builder: (context, cartProvider, child) {
-              return Padding(
-                padding: EdgeInsets.only(right: 16, top: 8, bottom: 8),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    GestureDetector(
-                      onTap: () => _showCartBottomSheet(cartProvider),
+      backgroundColor: Colors.white,
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(100),
+        child: SafeArea(
+          bottom: false,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 12),
+              child: Row(
+                children: [
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context),
+                      borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        width: 48,
-                        height: 48,
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
-                          color: Color(0xFF2C2C2C),
-                          shape: BoxShape.circle,
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.grey[200]!,
+                            width: 1,
+                          ),
                         ),
-                        child: Icon(Icons.shopping_bag_outlined, color: Colors.white, size: 24),
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          color: Colors.grey[800],
+                          size: 20,
+                        ),
                       ),
                     ),
-                    if (cartProvider.itemCount > 0)
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          padding: EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.orange,
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: BoxConstraints(
-                            minWidth: 20,
-                            minHeight: 20,
-                          ),
-                          child: Text(
-                            '${cartProvider.itemCount}',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Đặt hàng nhanh',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey[900],
+                        letterSpacing: -0.4,
                       ),
-                  ],
-                ),
-              );
-            },
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Consumer<CartProvider>(
+                    builder: (context, cartProvider, child) {
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => _showCartBottomSheet(cartProvider),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[50],
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey[200]!,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.shopping_cart_outlined,
+                                  color: Colors.grey[800],
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (cartProvider.itemCount > 0)
+                            Positioned(
+                              right: -2,
+                              top: -2,
+                              child: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: Color(0xFFFF8A00),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Color(0xFFFF8A00).withOpacity(0.4),
+                                      blurRadius: 6,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${cartProvider.itemCount > 99 ? '99+' : cartProvider.itemCount}',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
+        ),
       ),
       body: Column(
         children: [
@@ -299,42 +363,40 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
     final steps = ['Chi nhánh', 'Đặt bàn', 'Chọn món'];
     
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      color: Colors.white,
+      padding: EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-
-          Expanded(
-            flex: 1,
-            child: _buildStepItem(
-              stepIndex: 0,
-              stepName: steps[0],
-              isActive: _currentStep == 0,
-              isCompleted: _currentStep > 0,
-              showConnector: true,
-            ),
+          _buildStepItem(
+            stepIndex: 0,
+            stepName: steps[0],
+            isActive: _currentStep == 0,
+            isCompleted: _currentStep > 0,
+            showConnector: true,
           ),
-
-          Expanded(
-            flex: 1,
-            child: _buildStepItem(
-              stepIndex: 1,
-              stepName: steps[1],
-              isActive: _currentStep == 1,
-              isCompleted: _currentStep > 1,
-              showConnector: true,
-            ),
+          _buildStepItem(
+            stepIndex: 1,
+            stepName: steps[1],
+            isActive: _currentStep == 1,
+            isCompleted: _currentStep > 1,
+            showConnector: true,
           ),
-
-          Expanded(
-            flex: 1,
-            child: _buildStepItem(
-              stepIndex: 2,
-              stepName: steps[2],
-              isActive: _currentStep == 2,
-              isCompleted: false,
-              showConnector: false,
-            ),
+          _buildStepItem(
+            stepIndex: 2,
+            stepName: steps[2],
+            isActive: _currentStep == 2,
+            isCompleted: false,
+            showConnector: false,
           ),
         ],
       ),
@@ -348,67 +410,67 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
     required bool isCompleted,
     required bool showConnector,
   }) {
+    final primaryColor = Color(0xFFFF8A00);
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-
-        Expanded(
-          child: Column(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isCompleted || isActive
-                      ? Colors.orange
-                      : Colors.grey[300],
-                  shape: BoxShape.circle,
-                  boxShadow: isActive
-                      ? [
-                          BoxShadow(
-                            color: Colors.orange.withOpacity(0.4),
-                            blurRadius: 8,
-                            spreadRadius: 2,
-                          )
-                        ]
-                      : null,
-                ),
-                child: Center(
-                  child: isCompleted
-                      ? Icon(Icons.check, color: Colors.white, size: 18)
-                      : Text(
-                          '${stepIndex + 1}',
-                          style: TextStyle(
-                            color: isActive ? Colors.white : Colors.grey[600],
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+        Column(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isCompleted || isActive
+                    ? primaryColor
+                    : Colors.grey[200],
+                shape: BoxShape.circle,
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: primaryColor.withOpacity(0.3),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                          offset: Offset(0, 2),
+                        )
+                      ]
+                    : null,
+              ),
+              child: Center(
+                child: isCompleted
+                    ? Icon(Icons.check_rounded, color: Colors.white, size: 20)
+                    : Text(
+                        '${stepIndex + 1}',
+                        style: TextStyle(
+                          color: isActive ? Colors.white : Colors.grey[600],
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
                         ),
-                ),
+                      ),
               ),
-              SizedBox(height: 6),
-              Text(
-                stepName,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                  color: isActive ? Colors.orange : Colors.grey[600],
-                ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              stepName,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? primaryColor : Colors.grey[600],
+                letterSpacing: -0.2,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-
-         if (showConnector)
-           Container(
-             width: 60, // Longer connector line
-             height: 3, // Slightly thicker
-             margin: EdgeInsets.only(bottom: 20),
-             decoration: BoxDecoration(
-               color: isCompleted ? Colors.orange : Colors.grey[300],
-               borderRadius: BorderRadius.circular(2),
-             ),
-           ),
+        if (showConnector)
+          Container(
+            width: 60,
+            height: 2,
+            margin: EdgeInsets.only(bottom: 20, left: 8, right: 8),
+            decoration: BoxDecoration(
+              color: isCompleted ? primaryColor : Colors.grey[300],
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
       ],
     );
   }
@@ -432,92 +494,117 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
     final locationProvider = Provider.of<LocationProvider>(context, listen: false);
     final branches = _getSuggestedBranches(
       branchProvider,
-      provinceId: branchProvider.selectedProvinceId ?? locationProvider.selectedProvince?.id,
-      districtId: branchProvider.selectedDistrictId ?? locationProvider.selectedDistrict?.id,
+      provinceId: locationProvider.selectedProvince?.id,
+      districtId: locationProvider.selectedDistrict?.id,
     );
+    final primaryColor = Color(0xFFFF8A00);
 
     return Container(
-      padding: EdgeInsets.all(16),
+      padding: EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.location_on, color: Colors.orange),
-              SizedBox(width: 8),
+              Container(
+                width: 4,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              SizedBox(width: 12),
               Text(
-                'Chọn nhà hàng gần bạn',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'Chọn nhà hàng',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey[900],
+                  letterSpacing: -0.4,
+                  height: 1.2,
+                ),
               ),
             ],
           ),
-          SizedBox(height: 16),
+          SizedBox(height: 20),
           Expanded(
             child: ListView.separated(
               itemCount: branches.length,
-              separatorBuilder: (_, __) => SizedBox(height: 12),
+              separatorBuilder: (_, __) => SizedBox(height: 16),
               itemBuilder: (context, index) {
                 final branch = branches[index];
                 final isSelected = _selectedBranch?.id == branch.id;
                 
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedBranch = branch;
-                    });
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedBranch = branch;
+                      });
 
-                    Future.delayed(Duration(milliseconds: 300), () {
-                      if (mounted) {
-                        setState(() {
-                          _currentStep = 1; // Go to reservation step
-                        });
-                      }
-                    });
-                  },
-                  child: Container(
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected ? Colors.orange : Colors.grey[300]!,
-                        width: isSelected ? 2 : 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: isSelected
-                              ? Colors.orange.withOpacity(0.2)
-                              : Colors.grey.withOpacity(0.08),
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
+                      Future.delayed(Duration(milliseconds: 300), () {
+                        if (mounted) {
+                          setState(() {
+                            _currentStep = 1;
+                          });
+                        }
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? primaryColor : Colors.grey[200]!,
+                          width: isSelected ? 2 : 1,
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            _getBranchImageUrl(branch.image),
-                            width: 60,
-                            height: 60,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: isSelected
-                                        ? [Colors.orange[400]!, Colors.orange[600]!]
-                                        : [Colors.grey[300]!, Colors.grey[400]!],
+                        boxShadow: [
+                          BoxShadow(
+                            color: isSelected
+                                ? primaryColor.withOpacity(0.15)
+                                : Colors.black.withOpacity(0.06),
+                            blurRadius: 20,
+                            offset: Offset(0, 4),
+                            spreadRadius: 0,
+                          ),
+                          if (!isSelected)
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                              spreadRadius: 0,
+                            ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              _getBranchImageUrl(branch.image),
+                              width: 70,
+                              height: 70,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: 70,
+                                  height: 70,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: isSelected
+                                          ? [primaryColor.withOpacity(0.8), primaryColor]
+                                          : [Colors.grey[300]!, Colors.grey[400]!],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(
-                                  Icons.store,
-                                  color: Colors.white,
-                                  size: 28,
+                                  child: Icon(
+                                    Icons.store_rounded,
+                                    color: Colors.white,
+                                    size: 32,
                                 ),
                               );
                             },
@@ -531,9 +618,10 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                               Text(
                                 branch.name,
                                 style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey[800],
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.grey[900],
+                                  letterSpacing: -0.3,
                                 ),
                               ),
                               SizedBox(height: 4),
@@ -564,11 +652,18 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                           Container(
                             padding: EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.orange,
+                              color: primaryColor,
                               shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: primaryColor.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Icon(
-                              Icons.check,
+                              Icons.check_rounded,
                               color: Colors.white,
                               size: 20,
                             ),
@@ -576,8 +671,9 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                       ],
                     ),
                   ),
-                );
-              },
+                ),
+              );
+            },
             ),
           ),
         ],
@@ -587,30 +683,38 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
 
 
   Widget _buildReservationStep() {
+    final primaryColor = Color(0xFFFF8A00);
     return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
+      padding: EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           Container(
-            padding: EdgeInsets.all(14),
+            padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: primaryColor.withOpacity(0.2)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 20,
+                  offset: Offset(0, 4),
+                  spreadRadius: 0,
+                ),
+              ],
             ),
             child: Row(
               children: [
                 Container(
-                  padding: EdgeInsets.all(8),
+                  padding: EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.orange[50],
-                    borderRadius: BorderRadius.circular(8),
+                    color: primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.store, color: Colors.orange, size: 20),
+                  child: Icon(Icons.store_rounded, color: primaryColor, size: 24),
                 ),
-                SizedBox(width: 12),
+                SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -618,64 +722,95 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                       Text(
                         _selectedBranch?.name ?? '',
                         style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[800],
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey[900],
+                          letterSpacing: -0.3,
                         ),
                       ),
+                      SizedBox(height: 4),
                       Text(
                         _selectedBranch?.address ?? '',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13.5,
                           color: Colors.grey[600],
+                          height: 1.4,
                         ),
                       ),
                     ],
                   ),
                 ),
-                TextButton(
-                  onPressed: () => setState(() => _currentStep = 0),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    minimumSize: Size(0, 0),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => setState(() => _currentStep = 0),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: Text(
+                        'Đổi',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ),
                   ),
-                  child: Text('Đổi', style: TextStyle(fontSize: 13)),
                 ),
               ],
             ),
           ),
           
-          SizedBox(height: 16),
-          
-
+          SizedBox(height: 20),
           Container(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[200]!),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 20,
+                  offset: Offset(0, 4),
+                  spreadRadius: 0,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                  spreadRadius: 0,
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.event_seat, color: Colors.orange, size: 18),
-                    SizedBox(width: 6),
+                    Container(
+                      width: 4,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: primaryColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    SizedBox(width: 12),
                     Text(
                       'Chi tiết đặt bàn',
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[800],
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey[900],
+                        letterSpacing: -0.3,
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 16),
+                SizedBox(height: 20),
                 
 
                 Row(
@@ -706,26 +841,34 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                 
 
                 Container(
-                  padding: EdgeInsets.all(12),
+                  padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey[200]!),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.people_outline, color: Colors.orange, size: 20),
-                      SizedBox(width: 10),
+                      Container(
+                        padding: EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.people_rounded, color: primaryColor, size: 20),
+                      ),
+                      SizedBox(width: 12),
                       Text(
                         'Số khách',
                         style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                          fontWeight: FontWeight.w500,
+                          fontSize: 15,
+                          color: Colors.grey[800],
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       Spacer(),
                       _buildCompactCounter(
-                        icon: Icons.remove,
+                        icon: Icons.remove_rounded,
                         onTap: _numberOfGuests > 1
                             ? () => setState(() => _numberOfGuests--)
                             : null,
@@ -736,14 +879,14 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                         child: Text(
                           '$_numberOfGuests',
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: primaryColor,
                           ),
                         ),
                       ),
                       _buildCompactCounter(
-                        icon: Icons.add,
+                        icon: Icons.add_rounded,
                         onTap: _numberOfGuests < 20
                             ? () => setState(() => _numberOfGuests++)
                             : null,
@@ -755,9 +898,7 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
             ),
           ),
           
-          SizedBox(height: 16),
-          
-
+          SizedBox(height: 20),
           Consumer<AuthProvider>(
             builder: (context, authProvider, child) {
               final user = authProvider.currentUser;
@@ -765,38 +906,55 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                              user?.phone?.isNotEmpty == true;
               
               return Container(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: hasInfo ? Colors.green.withOpacity(0.3) : Colors.orange.withOpacity(0.3),
+                    color: hasInfo ? Colors.green.withOpacity(0.2) : primaryColor.withOpacity(0.2),
+                    width: 1.5,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 20,
+                      offset: Offset(0, 4),
+                      spreadRadius: 0,
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          hasInfo ? Icons.check_circle : Icons.info_outline,
-                          color: hasInfo ? Colors.green : Colors.orange,
-                          size: 18,
+                        Container(
+                          width: 4,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: hasInfo ? Colors.green : primaryColor,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
-                        SizedBox(width: 6),
+                        SizedBox(width: 12),
+                        Icon(
+                          hasInfo ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                          color: hasInfo ? Colors.green : primaryColor,
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
                         Text(
                           'Thông tin liên hệ',
                           style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[800],
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey[900],
+                            letterSpacing: -0.3,
                           ),
                         ),
                       ],
                     ),
-                    SizedBox(height: 12),
-                    
-
+                    SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
@@ -806,23 +964,24 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                               Text(
                                 'Họ tên',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              SizedBox(height: 4),
+                              SizedBox(height: 6),
                               Text(
                                 user?.name ?? 'Chưa có',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w600,
-                                  color: user?.name != null ? Colors.grey[800] : Colors.orange,
+                                  color: user?.name != null ? Colors.grey[900] : primaryColor,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        SizedBox(width: 16),
+                        SizedBox(width: 20),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -830,17 +989,18 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                               Text(
                                 'Điện thoại',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              SizedBox(height: 4),
+                              SizedBox(height: 6),
                               Text(
                                 user?.phone ?? 'Chưa có',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w600,
-                                  color: user?.phone != null ? Colors.grey[800] : Colors.orange,
+                                  color: user?.phone != null ? Colors.grey[900] : primaryColor,
                                 ),
                               ),
                             ],
@@ -848,28 +1008,29 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                         ),
                       ],
                     ),
-                    
                     if (!hasInfo) ...[
-                      SizedBox(height: 10),
+                      SizedBox(height: 16),
                       Container(
-                        padding: EdgeInsets.all(8),
+                        padding: EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.orange[50],
-                          borderRadius: BorderRadius.circular(6),
+                          color: primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: primaryColor.withOpacity(0.2)),
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.warning_amber_rounded, 
-                              color: Colors.orange[700], 
-                              size: 14
+                              color: primaryColor, 
+                              size: 18
                             ),
-                            SizedBox(width: 6),
+                            SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 'Vui lòng cập nhật thông tin trong Tài khoản',
                                 style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.orange[700],
+                                  fontSize: 13,
+                                  color: primaryColor,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -883,46 +1044,64 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
             },
           ),
           
-          SizedBox(height: 16),
-          
-
+          SizedBox(height: 20),
           Container(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[200]!),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 20,
+                  offset: Offset(0, 4),
+                  spreadRadius: 0,
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.note_alt_outlined, color: Colors.orange, size: 18),
-                    SizedBox(width: 6),
+                    Container(
+                      width: 4,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: primaryColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Icon(Icons.note_alt_outlined, color: primaryColor, size: 20),
+                    SizedBox(width: 8),
                     Text(
                       'Yêu cầu đặc biệt',
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[800],
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey[900],
+                        letterSpacing: -0.3,
                       ),
                     ),
                     Spacer(),
                     Text(
                       '(Tùy chọn)',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: Colors.grey[500],
-                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 12),
+                SizedBox(height: 16),
                 TextField(
                   maxLines: 3,
-                  style: TextStyle(fontSize: 14),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[800],
+                  ),
                   decoration: InputDecoration(
                     hintText: 'VD: Gần cửa sổ, tránh thức ăn cay...',
                     hintStyle: TextStyle(
@@ -930,18 +1109,20 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                       fontSize: 13,
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(14),
                       borderSide: BorderSide(color: Colors.grey[300]!),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(14),
                       borderSide: BorderSide(color: Colors.grey[300]!),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.orange, width: 1.5),
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: primaryColor, width: 2),
                     ),
-                    contentPadding: EdgeInsets.all(12),
+                    contentPadding: EdgeInsets.all(16),
+                    filled: true,
+                    fillColor: Colors.grey[50],
                   ),
                   onChanged: (value) => _specialRequests = value,
                 ),
@@ -960,49 +1141,62 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
     required String value,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.grey[50],
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey[200]!),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: Colors.orange, size: 16),
-                SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
+    final primaryColor = Color(0xFFFF8A00);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(icon, color: primaryColor, size: 18),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    value,
+                  SizedBox(width: 10),
+                  Text(
+                    label,
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[800],
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                ),
-                Icon(Icons.edit_outlined, size: 14, color: Colors.grey[400]),
-              ],
-            ),
-          ],
+                ],
+              ),
+              SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey[900],
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.edit_rounded, size: 16, color: Colors.grey[400]),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1013,16 +1207,26 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
     required IconData icon,
     VoidCallback? onTap,
   }) {
+    final primaryColor = Color(0xFFFF8A00);
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 30,
-        height: 30,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
-          color: onTap != null ? Colors.orange : Colors.grey[300],
+          color: onTap != null ? primaryColor : Colors.grey[300],
           shape: BoxShape.circle,
+          boxShadow: onTap != null
+              ? [
+                  BoxShadow(
+                    color: primaryColor.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
-        child: Icon(icon, color: Colors.white, size: 16),
+        child: Icon(icon, color: Colors.white, size: 18),
       ),
     );
   }
@@ -1031,56 +1235,86 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
   Widget _buildMenuSelectionStep() {
     final productProvider = Provider.of<ProductProvider>(context);
     final categoryProvider = Provider.of<CategoryProvider>(context);
+    final primaryColor = Color(0xFFFF8A00);
     
     if (_isLoading) {
-      return Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(
+          color: primaryColor,
+        ),
+      );
     }
     
     if (productProvider.products.isEmpty) {
-
       Future.microtask(() => _loadProducts());
-      return Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(
+          color: primaryColor,
+        ),
+      );
     }
 
     final filteredProducts = _getFilteredProducts();
 
     return Column(
       children: [
-
         Container(
-          padding: EdgeInsets.all(16),
-          color: Colors.white,
+          padding: EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.restaurant, color: Colors.orange),
-                  SizedBox(width: 8),
+                  Container(
+                    width: 4,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: primaryColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  SizedBox(width: 12),
                   Text(
                     'Chọn món ăn',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey[900],
+                      letterSpacing: -0.4,
+                      height: 1.2,
+                    ),
                   ),
                 ],
               ),
-              SizedBox(height: 8),
+              SizedBox(height: 16),
               Container(
-                padding: EdgeInsets.all(12),
+                padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.orange[50],
-                  borderRadius: BorderRadius.circular(8),
+                  color: primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: primaryColor.withOpacity(0.2)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, size: 16, color: Colors.orange[700]),
-                    SizedBox(width: 8),
+                    Icon(Icons.info_outline_rounded, size: 18, color: primaryColor),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         '${_formatDate(_selectedDate)} • ${_selectedTime.format(context)} • $_numberOfGuests người',
                         style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.orange[700],
-                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                          color: primaryColor,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -1093,46 +1327,68 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
         
 
         Container(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: Colors.white,
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Danh mục món',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey[900],
+                  letterSpacing: -0.3,
                 ),
               ),
-              SizedBox(height: 12),
+              SizedBox(height: 16),
               Container(
                 height: 100,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  itemCount: categoryProvider.categories.length + 1, // +1 for All
+                  itemCount: categoryProvider.categories.length + 1,
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       final isAllSelected = _selectedCategoryId == 0;
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedCategoryId = isAllSelected ? null : 0;
-                          });
-                        },
-                        child: Container(
-                          width: 70,
-                          margin: EdgeInsets.only(right: 8),
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: isAllSelected ? Colors.orange : Colors.grey[50],
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isAllSelected ? Colors.orange : Colors.grey[300]!,
-                              width: 1,
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedCategoryId = isAllSelected ? null : 0;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            width: 80,
+                            margin: EdgeInsets.only(right: 12),
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isAllSelected ? primaryColor : Colors.grey[50],
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isAllSelected ? primaryColor : Colors.grey[200]!,
+                                width: isAllSelected ? 2 : 1,
+                              ),
+                              boxShadow: isAllSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: primaryColor.withOpacity(0.2),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
                             ),
-                          ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -1166,30 +1422,43 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                             ],
                           ),
                         ),
-                      );
-                    }
+                      ),
+                    );
+                  }
                     
                     final category = categoryProvider.categories[index - 1];
                     final isSelected = _selectedCategoryId == category.id;
                     
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedCategoryId = isSelected ? null : category.id;
-                        });
-                      },
-                      child: Container(
-                        width: 70,
-                        margin: EdgeInsets.only(right: 8),
-                        padding: EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: isSelected ? Colors.orange : Colors.grey[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected ? Colors.orange : Colors.grey[300]!,
-                            width: 1,
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedCategoryId = isSelected ? null : category.id;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          width: 80,
+                          margin: EdgeInsets.only(right: 12),
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? primaryColor : Colors.grey[50],
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isSelected ? primaryColor : Colors.grey[200]!,
+                              width: isSelected ? 2 : 1,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: primaryColor.withOpacity(0.2),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
                           ),
-                        ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -1212,8 +1481,9 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                           ],
                         ),
                       ),
-                    );
-                  },
+                    ),
+                  );
+                },
                 ),
               ),
             ],
@@ -1246,12 +1516,20 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                     return _ProductDineInItem(
                       product: product,
                       quantity: quantity,
-                      onQuantityChanged: (q) {
+                      onQuantityChanged: (q, {List<SelectedOption>? options, String? specialInstructions}) {
                         setState(() {
                           if (q <= 0) {
                             _cartItems.remove(product.id);
+                            _cartItemOptions.remove(product.id);
+                            _cartItemSpecialInstructions.remove(product.id);
                           } else {
                             _cartItems[product.id] = q;
+                            if (options != null) {
+                              _cartItemOptions[product.id] = options;
+                            }
+                            if (specialInstructions != null && specialInstructions.isNotEmpty) {
+                              _cartItemSpecialInstructions[product.id] = specialInstructions;
+                            }
                           }
                         });
                       },
@@ -1265,16 +1543,18 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
 
   Widget _buildBottomNavigation() {
     final canProceed = _canProceedToNextStep();
+    final primaryColor = Color(0xFFFF8A00);
     
     return Container(
-      padding: EdgeInsets.all(16),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: Offset(0, -2),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: Offset(0, -4),
+            spreadRadius: 0,
           ),
         ],
       ),
@@ -1287,17 +1567,18 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                 child: OutlinedButton(
                   onPressed: () => setState(() => _currentStep--),
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.orange),
-                    padding: EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: primaryColor, width: 1.5),
+                    padding: EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                   child: Text(
                     'Quay lại',
                     style: TextStyle(
-                      color: Colors.orange,
-                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
                     ),
                   ),
                 ),
@@ -1307,31 +1588,46 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
               flex: 2,
               child: _currentStep == 2 && _cartItems.isNotEmpty
                   ? _buildFinalSubmitButton()
-                  : ElevatedButton(
-                      onPressed: canProceed ? _handleNextStep : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        disabledBackgroundColor: Colors.grey[300],
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: canProceed ? 2 : 0,
+                  : Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: canProceed
+                            ? [
+                                BoxShadow(
+                                  color: primaryColor.withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: Offset(0, 4),
+                                ),
+                              ]
+                            : null,
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _currentStep == 2 ? 'Bỏ qua chọn món' : 'Tiếp tục',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                      child: ElevatedButton(
+                        onPressed: canProceed ? _handleNextStep : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          disabledBackgroundColor: Colors.grey[300],
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          SizedBox(width: 8),
-                          Icon(Icons.arrow_forward, color: Colors.white, size: 20),
-                        ],
+                          elevation: 0,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _currentStep == 2 ? 'Bỏ qua chọn món' : 'Tiếp tục',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20),
+                          ],
+                        ),
                       ),
                     ),
             ),
@@ -1343,43 +1639,58 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
 
   Widget _buildFinalSubmitButton() {
     final productProvider = Provider.of<ProductProvider>(context, listen: false);
+    final primaryColor = Color(0xFFFF8A00);
     final total = _cartItems.entries.fold<double>(0, (sum, e) {
       final p = productProvider.products.firstWhere((x) => x.id == e.key);
       return sum + p.basePrice * e.value;
     });
 
-    return ElevatedButton(
-      onPressed: _onSubmitReservation,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.orange,
-        padding: EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        elevation: 3,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Xác nhận đặt bàn',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withOpacity(0.3),
+            blurRadius: 12,
+            offset: Offset(0, 4),
           ),
-          if (_cartItems.isNotEmpty) ...[
-            SizedBox(height: 2),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _onSubmitReservation,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor,
+          padding: EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          elevation: 0,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             Text(
-              '${_cartItems.length} món • ${_formatCurrency(total)}',
+              'Xác nhận đặt bàn',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 12,
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                letterSpacing: 0.5,
               ),
             ),
+            if (_cartItems.isNotEmpty) ...[
+              SizedBox(height: 4),
+              Text(
+                '${_cartItems.length} món • ${_formatCurrency(total)}',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1394,7 +1705,7 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
         final user = authProvider.currentUser;
         return user?.name?.isNotEmpty == true && user?.phone?.isNotEmpty == true;
       case 2:
-        return true; // Có thể bỏ qua chọn món
+        return true;
       default:
         return false;
     }
@@ -1438,7 +1749,6 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
 
       
 
-      // Check if switching branches with items in cart
       if (cartProvider.needsBranchSwitchConfirmation(_selectedBranch!.id)) {
         final shouldSwitch = await _showBranchSwitchDialog(
           cartProvider.currentBranchName ?? 'previous branch',
@@ -1446,19 +1756,25 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
         );
         
         if (shouldSwitch != true) {
-          return; // User cancelled
+          return;
         }
         
-        // Clear old cart before adding to new branch
         await cartProvider.clearCartForBranchSwitch();
       }
       
       for (final e in _cartItems.entries) {
+        final productId = e.key;
+        final qty = e.value;
+        final options = _cartItemOptions[productId];
+        final specialInstructions = _cartItemSpecialInstructions[productId];
+        
         await cartProvider.addToCart(
           _selectedBranch!.id,
-          e.key,
-          quantity: e.value,
+          productId,
+          quantity: qty,
           orderType: 'dine_in',
+          selectedOptions: options,
+          specialInstructions: specialInstructions,
         );
       }
       
@@ -1617,7 +1933,7 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
 class _ProductDineInItem extends StatefulWidget {
   final Product product;
   final int quantity;
-  final ValueChanged<int> onQuantityChanged;
+  final Function(int, {List<SelectedOption>? options, String? specialInstructions}) onQuantityChanged;
 
   const _ProductDineInItem({
     required this.product,
@@ -1694,6 +2010,7 @@ Future<void> _showProductOptionsDialog() async {
           final double optionsModifier = ProductOptionService().calculateTotalPriceModifier(selectedOptions);
           final double itemTotal = basePrice + optionsModifier;
           final double grandTotal = itemTotal * quantity;
+          final primaryColor = Color(0xFFFF8A00);
 
           return DraggableScrollableSheet(
             initialChildSize: 0.9,
@@ -1717,7 +2034,6 @@ Future<void> _showProductOptionsDialog() async {
                 ),
                 child: Column(
                   children: [
-                    // Drag Handle
                     Container(
                       margin: EdgeInsets.only(top: 12, bottom: 8),
                       width: 40,
@@ -1728,18 +2044,15 @@ Future<void> _showProductOptionsDialog() async {
                       ),
                     ),
 
-                    // Scrollable Content
                     Expanded(
                       child: ListView(
                         controller: controller,
                         padding: EdgeInsets.zero,
                         children: [
-                          // Product Header Section
                           Container(
                             padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
                             child: Column(
                               children: [
-                                // Close Button
                                 Align(
                                   alignment: Alignment.centerRight,
                                   child: GestureDetector(
@@ -1761,7 +2074,6 @@ Future<void> _showProductOptionsDialog() async {
 
                                 SizedBox(height: 16),
 
-                                // Product Image
                                 Container(
                                   width: 120,
                                   height: 120,
@@ -1805,7 +2117,6 @@ Future<void> _showProductOptionsDialog() async {
 
                                 SizedBox(height: 20),
 
-                                // Product Name
                                 Text(
                                   widget.product.name,
                                   style: TextStyle(
@@ -1821,7 +2132,6 @@ Future<void> _showProductOptionsDialog() async {
 
                                 SizedBox(height: 8),
 
-                                // Branch Name
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -1844,12 +2154,11 @@ Future<void> _showProductOptionsDialog() async {
 
                                 SizedBox(height: 16),
 
-                                // Base Price
                                 Container(
                                   padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
-                                      colors: [Colors.orange[400]!, Colors.orange[600]!],
+                                      colors: [primaryColor.withOpacity(0.9), primaryColor],
                                     ),
                                     borderRadius: BorderRadius.circular(16),
                                   ),
@@ -1879,13 +2188,12 @@ Future<void> _showProductOptionsDialog() async {
                             ),
                           ),
 
-                          // Options Section
                           if (isLoadingOptions)
                             Container(
                               padding: EdgeInsets.all(40),
                               child: Center(
                                 child: CircularProgressIndicator(
-                                  color: Colors.orange,
+                                  color: primaryColor,
                                 ),
                               ),
                             )
@@ -1895,14 +2203,13 @@ Future<void> _showProductOptionsDialog() async {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Section Title
                                   Row(
                                     children: [
                                       Container(
                                         width: 4,
                                         height: 24,
                                         decoration: BoxDecoration(
-                                          color: Colors.orange,
+                                          color: primaryColor,
                                           borderRadius: BorderRadius.circular(2),
                                         ),
                                       ),
@@ -1919,7 +2226,6 @@ Future<void> _showProductOptionsDialog() async {
                                   ),
                                   SizedBox(height: 20),
 
-                                  // Options List
                                   ...productOptions.map((option) => _buildModernOptionWidget(
                                     option,
                                     selectedOptions,
@@ -1930,7 +2236,6 @@ Future<void> _showProductOptionsDialog() async {
                             ),
                           ],
 
-                          // Quantity Section
                           Container(
                             margin: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                             padding: EdgeInsets.all(20),
@@ -1953,7 +2258,6 @@ Future<void> _showProductOptionsDialog() async {
                                 SizedBox(height: 16),
                                 Row(
                                   children: [
-                                    // Decrease Button
                                     GestureDetector(
                                       onTap: () {
                                         if (quantity > 1) {
@@ -1969,25 +2273,24 @@ Future<void> _showProductOptionsDialog() async {
                                           color: quantity > 1 ? Colors.white : Colors.grey[100],
                                           borderRadius: BorderRadius.circular(12),
                                           border: Border.all(
-                                            color: quantity > 1 ? Colors.orange : Colors.grey[300]!,
+                                            color: quantity > 1 ? primaryColor : Colors.grey[300]!,
                                             width: 2,
                                           ),
                                         ),
                                         child: Icon(
                                           Icons.remove,
                                           size: 20,
-                                          color: quantity > 1 ? Colors.orange : Colors.grey[400],
+                                          color: quantity > 1 ? primaryColor : Colors.grey[400],
                                         ),
                                       ),
                                     ),
 
-                                    // Quantity Display
                                     Expanded(
                                       child: Center(
                                         child: Container(
                                           padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                                           decoration: BoxDecoration(
-                                            color: Colors.orange.withOpacity(0.1),
+                                            color: primaryColor.withOpacity(0.1),
                                             borderRadius: BorderRadius.circular(12),
                                           ),
                                           child: Text(
@@ -1995,14 +2298,13 @@ Future<void> _showProductOptionsDialog() async {
                                             style: TextStyle(
                                               fontSize: 24,
                                               fontWeight: FontWeight.bold,
-                                              color: Colors.orange,
+                                              color: primaryColor,
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
 
-                                    // Increase Button
                                     GestureDetector(
                                       onTap: () {
                                         setState(() {
@@ -2014,12 +2316,12 @@ Future<void> _showProductOptionsDialog() async {
                                         height: 44,
                                         decoration: BoxDecoration(
                                           gradient: LinearGradient(
-                                            colors: [Colors.orange[400]!, Colors.orange[600]!],
+                                            colors: [primaryColor.withOpacity(0.9), primaryColor],
                                           ),
                                           borderRadius: BorderRadius.circular(12),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.orange.withOpacity(0.3),
+                                              color: primaryColor.withOpacity(0.3),
                                               blurRadius: 8,
                                               offset: Offset(0, 4),
                                             ),
@@ -2038,7 +2340,6 @@ Future<void> _showProductOptionsDialog() async {
                             ),
                           ),
 
-                          // Special Instructions
                           Container(
                             margin: EdgeInsets.symmetric(horizontal: 24),
                             child: Column(
@@ -2099,12 +2400,11 @@ Future<void> _showProductOptionsDialog() async {
                             ),
                           ),
 
-                          SizedBox(height: 120), // Space for bottom bar
+                          SizedBox(height: 120),
                         ],
                       ),
                     ),
 
-                    // Bottom Action Bar
                     Container(
                       padding: EdgeInsets.fromLTRB(24, 16, 24, 24),
                       decoration: BoxDecoration(
@@ -2123,7 +2423,6 @@ Future<void> _showProductOptionsDialog() async {
                       child: SafeArea(
                         child: Row(
                           children: [
-                            // Total Price Column
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2163,18 +2462,17 @@ Future<void> _showProductOptionsDialog() async {
 
                             SizedBox(width: 16),
 
-                            // Add to Cart Button
                             Expanded(
                               child: Container(
                                 height: 56,
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: [Colors.orange[400]!, Colors.orange[600]!],
+                                    colors: [primaryColor.withOpacity(0.9), primaryColor],
                                   ),
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.orange.withOpacity(0.4),
+                                      color: primaryColor.withOpacity(0.4),
                                       blurRadius: 12,
                                       offset: Offset(0, 6),
                                     ),
@@ -2184,13 +2482,74 @@ Future<void> _showProductOptionsDialog() async {
                                   color: Colors.transparent,
                                   child: InkWell(
                                     onTap: () async {
-                                      Navigator.of(context).pop();
-                                      widget.onQuantityChanged(quantity);
-                                      setState(() {
-                                        _tempQuantity = quantity;
-                                        _selectedOptions = selectedOptions;
-                                        _showOptions = false;
-                                      });
+                                      if (quantity <= 0) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Vui lòng chọn số lượng'),
+                                            backgroundColor: Color(0xFFFF8A00),
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      
+                                      final quickOrderState = context.findAncestorStateOfType<_QuickOrderScreenState>();
+                                      if (quickOrderState == null || quickOrderState._selectedBranch == null) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Vui lòng chọn chi nhánh trước'),
+                                            backgroundColor: Color(0xFFFF8A00),
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      
+                                      try {
+                                        final cartProvider = Provider.of<CartProvider>(context, listen: false);
+                                        
+                                        await cartProvider.addToCart(
+                                          quickOrderState._selectedBranch!.id,
+                                          widget.product.id,
+                                          quantity: quantity,
+                                          orderType: 'dine_in',
+                                          selectedOptions: selectedOptions.isNotEmpty ? selectedOptions : null,
+                                          specialInstructions: (specialRequest?.isNotEmpty ?? false) ? specialRequest : null,
+                                        );
+                                        
+                                        Navigator.of(context).pop();
+                                        widget.onQuantityChanged(
+                                          quantity,
+                                          options: selectedOptions,
+                                          specialInstructions: (specialRequest?.isNotEmpty ?? false) ? specialRequest : null,
+                                        );
+                                        setState(() {
+                                          _tempQuantity = quantity;
+                                          _selectedOptions = selectedOptions;
+                                          _showOptions = false;
+                                        });
+                                        
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Row(
+                                              children: [
+                                                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                                SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text('Đã thêm vào giỏ hàng'),
+                                                ),
+                                              ],
+                                            ),
+                                            backgroundColor: Colors.green,
+                                            duration: Duration(seconds: 2),
+                                          ),
+                                        );
+                                      } catch (e) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Lỗi: ${e.toString()}'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
                                     },
                                     borderRadius: BorderRadius.circular(16),
                                     child: Center(
@@ -2234,7 +2593,6 @@ Future<void> _showProductOptionsDialog() async {
 }
 
 
-  // Modern Option Widget
   Widget _buildModernOptionWidget(
     ProductOptionType option,
     List<SelectedOption> selectedOptions,
@@ -2256,7 +2614,6 @@ Future<void> _showProductOptionsDialog() async {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Option Title
           Row(
             children: [
               Text(
@@ -2311,7 +2668,6 @@ Future<void> _showProductOptionsDialog() async {
           
           SizedBox(height: 12),
 
-          // Option Values
           if (option.type == 'select')
             Column(
               children: option.values
@@ -2347,7 +2703,6 @@ Future<void> _showProductOptionsDialog() async {
     );
   }
 
-  // Modern Select Option
   Widget _buildModernSelectOption(
     ProductOptionValue value,
     SelectedOption currentSelection,
@@ -2355,6 +2710,7 @@ Future<void> _showProductOptionsDialog() async {
     List<SelectedOption> selectedOptions,
     StateSetter setState,
   ) {
+    final primaryColor = Color(0xFFFF8A00);
     final isSelected = currentSelection.selectedValueIds.contains(value.id);
 
     return GestureDetector(
@@ -2374,31 +2730,30 @@ Future<void> _showProductOptionsDialog() async {
       child: Container(
         width: double.infinity,
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(
-                  colors: [Colors.orange[400]!, Colors.orange[600]!],
-                )
-              : null,
-          color: isSelected ? null : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? Colors.orange[600]! : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? LinearGradient(
+                    colors: [primaryColor.withOpacity(0.9), primaryColor],
+                  )
+                : null,
+            color: isSelected ? null : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? primaryColor : Colors.grey[300]!,
+              width: isSelected ? 2 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: primaryColor.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.orange.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: Offset(0, 4),
-                  ),
-                ]
-              : null,
-        ),
         child: Row(
           children: [
-            // Radio Button
             Container(
               width: 20,
               height: 20,
@@ -2426,7 +2781,6 @@ Future<void> _showProductOptionsDialog() async {
 
             SizedBox(width: 12),
 
-            // Value Text
             Expanded(
               child: Text(
                 value.value,
@@ -2438,7 +2792,6 @@ Future<void> _showProductOptionsDialog() async {
               ),
             ),
 
-            // Price Modifier
             if (value.priceModifier != 0)
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -2465,7 +2818,6 @@ Future<void> _showProductOptionsDialog() async {
     );
   }
 
-  // Modern Checkbox Option
   Widget _buildModernCheckboxOption(
     ProductOptionValue value,
     SelectedOption currentSelection,
@@ -2473,6 +2825,7 @@ Future<void> _showProductOptionsDialog() async {
     List<SelectedOption> selectedOptions,
     StateSetter setState,
   ) {
+    final primaryColor = Color(0xFFFF8A00);
     final isSelected = currentSelection.selectedValueIds.contains(value.id);
 
     return GestureDetector(
@@ -2492,28 +2845,28 @@ Future<void> _showProductOptionsDialog() async {
       child: Container(
         width: double.infinity,
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(
-                  colors: [Colors.orange[400]!, Colors.orange[600]!],
-                )
-              : null,
-          color: isSelected ? null : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? Colors.orange[600]! : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? LinearGradient(
+                    colors: [primaryColor.withOpacity(0.9), primaryColor],
+                  )
+                : null,
+            color: isSelected ? null : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? primaryColor : Colors.grey[300]!,
+              width: isSelected ? 2 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: primaryColor.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.orange.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: Offset(0, 4),
-                  ),
-                ]
-              : null,
-        ),
         child: Row(
           children: [
             Icon(
@@ -2951,7 +3304,7 @@ Widget _buildModernQuantityButton({
         currentSelection,
         option,
         value,
-        true, // isSelected
+        true,
       );
 
       final index = _selectedOptions.indexWhere((s) => s.optionTypeId == optionId);
@@ -2981,7 +3334,7 @@ Widget _buildModernQuantityButton({
       currentSelection,
       option,
       value,
-      !isCurrentlySelected, // toggle selection
+      !isCurrentlySelected,
     );
 
     final index = _selectedOptions.indexWhere((s) => s.optionTypeId == optionId);

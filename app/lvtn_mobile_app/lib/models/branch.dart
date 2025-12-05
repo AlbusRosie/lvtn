@@ -1,8 +1,6 @@
 class Branch {
   final int id;
   final String name;
-  final int? provinceId;
-  final int? districtId;
   final String? addressDetail;
   final String phone;
   final String? email;
@@ -12,6 +10,10 @@ class Branch {
   final int? closeHours;
   final String? description;
   final String? image;
+  final double? latitude;
+  final double? longitude;
+  /// Khoảng cách (km) từ vị trí người dùng, trả về bởi API /branches/nearby
+  final double? distanceKm;
   final DateTime createdAt;
 
   String get address => addressDetail ?? 'Địa chỉ không xác định';
@@ -19,8 +21,6 @@ class Branch {
   Branch({
     required this.id,
     required this.name,
-    this.provinceId,
-    this.districtId,
     this.addressDetail,
     required this.phone,
     this.email,
@@ -30,6 +30,9 @@ class Branch {
     this.closeHours,
     this.description,
     this.image,
+    this.latitude,
+    this.longitude,
+    this.distanceKm,
     required this.createdAt,
   });
 
@@ -37,8 +40,6 @@ class Branch {
     return Branch(
       id: json['id'],
       name: json['name'].toString(),
-      provinceId: json['province_id'],
-      districtId: json['district_id'],
       addressDetail: json['address_detail'],
       phone: json['phone'],
       email: json['email'],
@@ -48,6 +49,9 @@ class Branch {
       closeHours: json['close_hours'],
       description: json['description'],
       image: json['image'],
+      latitude: json['latitude'] != null ? double.parse(json['latitude'].toString()) : null,
+      longitude: json['longitude'] != null ? double.parse(json['longitude'].toString()) : null,
+      distanceKm: json['distance_km'] != null ? double.parse(json['distance_km'].toString()) : null,
       createdAt: DateTime.parse(json['created_at']),
     );
   }
@@ -56,8 +60,6 @@ class Branch {
     return {
       'id': id,
       'name': name,
-      'province_id': provinceId,
-      'district_id': districtId,
       'address_detail': addressDetail,
       'phone': phone,
       'email': email,
@@ -67,6 +69,9 @@ class Branch {
       'close_hours': closeHours,
       'description': description,
       'image': image,
+      'latitude': latitude,
+      'longitude': longitude,
+      'distance_km': distanceKm,
       'created_at': createdAt.toIso8601String(),
     };
   }

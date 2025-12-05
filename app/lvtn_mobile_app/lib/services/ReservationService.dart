@@ -12,23 +12,51 @@ class ReservationService {
     required String endDate,
   }) async {
     try {
+      final uri = Uri.parse('$_baseUrl/reservations/table/$tableId/schedule')
+          .replace(queryParameters: {
+        'start_date': startDate,
+        'end_date': endDate,
+      });
+      
       final response = await http.get(
-        Uri.parse('$_baseUrl/reservations/table/$tableId/schedule'),
+        uri,
         headers: {
           'Content-Type': 'application/json',
         },
       );
 
+      print('ReservationService.getTableSchedule: tableId=$tableId, startDate=$startDate, endDate=$endDate');
+      print('ReservationService.getTableSchedule: statusCode=${response.statusCode}');
+      print('ReservationService.getTableSchedule: response=${response.body}');
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final reservations = (data is Map && data['data'] != null)
-            ? data['data']['reservations']
-            : data['reservations'];
-        return List<Map<String, dynamic>>.from(reservations ?? []);
+        
+        List<dynamic>? reservations;
+        if (data is Map) {
+          if (data['data'] != null && data['data'] is Map) {
+            reservations = data['data']['reservations'];
+          } else if (data['reservations'] != null) {
+            reservations = data['reservations'];
+          } else if (data['data'] is List) {
+            reservations = data['data'];
+          }
+        }
+        
+        final result = List<Map<String, dynamic>>.from(
+          reservations is List ? reservations : []
+        );
+        print('ReservationService.getTableSchedule: found ${result.length} items (reservations/schedules/orders)');
+        if (result.isNotEmpty) {
+          print('ReservationService.getTableSchedule: first item keys=${result[0].keys.toList()}');
+        }
+        return result;
       } else {
+        print('ReservationService.getTableSchedule: Error status ${response.statusCode}, body=${response.body}');
         return [];
       }
     } catch (e) {
+      print('ReservationService.getTableSchedule: Exception $e');
       return [];
     }
   }
@@ -101,7 +129,6 @@ class ReservationService {
     }
   }
 
-  // Quick Reservation - Backend will auto-assign suitable table
   Future<Map<String, dynamic>?> createQuickReservation({
     required String token,
     required int branchId,
@@ -247,5 +274,68 @@ class ReservationService {
     }
     
     return mergedSlots;
+  }
+
+  static Future<List<Map<String, dynamic>>> getOverdueReservations({
+    int minutes = 30,
+    String? token,
+  }) async {
+    try {
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+      };
+      
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await http.get(
+        Uri.parse('$_baseUrl/reservations/overdue?minutes=$minutes'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final reservations = (data is Map && data['data'] != null)
+            ? data['data']['reservations']
+            : data['reservations'];
+        return List<Map<String, dynamic>>.from(reservations ?? []);
+      } else {
+        return [];
+      }
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getReservationsNeedingWarning({
+    String? token,
+  }) async {
+    try {
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+      };
+      
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await http.get(
+        Uri.parse('$_baseUrl/reservations/warning'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final reservations = (data is Map && data['data'] != null)
+            ? data['data']['reservations']
+            : data['reservations'];
+        return List<Map<String, dynamic>>.from(reservations ?? []);
+      } else {
+        return [];
+      }
+    } catch (e) {
+      return [];
+    }
   }
 }

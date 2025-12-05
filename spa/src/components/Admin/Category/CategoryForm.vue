@@ -1,397 +1,289 @@
 <template>
   <div class="category-form">
-    <h2>{{ isEditing ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới' }}</h2>
-
-    <form class="form" @keydown.enter.prevent>
-      <div class="form-group">
-        <label for="name">Tên danh mục *</label>
-        <input
-          id="name"
-          v-model="form.name"
-          type="text"
-          required
-          placeholder="VD: Món chính, Món khai vị, Tráng miệng..."
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="description">Mô tả</label>
-        <textarea
-          id="description"
-          v-model="form.description"
-          rows="3"
-          placeholder="Mô tả chi tiết về danh mục..."
-        ></textarea>
-      </div>
-
-      <div class="form-group">
-        <label for="image">Hình ảnh danh mục</label>
-        <div class="image-upload-section">
-          <div class="current-image" v-if="currentImageUrl">
-            <img :src="currentImageUrl" alt="Current image" class="preview-image" />
-            <button type="button" @click="removeImage" class="remove-image-btn">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          <div class="image-upload" v-else>
+    <form class="form" @keydown.enter.prevent @submit.prevent="handleSubmit">
+      <!-- Basic Info Card -->
+      <div class="info-card">
+        <div class="card-header">
+          <i class="fas fa-info-circle"></i>
+          <h3>Basic Information</h3>
+        </div>
+        <div class="card-content">
+          <div class="form-group">
+            <label>
+              <i class="fas fa-tag"></i>
+              Category Name <span class="required">*</span>
+            </label>
             <input
-              ref="imageInput"
-              id="image"
-              type="file"
-              accept="image/*"
-              @change="handleImageChange"
-              style="display: none"
+              v-model="form.name"
+              type="text"
+              class="form-control"
+              required
+              placeholder="E.g: Main Course, Appetizer, Dessert..."
             />
-            <button type="button" @click="$refs.imageInput.click()" class="upload-btn">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <span>Chọn hình ảnh</span>
-            </button>
-          </div>
-          <div class="image-info" v-if="selectedImage">
-            <p class="image-name">{{ selectedImage.name }}</p>
-            <p class="image-size">{{ formatFileSize(selectedImage.size) }}</p>
           </div>
         </div>
       </div>
-
-
-      <div class="form-actions">
-        <button type="button" @click="$emit('cancel')" class="btn btn-secondary">
-          Hủy
-        </button>
-        <button type="button" @click="handleSubmit" class="btn btn-primary" :disabled="loading">
-          <span v-if="loading">Đang xử lý...</span>
-          <span v-else>{{ isEditing ? 'Cập nhật' : 'Tạo danh mục' }}</span>
-        </button>
-      </div>
-    </form>
-  </div>
-</template>
-
-<script>
-export default {
-  name: 'CategoryForm',
-  props: {
-    category: {
-      type: Object,
-      default: null
-    },
-    loading: {
-      type: Boolean,
-      default: false
-    }
-  },
-  data() {
-    return {
-      form: {
-        name: '',
-        description: ''
-      },
-      selectedImage: null,
-      currentImageUrl: null
-    };
-  },
-  computed: {
-    isEditing() {
-      return !!this.category;
-    }
-  },
-  watch: {
-    category: {
-      handler(newCategory) {
-        if (newCategory) {
-          this.form = {
-            name: newCategory.name,
-            description: newCategory.description || ''
-          };
-          this.currentImageUrl = this.getImageUrl(newCategory.image);
-        } else {
-          this.resetForm();
-        }
-      },
-      immediate: true
-    }
-  },
-  methods: {
-    resetForm() {
-      this.form = {
-        name: '',
-        description: ''
-      };
-      this.selectedImage = null;
-      this.currentImageUrl = null;
-    },
-
-    getImageUrl(imagePath) {
-      if (!imagePath) return null;
-      // Nếu đường dẫn đã có http, trả về nguyên
-      if (imagePath.startsWith('http')) return imagePath;
-      // Nếu đường dẫn bắt đầu bằng /public, thêm domain
-      if (imagePath.startsWith('/public')) {
-        return `${window.location.origin}${imagePath}`;
-      }
-      // Mặc định thêm /public/uploads/
-      return `${window.location.origin}/public/uploads/${imagePath}`;
-    },
-
-    handleImageChange(event) {
-      const file = event.target.files[0];
-      if (file) {
-        // Kiểm tra kích thước file (5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          if (this.$toast) {
-            this.$toast.error('Kích thước file không được vượt quá 5MB');
-          }
-          return;
-        }
-
-        // Kiểm tra loại file
-        if (!file.type.startsWith('image/')) {
-          if (this.$toast) {
-            this.$toast.error('Vui lòng chọn file hình ảnh');
-          }
-          return;
-        }
-
-        this.selectedImage = file;
-        this.currentImageUrl = URL.createObjectURL(file);
-      }
-    },
-
-    removeImage() {
-      this.selectedImage = null;
-      this.currentImageUrl = null;
-      if (this.$refs.imageInput) {
-        this.$refs.imageInput.value = '';
-      }
-    },
-
-    formatFileSize(bytes) {
-      if (bytes === 0) return '0 Bytes';
-      const k = 1024;
-      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    },
-
-    handleSubmit() {
-      if (!this.form.name || !this.form.name.trim()) {
-        if (this.$toast) {
-          this.$toast.error('Vui lòng nhập tên danh mục');
-        }
-        return;
-      }
-
-      const formData = { 
-        ...this.form,
-        imageFile: this.selectedImage
-      };
-      this.$emit('submit', formData);
-    }
-  }
-};
-</script>
-
-<style scoped>
-.category-form {
-  background: white;
-  padding: 24px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      <!-- Image Card -->
+      <div class="info-card">
+        <div class="card-header">
+          <i class="fas fa-image"></i>
+          <h3>Category Image</h3>
+        </div>
+        <div class="card-content">
+          <div class="form-row">
+            <div class="form-group">
+              <label>
+                <i class="fas fa-align-left"></i>
+                Description
+              </label>
+              <textarea
+                v-model="form.description"
+                class="form-control"
+                rows="2"
+                placeholder="Detailed description of the category..."
+              ></textarea>
+            </div>
+            <div class="form-group">
+              <label>
+                <i class="fas fa-image"></i>
+                Image
+              </label>
+              <div class="image-upload-container">
+                <input
+                  ref="imageInput"
+                  type="file"
+                  accept="image
+.info-card {
+  background: #FAFBFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 0;
 }
-
-.category-form h2 {
-  margin: 0 0 24px 0;
-  color: #333;
-  font-size: 1.5rem;
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #FFF7ED;
+  border-bottom: 1px solid #FED7AA;
 }
-
-.form {
+.card-header i {
+  color: #F59E0B;
+  font-size: 14px;
+}
+.card-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1E293B;
+  letter-spacing: -0.2px;
+}
+.card-content {
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
-
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-bottom: 0;
 }
-
-.form-group label {
-  font-weight: 500;
-  color: #374151;
-  font-size: 0.9rem;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  transition: border-color 0.2s ease;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.form-group textarea {
-  resize: vertical;
-  min-height: 80px;
-}
-
-.form-actions {
+.form-row .form-group {
+  height: 100%;
   display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 8px;
+  flex-direction: column;
 }
-
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
+.form-row .form-group .form-control {
+  flex: 1;
+}
+.form-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6B7280;
+}
+.form-group label i {
+  color: #FF8C42;
+  font-size: 12px;
+}
+.required {
+  color: #EF4444;
+  font-weight: 700;
+}
+.form-control {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+  font-size: 14px;
+  background: white;
+  color: #1a1a1a;
   font-weight: 500;
-  cursor: pointer;
   transition: all 0.2s ease;
 }
-
-.btn:hover:not(:disabled) {
-  transform: translateY(-1px);
+.form-control:focus {
+  outline: none;
+  border-color: #FF8C42;
+  box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.1);
+  background: white;
 }
-
+.form-control::placeholder {
+  color: #9CA3AF;
+  font-weight: 400;
+}
+.form-control textarea {
+  resize: none;
+  height: 100%;
+  min-height: 120px;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 24px;
+  border-top: 2px solid #F0E6D9;
+}
+.btn {
+  padding: 12px 24px;
+  border: 2px solid;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-cancel {
+  background: white;
+  color: #6B7280;
+  border-color: #E5E7EB;
+}
+.btn-cancel:hover:not(:disabled) {
+  background: #F9FAFB;
+  border-color: #D1D5DB;
+  color: #4B5563;
+}
+.btn-submit {
+  background: white;
+  color: #F59E0B;
+  border-color: #F59E0B;
+}
+.btn-submit:hover:not(:disabled) {
+  background: #FFFBEB;
+  border-color: #D97706;
+  color: #D97706;
+}
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
 }
-
-.btn-primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.btn-secondary {
-  background: #6b7280;
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #4b5563;
-}
-
-.image-upload-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.current-image {
+.image-upload-container {
   position: relative;
-  width: 120px;
-  height: 120px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 2px solid #e5e7eb;
+  border: 2px dashed #E5E5E5;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  background: #FAFAFA;
+  height: 100%;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-
-.preview-image {
+.image-upload-container:hover {
+  border-color: #FF8C42;
+  background: #FFF9F5;
+}
+.image-input {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.image-preview {
+  position: relative;
+  display: inline-block;
+}
+.image-preview img {
+  max-width: 100%;
+  max-height: 180px;
+  border-radius: 12px;
+  border: 2px solid #F0E6D9;
   object-fit: cover;
 }
-
 .remove-image-btn {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  background: rgba(239, 68, 68, 0.9);
+  top: -8px;
+  right: -8px;
+  background: #EF4444;
   color: white;
-  border: none;
+  border: 2px solid white;
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 12px;
-  transition: background-color 0.2s ease;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
-
 .remove-image-btn:hover {
-  background: rgba(220, 38, 38, 1);
+  background: #DC2626;
+  transform: scale(1.1);
 }
-
-.image-upload {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.upload-btn {
+.image-placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 20px;
-  border: 2px dashed #d1d5db;
-  border-radius: 8px;
-  background: #f9fafb;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 120px;
+  gap: 12px;
+  color: #9CA3AF;
 }
-
-.upload-btn:hover {
-  border-color: #3b82f6;
-  background: #eff6ff;
-  color: #3b82f6;
+.image-placeholder i {
+  font-size: 48px;
+  color: #D1D5DB;
 }
-
-.upload-btn i {
-  font-size: 1.5rem;
-}
-
-.upload-btn span {
-  font-size: 0.9rem;
+.image-placeholder span {
+  font-size: 14px;
   font-weight: 500;
 }
-
 .image-info {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px 12px;
-  background: #f3f4f6;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  color: #6B7280;
+  font-size: 12px;
+  text-align: center;
+  justify-content: center;
 }
-
-.image-name {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #374151;
-  word-break: break-all;
-}
-
-.image-size {
-  margin: 0;
-  font-size: 0.8rem;
-  color: #6b7280;
+.image-info i {
+  color: #9CA3AF;
+  font-size: 12px;
 }
 </style>

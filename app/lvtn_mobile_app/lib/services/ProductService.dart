@@ -17,11 +17,14 @@ class ProductService {
     }
   }
 
-  Future<Map<String, dynamic>> getProductsWithMetadata({int? categoryId, int? branchId}) async {
+  Future<Map<String, dynamic>> getProductsWithMetadata({int? categoryId, int? branchId, int page = 1, int limit = 20}) async {
     try {
       String endpoint = ApiConstants.products;
       
-      Map<String, String> queryParams = {};
+      Map<String, String> queryParams = {
+        'page': page.toString(),
+        'limit': limit.toString(),
+      };
       if (categoryId != null) {
         queryParams['category_id'] = categoryId.toString();
       }
@@ -65,9 +68,21 @@ class ProductService {
 
   Future<List<Product>> getBranchProducts(int branchId, {int? categoryId}) async {
     try {
+      final result = await getBranchProductsWithMetadata(branchId, categoryId: categoryId);
+      final products = result['products'] as List<dynamic>? ?? [];
+      return products.map((json) => Product.fromJson(json)).toList();
+    } catch (error) {
+      throw Exception('Không thể tải sản phẩm của chi nhánh: ${error.toString()}');
+    }
+  }
+
+  Future<Map<String, dynamic>> getBranchProductsWithMetadata(int branchId, {int? categoryId, int page = 1, int limit = 20}) async {
+    try {
       String endpoint = ApiConstants.products;
       Map<String, String> queryParams = {
         'branch_id': branchId.toString(),
+        'page': page.toString(),
+        'limit': limit.toString(),
       };
       
       if (categoryId != null) {
@@ -81,17 +96,52 @@ class ProductService {
       }
       final response = await ApiService().get(endpoint);
       List<dynamic> products = [];
+      Map<String, dynamic>? metadata;
+      
       if (response is Map<String, dynamic>) {
         if (response.containsKey('products')) {
           products = response['products'] as List<dynamic>? ?? [];
-        } else {
-          products = response as List<dynamic>? ?? [];
+          metadata = response['metadata'] as Map<String, dynamic>?;
+        } 
+        else if (response.containsKey('data')) {
+          final data = response['data'];
+          if (data is Map<String, dynamic>) {
+            if (data.containsKey('products')) {
+              products = data['products'] as List<dynamic>? ?? [];
+              metadata = data['metadata'] as Map<String, dynamic>?;
+            }
+          } else if (data is List) {
+            products = data;
+          }
+        }
+        else {
+          for (var value in response.values) {
+            if (value is List) {
+              products = value;
+              break;
+            }
+          }
         }
       } else if (response is List) {
         products = response;
       }
       
-      return products.map((json) => Product.fromJson(json)).toList();
+      print('BranchMenuScreen: Loaded ${products.length} products for branch $branchId (page $page)');
+      if (products.isEmpty) {
+        print('Warning: No products found in response for branch $branchId');
+        print('Response type: ${response.runtimeType}');
+        if (response is Map) {
+          print('Response keys: ${response.keys}');
+          if (response.containsKey('data')) {
+            print('Data type: ${response['data'].runtimeType}');
+          }
+        }
+      }
+      
+      return {
+        'products': products.map((json) => Product.fromJson(json)).toList(),
+        'metadata': metadata,
+      };
     } catch (error) {
       throw Exception('Không thể tải sản phẩm của chi nhánh: ${error.toString()}');
     }

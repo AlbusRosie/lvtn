@@ -1,50 +1,1 @@
-<script setup>
-import { ref } from 'vue';
-
-const props = defineProps({
-  searchType: {
-    type: String,
-    default: 'name'
-  }
-});
-
-const model = defineModel({
-  type: String,
-  default: '',
-});
-
-const searchTypes = [
-  { value: 'name', label: 'Tên' },
-  { value: 'phone', label: 'Điện thoại' },
-  { value: 'email', label: 'Email' }
-];
-
-const selectedType = ref(props.searchType);
-</script>
-
-<template>
-  <div class="input-group">
-    <select
-      class="form-select"
-      style="max-width: 120px;"
-      v-model="selectedType"
-    >
-      <option v-for="type in searchTypes" :key="type.value" :value="type.value">
-        {{ type.label }}
-      </option>
-    </select>
-    <input
-      type="text"
-      class="form-control px-3"
-      :placeholder="`Nhập ${searchTypes.find(t => t.value === selectedType)?.label?.toLowerCase()} cần tìm`"
-      v-model="model"
-    />
-    <button
-      class="btn btn-outline-secondary"
-      type="button"
-      @click="$emit('submit', selectedType)"
-    >
-      <i class="fas fa-search"></i>
-    </button>
-  </div>
-</template>
+<script setup>import { ref, watch } from 'vue';const props = defineProps({  searchType: {    type: String,    default: 'name'  }});const model = defineModel({  type: String,  default: '',});const searchTypes = [  { value: 'name', label: 'Tên' },  { value: 'phone', label: 'Điện thoại' },  { value: 'email', label: 'Email' },  { value: 'username', label: 'Username' }];const selectedType = ref(props.searchType);const emit = defineEmits(['submit']);watch(selectedType, (newType) => {  emit('submit', newType);});function handleSubmit() {  emit('submit', selectedType.value);}function clearSearch() {  model.value = '';  emit('submit', selectedType.value);}</script><template>  <div class="search-container">    <div class="input-group">      <select        class="form-select search-type-select"        v-model="selectedType"      >        <option v-for="type in searchTypes" :key="type.value" :value="type.value">          {{ type.label }}        </option>      </select>      <input        type="text"        class="form-control search-input"        :placeholder="`Nhập ${searchTypes.find(t => t.value === selectedType)?.label?.toLowerCase()} cần tìm`"        v-model="model"        @keyup.enter="handleSubmit"      />      <button        v-if="model"        class="btn btn-outline-secondary clear-btn"        type="button"        @click="clearSearch"        title="Xóa tìm kiếm"      >        <i class="fas fa-times"></i>      </button>      <button        class="btn btn-primary search-btn"        type="button"        @click="handleSubmit"        title="Tìm kiếm"      >        <i class="fas fa-search"></i>      </button>    </div>  </div></template><style scoped>.search-container {  width: 100%;}.input-group {  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  border-radius: 0.5rem;  overflow: hidden;}.search-type-select {  max-width: 130px;  border-right: none;  background-color: #f8f9fa;  font-weight: 500;}.search-type-select:focus {  border-color: #86b7fe;  box-shadow: none;}.search-input {  border-left: none;  border-right: none;  padding: 0.75rem 1rem;}.search-input:focus {  border-color: #86b7fe;  box-shadow: none;}.clear-btn {  border-left: none;  border-right: none;  color: #6c757d;}.clear-btn:hover {  color: #dc3545;  background-color: #f8f9fa;}.search-btn {  border-left: none;}.search-btn:hover {  background-color: #0b5ed7;  border-color: #0a58ca;}@media (max-width: 768px) {  .search-type-select {    max-width: 100px;    font-size: 0.875rem;  }  .search-input {    padding: 0.5rem 0.75rem;    font-size: 0.875rem;  }  .btn {    padding: 0.5rem 0.75rem;  }}</style>

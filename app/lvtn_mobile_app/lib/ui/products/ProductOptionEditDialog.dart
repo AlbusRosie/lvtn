@@ -68,10 +68,10 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
             final data = jsonDecode(response.body);
             _basePrice = double.tryParse(data['data']['base_price'].toString()) ?? widget.cartItem.price;
           } else {
-            _basePrice = widget.cartItem.price; // Fallback
+            _basePrice = widget.cartItem.price;
           }
         } catch (e) {
-          _basePrice = widget.cartItem.price; // Fallback
+          _basePrice = widget.cartItem.price;
         }
       } else {
         _basePrice = widget.cartItem.price;
@@ -200,15 +200,10 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
   String _cleanSpecialInstructions(String instructions) {
     if (instructions.isEmpty) return '';
     
-    // Check if it's JSON data (auto-generated from options)
     if (instructions.trim().startsWith('{') || instructions.trim().startsWith('[')) {
-      // If it's JSON data, it means it was auto-generated from options
-      // Return empty string so user can write their own instructions
       return '';
     }
     
-    // If it's plain text, it means user wrote it themselves
-    // Return as is
     return instructions;
   }
 
@@ -240,7 +235,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
           ),
         child: Column(
           children: [
-              // Drag Handle
             Container(
                 margin: EdgeInsets.only(top: 12, bottom: 8),
                 width: 40,
@@ -251,12 +245,10 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
                 ),
               ),
 
-              // Header
               Container(
                 padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
                     child: Column(
                       children: [
-                    // Close Button
                     Align(
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
@@ -278,7 +270,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
 
                     SizedBox(height: 16),
 
-                    // Product Image
                     Container(
                       width: 120,
                       height: 120,
@@ -322,7 +313,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
 
                     SizedBox(height: 20),
 
-                    // Product Name
                     Text(
                       widget.cartItem.productName,
                       style: TextStyle(
@@ -338,7 +328,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
 
                     SizedBox(height: 8),
 
-                    // Edit Options Text
                     Text(
                       'Edit Your Options',
                       style: TextStyle(
@@ -351,7 +340,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
               ),
             ),
 
-              // Scrollable Content
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -379,9 +367,7 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
                           controller: controller,
                           padding: EdgeInsets.symmetric(horizontal: 24),
                           children: [
-                            // Show options if available
                             if (_options.isNotEmpty) ...[
-                              // Section Title
                               Row(
                                 children: [
                                   Container(
@@ -405,11 +391,9 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
                               ),
                               SizedBox(height: 20),
 
-                              // Options List
                               ..._options.map((option) => _buildModernOptionSection(option)),
                             ],
                             
-                            // Show message if no options
                             if (_options.isEmpty) ...[
                               Center(
                                 child: Column(
@@ -431,7 +415,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
                               ),
                             ],
                             
-                            // Always show Special Instructions section
                             Container(
                               margin: EdgeInsets.symmetric(vertical: 16),
                               child: Column(
@@ -495,12 +478,11 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
                               ),
                             ),
                             
-                            SizedBox(height: 120), // Space for bottom bar
+                            SizedBox(height: 120),
                           ],
                         )
               ),
 
-              // Bottom Action Bar
               Container(
                 padding: EdgeInsets.fromLTRB(24, 16, 24, 24),
                 decoration: BoxDecoration(
@@ -519,7 +501,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
                 child: SafeArea(
                   child: Column(
                     children: [
-                      // Price Summary
                       Container(
                         padding: EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -598,7 +579,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
                       
                       SizedBox(height: 16),
                       
-                      // Save Button
                     SizedBox(
                       width: double.infinity,
                         child: Container(
@@ -663,7 +643,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Option Title
           Row(
             children: [
               Text(
@@ -718,7 +697,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
           
           SizedBox(height: 12),
 
-          // Option Values
           if (option.type == 'select')
             Column(
               children: option.values
@@ -774,7 +752,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
         ),
         child: Row(
           children: [
-            // Radio Button
             Container(
               width: 20,
               height: 20,
@@ -802,7 +779,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
 
             SizedBox(width: 12),
 
-            // Value Text
             Expanded(
               child: Text(
                 value.value,
@@ -814,7 +790,6 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
               ),
             ),
 
-            // Price Modifier
             if (value.priceModifier != 0)
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),

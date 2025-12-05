@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../models/chat_message.dart';
+import '../../providers/ChatProvider.dart';
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
@@ -34,14 +36,10 @@ class ChatBubble extends StatelessWidget {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    gradient: message.isUser
-                        ? LinearGradient(
-                            colors: [Colors.orange, Colors.deepOrange],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
+                    color: Colors.white,
+                    border: message.isUser
+                        ? Border.all(color: Colors.orange, width: 1.5)
                         : null,
-                    color: message.isUser ? null : Colors.white,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(message.isUser ? 20 : 4),
                       topRight: Radius.circular(message.isUser ? 4 : 20),
@@ -69,6 +67,8 @@ class ChatBubble extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (!message.isUser && message.suggestions != null && message.suggestions!.isNotEmpty)
+                  _buildSuggestions(),
               ],
             ),
           ),
@@ -86,17 +86,7 @@ class ChatBubble extends StatelessWidget {
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        gradient: message.isUser
-            ? LinearGradient(
-                colors: [Colors.blue, Colors.lightBlue],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : LinearGradient(
-                colors: [Colors.orange, Colors.deepOrange],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+        color: message.isUser ? Colors.blue : Colors.orange,
         shape: BoxShape.circle,
       ),
       child: Icon(
@@ -130,7 +120,7 @@ class ChatBubble extends StatelessWidget {
     return Text(
       message.content,
       style: TextStyle(
-        color: message.isUser ? Colors.white : Colors.grey[800],
+        color: Colors.grey[800],
         fontSize: 15,
         height: 1.4,
       ),
@@ -168,6 +158,106 @@ class ChatBubble extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSuggestions() {
+    return Padding(
+      padding: EdgeInsets.only(top: 8, left: 8, right: 8),
+      child: Consumer<ChatProvider>(
+        builder: (context, chatProvider, child) {
+          final multiLineSuggestions = message.suggestions!.where((s) => s.text.contains('\n')).toList();
+          final singleLineSuggestions = message.suggestions!.where((s) => !s.text.contains('\n')).toList();
+          
+          return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (singleLineSuggestions.isNotEmpty)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: singleLineSuggestions.map((suggestion) {
+                      return Padding(
+                        padding: EdgeInsets.only(right: 8, bottom: 8),
+                        child: ActionChip(
+                          label: Text(
+                            suggestion.text,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          onPressed: () {
+                            chatProvider.handleSuggestionTap(suggestion);
+                          },
+                          backgroundColor: Colors.orange[50],
+                          labelStyle: TextStyle(
+                            color: Colors.orange[800],
+                          ),
+                          side: BorderSide(color: Colors.orange[200]!),
+                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              
+              ...multiLineSuggestions.map((suggestion) {
+                return Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: InkWell(
+                    onTap: () {
+                      chatProvider.handleSuggestionTap(suggestion);
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.orange[200]!,
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.orange.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: suggestion.text.split('\n').map((line) {
+                          if (line.trim().isEmpty) return SizedBox.shrink();
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              line.trim(),
+                              style: TextStyle(
+                                fontSize: line.startsWith('📍') ? 15 : 13,
+                                fontWeight: line.startsWith('📍') 
+                                    ? FontWeight.bold 
+                                    : FontWeight.w500,
+                                color: Colors.orange[900],
+                                height: 1.4,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ],
+              );
+        },
+      ),
     );
   }
 

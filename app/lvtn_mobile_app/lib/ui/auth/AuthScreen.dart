@@ -81,17 +81,39 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
       }
       
       if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          HomeScreen.routeName,
+          (route) => false,
         );
       }
     } catch (error) {
+      print('AuthScreen: Lỗi khi đăng nhập: $error');
       if (mounted) {
+        String errorMessage = 'Đăng nhập thất bại';
+        
+        final errorStr = error.toString();
+        if (errorStr.contains('Invalid credentials') || errorStr.contains('Sai thông tin')) {
+          errorMessage = 'Tên đăng nhập hoặc mật khẩu không đúng';
+        } else if (errorStr.contains('Không nhận được phản hồi')) {
+          errorMessage = 'Không thể kết nối đến server. Vui lòng thử lại';
+        } else if (errorStr.contains('Dữ liệu phản hồi không hợp lệ')) {
+          errorMessage = 'Server trả về dữ liệu không hợp lệ. Vui lòng thử lại';
+        } else if (errorStr.contains('Thông tin user không hợp lệ')) {
+          errorMessage = 'Thông tin tài khoản không hợp lệ. Vui lòng liên hệ hỗ trợ';
+        } else {
+          errorMessage = errorStr.replaceAll('Exception: ', '');
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(error.toString()),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Đóng',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
           ),
         );
       }
@@ -150,7 +172,7 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                 const SizedBox(height: 16),                
                 
                 Text(
-                  _isLogin ? 'Welcome Back' : 'Create Account',
+                  _isLogin ? 'Chào mừng trở lại' : 'Tạo tài khoản',
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -162,8 +184,8 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                 
                 Text(
                   _isLogin 
-                    ? 'Hello there, sign in to continue!'
-                    : 'Join us and start your journey!',
+                    ? 'Xin chào, hãy đăng nhập để tiếp tục!'
+                    : 'Tham gia cùng chúng tôi và bắt đầu trải nghiệm!',
                   style: const TextStyle(
                     fontSize: 16,
                     color: Colors.grey,
@@ -174,11 +196,11 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
 
                 _buildInputField(
                   controller: _usernameController,
-                  label: 'Username or Email',
+                  label: 'Tên đăng nhập hoặc Email',
                   icon: Icons.person_outline,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter username or email';
+                      return 'Vui lòng nhập tên đăng nhập hoặc email';
                     }
                     return null;
                   },
@@ -194,10 +216,10 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter email';
+                        return 'Vui lòng nhập email';
                       }
                       if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                        return 'Invalid email format';
+                        return 'Định dạng email không hợp lệ';
                       }
                       return null;
                     },
@@ -208,11 +230,11 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                 if (!_isLogin) ...[
                   _buildInputField(
                     controller: _nameController,
-                    label: 'Full Name',
+                    label: 'Họ và tên',
                     icon: Icons.badge_outlined,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your full name';
+                        return 'Vui lòng nhập họ và tên';
                       }
                       return null;
                     },
@@ -222,7 +244,7 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
 
                 _buildInputField(
                   controller: _passwordController,
-                  label: 'Password',
+                  label: 'Mật khẩu',
                   icon: Icons.lock_outline,
                   obscureText: _obscurePassword,
                   suffixIcon: IconButton(
@@ -238,10 +260,10 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter password';
+                      return 'Vui lòng nhập mật khẩu';
                     }
                     if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
+                      return 'Mật khẩu phải có ít nhất 6 ký tự';
                     }
                     return null;
                   },
@@ -252,7 +274,7 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                 if (!_isLogin) ...[
                   _buildInputField(
                     controller: _phoneController,
-                    label: 'Phone Number (Optional)',
+                    label: 'Số điện thoại (không bắt buộc)',
                     icon: Icons.phone_outlined,
                     keyboardType: TextInputType.phone,
                   ),
@@ -262,7 +284,7 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                 if (!_isLogin) ...[
                   _buildInputField(
                     controller: _addressController,
-                    label: 'Address (Optional)',
+                    label: 'Địa chỉ (không bắt buộc)',
                     icon: Icons.location_on_outlined,
                     maxLines: 2,
                   ),
@@ -294,7 +316,7 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                             ),
                           )
                         : Text(
-                            _isLogin ? 'Sign in' : 'Sign up',
+                            _isLogin ? 'Đăng nhập' : 'Đăng ký',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -315,10 +337,10 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                       ),
                       children: [
                         TextSpan(
-                          text: _isLogin ? "Don't have an account? " : "Already have an account? ",
+                          text: _isLogin ? "Chưa có tài khoản? " : "Đã có tài khoản? ",
                         ),
                         TextSpan(
-                          text: _isLogin ? 'Sign up' : 'Sign in',
+                          text: _isLogin ? 'Đăng ký' : 'Đăng nhập',
                           style: const TextStyle(
                             color: Color(0xFFFFA500),
                             fontWeight: FontWeight.w600,

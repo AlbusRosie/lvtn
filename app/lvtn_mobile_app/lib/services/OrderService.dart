@@ -49,7 +49,6 @@ class OrderService {
       );
 
       if (response.statusCode == 200 && response.data['status'] == 'success') {
-        // ReservationRouter returns { "data": { "reservations": [...] } }
         final Map<String, dynamic> data = response.data['data'];
         final List<dynamic> reservationsData = data['reservations'];
         return reservationsData.map((json) => Reservation.fromJson(json)).toList();
@@ -94,12 +93,10 @@ class OrderService {
       if (response.statusCode == 200 && response.data['status'] == 'success') {
         return Order.fromJson(response.data['data']);
       } else {
-        // Fallback to basic order if details endpoint doesn't exist
         return await getOrderById(orderId);
       }
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
-        // Fallback to basic order if details endpoint doesn't exist
         return await getOrderById(orderId);
       } else if (e.response != null) {
         throw Exception('Server error: ${e.response?.data['message'] ?? e.message}');
@@ -131,33 +128,64 @@ class OrderService {
     }
   }
 
-  Future<bool> cancelOrder(int orderId) async {
+  Future<bool> cancelOrder(int orderId, {required String token}) async {
     try {
-      final response = await _dio.put('${ApiConstants.orders}/$orderId', data: {
-        'status': 'cancelled',
-      });
+      final url = '${ApiConstants.orders}/$orderId/cancel';
+      print('[OrderService] 🚫 Cancelling order: orderId=$orderId, url=$url');
+      
+      final response = await _dio.put(
+        url,
+        options: Options(
+          headers: ApiConstants.authHeaders(token),
+        ),
+      );
+
+      print('[OrderService] ✅ Response status: ${response.statusCode}');
+      print('[OrderService] ✅ Response data: ${response.data}');
 
       if (response.statusCode == 200 && response.data['status'] == 'success') {
         return true;
       } else {
-        throw Exception('Failed to cancel order: ${response.data['message']}');
+        throw Exception('Failed to cancel order: ${response.data['message'] ?? 'Unknown error'}');
       }
     } on DioException catch (e) {
+      print('[OrderService] ❌ DioException: ${e.type}');
+      print('[OrderService] ❌ Response: ${e.response?.data}');
+      print('[OrderService] ❌ Status code: ${e.response?.statusCode}');
+      
       if (e.response != null) {
-        throw Exception('Server error: ${e.response?.data['message'] ?? e.message}');
+        final errorData = e.response?.data;
+        if (errorData is Map<String, dynamic>) {
+          final errorMessage = errorData['message'] ?? 
+                              errorData['error'] ?? 
+                              'Failed to cancel order';
+          throw Exception(errorMessage);
+        } else {
+          throw Exception('Server error: ${e.response?.statusCode}');
+        }
       } else {
-        throw Exception('Network error: ${e.message}');
+        throw Exception('Network error: ${e.message ?? 'Unknown network error'}');
       }
     } catch (e) {
+      print('[OrderService] ❌ Exception: $e');
+      if (e is Exception) {
+        rethrow;
+      }
       throw Exception('Unexpected error: $e');
     }
   }
 
-  Future<bool> cancelReservation(int reservationId) async {
+  Future<bool> cancelReservation(int reservationId, {required String token}) async {
     try {
-      final response = await _dio.put('${ApiConstants.reservations}/$reservationId', data: {
-        'status': 'cancelled',
-      });
+      final response = await _dio.put(
+        '${ApiConstants.reservations}/$reservationId',
+        data: {
+          'status': 'cancelled',
+        },
+        options: Options(
+          headers: ApiConstants.authHeaders(token),
+        ),
+      );
 
       if (response.statusCode == 200 && response.data['status'] == 'success') {
         return true;
@@ -211,7 +239,6 @@ class OrderService {
       );
 
       if (response.statusCode == 200 && response.data['status'] == 'success') {
-        // ReservationRouter returns { "data": { "reservations": [...] } }
         final Map<String, dynamic> data = response.data['data'];
         final List<dynamic> reservationsData = data['reservations'];
         return reservationsData.map((json) => Reservation.fromJson(json)).toList();

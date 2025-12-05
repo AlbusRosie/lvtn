@@ -250,11 +250,13 @@ class CartService {
   static Future<Map<String, dynamic>> checkout({
     required String token,
     required int cartId,
+    int? reservationId,
   }) async {
     try {
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}${ApiConstants.checkout(cartId)}'),
         headers: ApiConstants.authHeaders(token),
+        body: reservationId != null ? jsonEncode({'reservation_id': reservationId}) : null,
       );
 
       if (response.statusCode == 200) {

@@ -10,7 +10,6 @@
         />
         <i class="fas fa-search"></i>
       </div>
-
       <div class="filter-controls">
         <select v-model="branchFilter" @change="handleFilter">
           <option value="">Tất cả chi nhánh</option>
@@ -18,7 +17,6 @@
             {{ branch.name }}
           </option>
         </select>
-
         <select v-model="statusFilter" @change="handleFilter">
           <option value="">Tất cả trạng thái</option>
           <option value="available">Có sẵn</option>
@@ -26,7 +24,6 @@
           <option value="reserved">Đã đặt trước</option>
           <option value="maintenance">Bảo trì</option>
         </select>
-
         <select v-model="capacityFilter" @change="handleFilter">
           <option value="">Tất cả sức chứa</option>
           <option value="1-2">1-2 người</option>
@@ -34,21 +31,18 @@
           <option value="5-6">5-6 người</option>
           <option value="7+">7+ người</option>
         </select>
-
         <select v-model="floorFilter" @change="handleFilter">
           <option value="">Tất cả tầng</option>
           <option v-for="floor in floors" :key="floor.id" :value="floor.id">
             {{ floor.name }} ({{ getBranchName(floor.branch_id) }})
           </option>
         </select>
-
         <button @click="resetFilters" class="btn btn-reset">
           <i class="fas fa-undo"></i>
           Đặt lại
         </button>
       </div>
     </div>
-
     <div class="filter-stats" v-if="showStats">
       <div class="stat-item">
         <span class="stat-label">Tổng số bàn:</span>
@@ -73,7 +67,6 @@
     </div>
   </div>
 </template>
-
 <script>
 export default {
   name: 'TableFilter',
@@ -155,7 +148,6 @@ export default {
   }
 };
 </script>
-
 <style scoped>
 .table-filter {
   background: white;
@@ -167,7 +159,6 @@ export default {
   box-sizing: border-box;
   overflow-x: hidden;
 }
-
 .filter-row {
   display: flex;
   gap: 8px;
@@ -175,14 +166,12 @@ export default {
   flex-wrap: wrap;
   width: 100%;
 }
-
 .search-box {
   position: relative;
   flex: 1;
   min-width: 180px;
   max-width: 250px;
 }
-
 .search-box input {
   width: 100%;
   padding: 8px 12px 8px 40px;
@@ -191,12 +180,10 @@ export default {
   font-size: 14px;
   transition: border-color 0.2s ease;
 }
-
 .search-box input:focus {
   outline: none;
   border-color: #007bff;
 }
-
 .search-box i {
   position: absolute;
   left: 12px;
@@ -204,7 +191,6 @@ export default {
   transform: translateY(-50%);
   color: #9ca3af;
 }
-
 .filter-controls {
   display: flex;
   gap: 8px;
@@ -213,7 +199,6 @@ export default {
   flex: 2;
   min-width: 0;
 }
-
 .filter-controls select {
   padding: 8px 10px;
   border: 1px solid #ddd;
@@ -226,12 +211,10 @@ export default {
   min-width: 120px;
   max-width: 200px;
 }
-
 .filter-controls select:focus {
   outline: none;
   border-color: #007bff;
 }
-
 .btn-reset {
   padding: 8px 12px;
   background: #6c757d;
@@ -247,11 +230,9 @@ export default {
   white-space: nowrap;
   flex-shrink: 0;
 }
-
 .btn-reset:hover {
   background: #5a6268;
 }
-
 .filter-stats {
   display: flex;
   gap: 20px;
@@ -260,67 +241,55 @@ export default {
   border-top: 1px solid #e5e7eb;
   flex-wrap: wrap;
 }
-
 .stat-item {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
 .stat-label {
   font-size: 0.9rem;
   color: #6b7280;
 }
-
 .stat-value {
   font-weight: 600;
   font-size: 1rem;
   color: #374151;
 }
-
 .stat-value.available {
   color: #10b981;
 }
-
 .stat-value.occupied {
   color: #ef4444;
 }
-
 .stat-value.reserved {
   color: #f59e0b;
 }
-
 .stat-value.maintenance {
   color: #6b7280;
 }
-
 @media (max-width: 1200px) {
   .filter-row {
     flex-wrap: wrap;
     gap: 8px;
     width: 100%;
   }
-  
   .search-box {
     flex: 1 1 200px;
     min-width: 200px;
     max-width: 300px;
   }
-  
   .filter-controls {
     flex: 1 1 100%;
     justify-content: flex-start;
     gap: 8px;
     margin-top: 8px;
   }
-  
   .filter-controls select {
     flex: 1 1 150px;
     min-width: 120px;
     max-width: 180px;
   }
 }
-
 @media (max-width: 768px) {
   .filter-row {
     flex-direction: column;
@@ -328,14 +297,12 @@ export default {
     gap: 12px;
     width: 100%;
   }
-
   .search-box {
     min-width: auto;
     max-width: none;
     flex: none;
     width: 100%;
   }
-
   .filter-controls {
     justify-content: flex-start;
     flex-wrap: wrap;
@@ -343,18 +310,15 @@ export default {
     gap: 8px;
     width: 100%;
   }
-
   .filter-controls select {
     flex: 1 1 140px;
     min-width: 120px;
     max-width: 160px;
   }
-
   .btn-reset {
     flex: 1 1 auto;
     min-width: 120px;
   }
-
   .filter-stats {
     justify-content: center;
     flex-wrap: wrap;

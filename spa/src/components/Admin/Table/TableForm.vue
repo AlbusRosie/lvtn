@@ -1,117 +1,65 @@
 <template>
   <div class="table-form">
-    <h2>{{ isEditing ? 'Chỉnh sửa bàn' : 'Thêm bàn mới' }}</h2>
-
+    <h2>{{ isEditing ? 'Edit Table' : 'Add New Table' }}</h2>
     <form class="form" @keydown.enter.prevent>
-      <div class="form-group">
-        <label for="branch_id">Chi nhánh *</label>
-        <select
-          id="branch_id"
-          v-model="form.branch_id"
-          required
-          @change="handleBranchChange"
-        >
-          <option value="">Chọn chi nhánh</option>
-          <option v-for="branch in branches" :key="branch.id" :value="branch.id">
-            {{ branch.name }}
-          </option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="floor_id">Tầng *</label>
-        <select
-          id="floor_id"
-          v-model="form.floor_id"
-          required
-          :disabled="!form.branch_id"
-          @change="handleFloorChange"
-        >
-          <option value="">Chọn tầng</option>
-          <option v-for="floor in floors" :key="floor.id" :value="floor.id">
-            {{ floor.name }}
-          </option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="table_number">Số bàn *</label>
-        <div class="table-number-input">
-          <input
-            id="table_number"
-            v-model="form.table_number"
-            type="text"
+      <div class="form-row">
+        <div class="form-group">
+          <label for="branch_id">Branch *</label>
+          <select
+            id="branch_id"
+            v-model="form.branch_id"
             required
-            placeholder="VD: T01, T02..."
-            :disabled="isEditing"
-          />
-          <button
-            v-if="!isEditing && form.branch_id && form.floor_id"
-            type="button"
-            @click="generateTableNumber"
-            class="btn btn-auto-generate"
-            title="Tự động tạo số bàn"
+            :disabled="isManagerView"
+            @change="handleBranchChange"
           >
-            <i class="fas fa-magic"></i>
-          </button>
+            <option value="">Select Branch</option>
+            <option v-for="branch in branches" :key="branch.id" :value="branch.id">
+              {{ branch.name }}
+            </option>
+          </select>
         </div>
-        <small class="form-text">
-          Số bàn phải là duy nhất trong tầng.
-          <span v-if="!isEditing && form.branch_id && form.floor_id">
-            Click nút <i class="fas fa-magic"></i> để tự động tạo số bàn.
-          </span>
-          <span v-if="tableCount > 0" class="table-count-info">
-            Hiện tại có {{ tableCount }} bàn trong tầng này.
-          </span>
-        </small>
+        <div class="form-group">
+          <label for="floor_id">Floor *</label>
+          <select
+            id="floor_id"
+            v-model="form.floor_id"
+            required
+            :disabled="!form.branch_id"
+            @change="handleFloorChange"
+          >
+            <option value="">Select Floor</option>
+            <option v-for="floor in floors" :key="floor.id" :value="floor.id">
+              {{ floor.name }}
+            </option>
+          </select>
+        </div>
       </div>
-
-      <div class="form-group">
-        <label for="capacity">Sức chứa *</label>
-        <input
-          id="capacity"
-          v-model.number="form.capacity"
-          type="number"
-          min="1"
-          max="20"
-          required
-          placeholder="Số người tối đa"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="location">Vị trí</label>
-        <input
-          id="location"
-          v-model="form.location"
-          type="text"
-          placeholder="VD: Gần cửa sổ, Góc yên tĩnh"
-        />
-      </div>
-
-      <div class="form-group" v-if="isEditing">
-        <label for="status">Trạng thái</label>
-        <select id="status" v-model="form.status" required>
-          <option value="available">Có sẵn</option>
-          <option value="occupied">Đang sử dụng</option>
-          <option value="reserved">Đã đặt trước</option>
-          <option value="maintenance">Bảo trì</option>
-        </select>
-      </div>
-
-      <div class="form-actions">
-        <button type="button" @click="$emit('cancel')" class="btn btn-secondary">
-          Hủy
-        </button>
-        <button type="button" @click="handleSubmit" class="btn btn-primary" :disabled="loading">
-          <span v-if="loading">Đang xử lý...</span>
-          <span v-else>{{ isEditing ? 'Cập nhật' : 'Tạo bàn' }}</span>
-        </button>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="capacity">Capacity *</label>
+          <input
+            id="capacity"
+            v-model.number="form.capacity"
+            type="number"
+            min="1"
+            max="20"
+            required
+            placeholder="Maximum number of people"
+          />
+        </div>
+        <div class="form-group">
+          <label for="location">Location</label>
+          <input
+            id="location"
+            v-model="form.location"
+            type="text"
+            placeholder="E.g: Near window, Quiet corner"
+          />
+        </div>
       </div>
     </form>
   </div>
 </template>
-
 <script>
 export default {
   name: 'TableForm',
@@ -123,6 +71,14 @@ export default {
     loading: {
       type: Boolean,
       default: false
+    },
+    managerBranchId: {
+      type: Number,
+      default: null
+    },
+    isManagerView: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -130,14 +86,11 @@ export default {
       form: {
         branch_id: '',
         floor_id: '',
-        table_number: '',
         capacity: 4,
-        location: '',
-        status: 'available'
+        location: ''
       },
       branches: [],
-      floors: [],
-      tableCount: 0
+      floors: []
     };
   },
   computed: {
@@ -147,6 +100,12 @@ export default {
   },
   async mounted() {
     await this.loadBranches();
+    if (this.isManagerView && this.managerBranchId && !this.table) {
+      this.form.branch_id = this.managerBranchId;
+      if (this.form.branch_id) {
+        await this.loadFloors(this.form.branch_id);
+      }
+    }
   },
   watch: {
     table: {
@@ -155,10 +114,8 @@ export default {
           this.form = {
             branch_id: newTable.branch_id,
             floor_id: newTable.floor_id,
-            table_number: newTable.table_number,
             capacity: newTable.capacity,
-            location: newTable.location || '',
-            status: newTable.status
+            location: newTable.location || ''
           };
           this.loadFloors(newTable.branch_id);
         } else {
@@ -188,16 +145,10 @@ export default {
       }
     },
     handleFloorChange() {
-
-      if (!this.isEditing && this.form.branch_id && this.form.floor_id) {
-        this.generateTableNumber();
-      }
     },
     handleBranchChange() {
       this.form.floor_id = '';
-      this.form.table_number = '';
       this.floors = [];
-      this.tableCount = 0;
       if (this.form.branch_id) {
         this.loadFloors(this.form.branch_id);
       }
@@ -206,50 +157,19 @@ export default {
       this.form = {
         branch_id: '',
         floor_id: '',
-        table_number: '',
         capacity: 4,
-        location: '',
-        status: 'available'
+        location: ''
       };
       this.floors = [];
-      this.tableCount = 0;
-    },
-    async generateTableNumber() {
-      if (!this.form.branch_id || !this.form.floor_id) {
-        return;
-      }
-
-      try {
-        const TableService = await import('@/services/TableService');
-        const result = await TableService.default.generateNextTableNumber(this.form.branch_id, this.form.floor_id);
-
-        this.tableCount = result.currentTableCount;
-
-        this.form.table_number = result.nextTableNumber;
-
-        if (result.maxNumber === 0) {
-        }
-
-        if (this.$toast) {
-          this.$toast.success(`Đã tạo số bàn: ${result.nextTableNumber}`);
-        }
-      } catch (error) {
-
-        this.form.table_number = 'T01';
-        this.tableCount = 0;
-      }
     },
     handleSubmit() {
-
-      if (!this.form.branch_id || !this.form.floor_id || !this.form.table_number || !this.form.capacity) {
+      if (!this.form.branch_id || !this.form.floor_id || !this.form.capacity) {
         if (this.$toast) {
-          this.$toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
+          this.$toast.error('Please fill in all required information');
         }
         return;
       }
-
       const formData = { ...this.form };
-
       if (!this.isEditing) {
         formData.status = 'available';
       }
@@ -258,39 +178,35 @@ export default {
   }
 };
 </script>
-
 <style scoped>
 .table-form {
   background: white;
-  padding: 24px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 0;
+  width: 100%;
 }
-
 .table-form h2 {
-  margin: 0 0 24px 0;
-  color: #333;
-  font-size: 1.5rem;
+  display: none; 
 }
-
 .form {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
-
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-
 .form-group label {
   font-weight: 500;
   color: #374151;
   font-size: 0.9rem;
 }
-
 .form-group input,
 .form-group select {
   padding: 10px 12px;
@@ -299,105 +215,62 @@ export default {
   font-size: 0.9rem;
   transition: border-color 0.2s ease;
 }
-
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
-
 .form-group input:disabled {
   background-color: #f9fafb;
   color: #6b7280;
   cursor: not-allowed;
 }
-
 .form-text {
   font-size: 0.8rem;
   color: #6b7280;
   margin-top: 4px;
 }
-
-.form-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 8px;
-}
-
 .btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 500;
+  padding: 12px 24px;
+  border: 2px solid #F0E6D9;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+  height: 44px;
+  box-sizing: border-box;
+  justify-content: center;
 }
-
 .btn:hover:not(:disabled) {
-  transform: translateY(-1px);
+  transform: none;
 }
-
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
 }
-
 .btn-primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.btn-secondary {
-  background: #6b7280;
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #4b5563;
-}
-
-.table-number-input {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.table-number-input input {
-  flex: 1;
-}
-
-.btn-auto-generate {
-  padding: 10px 12px;
-  background: #10b981;
+  background: #FF8C42;
   color: white;
   border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.9rem;
 }
-
-.btn-auto-generate:hover {
-  background: #059669;
-  transform: translateY(-1px);
+.btn-primary:hover:not(:disabled) {
+  background: #E67E22;
 }
-
-.form-text i {
-  color: #10b981;
-  margin: 0 2px;
+.btn-secondary {
+  background: white;
+  color: #666;
+  border: 2px solid #F0E6D9;
 }
-
-.table-count-info {
-  color: #6b7280;
-  font-style: italic;
-  margin-left: 8px;
+.btn-secondary:hover:not(:disabled) {
+  background: #FFF9F5;
+  border-color: #FF8C42;
+  color: #D35400;
 }
 </style>

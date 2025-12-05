@@ -1,22 +1,1 @@
-const express = require('express');
-const TableController = require('../controllers/TableController');
-const { methodNotAllowed } = require('../controllers/ErrorController');
-const { verifyToken, requireRole } = require('../middlewares/AuthMiddleware');
-
-const router = express.Router();
-
-module.exports.setup = (app) => {
-    app.use('/api/tables', router);
-
-    router.get('/', TableController.getAllTables);
-    router.use(verifyToken);
-    router.use(requireRole(['admin']));
-    router.post('/', TableController.createTable);
-    router.put('/:id', TableController.updateTable);
-    router.patch('/:id/status', TableController.updateTableStatus);
-    router.delete('/:id', TableController.deleteTable);
-    
-    router.all('/', methodNotAllowed);
-    router.all('/:id', methodNotAllowed);
-    
-}
+const express = require('express');const TableController = require('../controllers/TableController');const { methodNotAllowed } = require('../controllers/ErrorController');const { verifyToken, requireRole } = require('../middlewares/AuthMiddleware');const BranchMiddleware = require('../middlewares/BranchMiddleware');const router = express.Router();module.exports.setup = (app) => {    app.use('/api/tables', router);    router.get('/', TableController.getAllTables);    const manageAccess = [        verifyToken,        requireRole(['admin', 'manager', 'staff']),        BranchMiddleware.enforceBranchAccess    ];    router.post('/', ...manageAccess, TableController.createTable);    router.put('/:id', ...manageAccess, BranchMiddleware.validateResourceBranch('table'), TableController.updateTable);    router.patch('/:id/status', ...manageAccess, BranchMiddleware.validateResourceBranch('table'), TableController.updateTableStatus);    router.delete('/:id', ...manageAccess, BranchMiddleware.validateResourceBranch('table'), TableController.deleteTable);    router.get('/:id/check-availability', verifyToken, requireRole(['admin', 'manager', 'staff', 'cashier']), TableController.checkTableAvailability);    router.all('/', methodNotAllowed);    router.all('/:id', methodNotAllowed);    router.all('/:id/check-availability', methodNotAllowed);}

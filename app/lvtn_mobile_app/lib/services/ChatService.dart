@@ -28,7 +28,6 @@ class ChatService {
         if (conversationId != null) 'conversation_id': conversationId,
       };
 
-
       final response = await _dio.post(
         '/chat/message',
         options: Options(
@@ -39,7 +38,6 @@ class ChatService {
         ),
         data: requestData,
       );
-
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = response.data;
@@ -52,19 +50,60 @@ class ChatService {
         throw Exception('Server error: ${response.statusCode}');
       }
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        throw Exception('Kết nối quá lâu. Vui lòng kiểm tra kết nối mạng và thử lại.');
+      }
+      
+      if (e.type == DioExceptionType.connectionError) {
+        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
+      }
       
       if (e.response != null) {
         final errorData = e.response?.data;
         if (errorData is Map<String, dynamic>) {
-          throw Exception(errorData['message'] ?? 'Failed to send message');
+          final errorMessage = errorData['message'] ?? 
+                              errorData['error'] ?? 
+                              'Failed to send message';
+          throw Exception(errorMessage);
         } else {
           throw Exception('Server error: ${e.response?.statusCode}');
         }
       } else {
-        throw Exception('Network error: ${e.message}');
+        throw Exception('Network error: ${e.message ?? 'Unknown network error'}');
       }
     } catch (e) {
+      if (e is Exception) {
+        rethrow;
+      }
       throw Exception('Unexpected error: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllConversations({
+    required String token,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/chat/conversations',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data['status'] == 'success') {
+          final List<dynamic> conversations = data['data'] ?? [];
+          return conversations.cast<Map<String, dynamic>>();
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
     }
   }
 
@@ -132,13 +171,57 @@ class ChatService {
     }
   }
 
+  Future<Map<String, dynamic>> getWelcomeMessage({
+    required String token,
+    int? branchId,
+    String? conversationId,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/chat/welcome',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+        queryParameters: {
+          if (branchId != null) 'branch_id': branchId,
+          if (conversationId != null) 'conversation_id': conversationId,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is Map<String, dynamic> && data['status'] == 'success') {
+          return data['data'] ?? {};
+        } else {
+          throw Exception(data['message'] ?? 'Failed to get welcome message');
+        }
+      } else {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        final errorData = e.response?.data;
+        if (errorData is Map<String, dynamic>) {
+          throw Exception(errorData['message'] ?? 'Failed to get welcome message');
+        } else {
+          throw Exception('Server error: ${e.response?.statusCode}');
+        }
+      } else {
+        throw Exception('Network error: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
   Future<Map<String, dynamic>> executeAction({
     required String token,
     required String action,
     required Map<String, dynamic> data,
   }) async {
     try {
-
       final response = await _dio.post(
         '/chat/action',
         options: Options(
@@ -153,7 +236,6 @@ class ChatService {
         },
       );
 
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = response.data;
         if (responseData is Map<String, dynamic> && responseData['status'] == 'success') {
@@ -165,18 +247,33 @@ class ChatService {
         throw Exception('Server error: ${response.statusCode}');
       }
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        throw Exception('Kết nối quá lâu. Vui lòng thử lại.');
+      }
+      
+      if (e.type == DioExceptionType.connectionError) {
+        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
+      }
       
       if (e.response != null) {
         final errorData = e.response?.data;
         if (errorData is Map<String, dynamic>) {
-          throw Exception(errorData['message'] ?? 'Failed to execute action');
+          final errorMessage = errorData['message'] ?? 
+                              errorData['error'] ?? 
+                              'Failed to execute action';
+          throw Exception(errorMessage);
         } else {
           throw Exception('Server error: ${e.response?.statusCode}');
         }
       } else {
-        throw Exception('Network error: ${e.message}');
+        throw Exception('Network error: ${e.message ?? 'Unknown network error'}');
       }
     } catch (e) {
+      if (e is Exception) {
+        rethrow;
+      }
       throw Exception('Unexpected error: $e');
     }
   }

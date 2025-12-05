@@ -5,7 +5,6 @@ class User {
   final String name;
   final String? address;
   final String? phone;
-  final bool favorite;
   final String? avatar;
   final int roleId;
   final String status;
@@ -18,7 +17,6 @@ class User {
     required this.name,
     this.address,
     this.phone,
-    required this.favorite,
     this.avatar,
     required this.roleId,
     required this.status,
@@ -32,7 +30,6 @@ class User {
     String? name,
     String? address,
     String? phone,
-    bool? favorite,
     String? avatar,
     int? roleId,
     String? status,
@@ -45,7 +42,6 @@ class User {
       name: name ?? this.name,
       address: address ?? this.address,
       phone: phone ?? this.phone,
-      favorite: favorite ?? this.favorite,
       avatar: avatar ?? this.avatar,
       roleId: roleId ?? this.roleId,
       status: status ?? this.status,
@@ -54,21 +50,39 @@ class User {
   }
 
   factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id'] ?? 0,
-      username: json['username'] ?? '',
-      email: json['email'] ?? '',
-      name: json['name'] ?? '',
-      address: json['address'],
-      phone: json['phone'],
-      favorite: json['favorite'] == 1 || json['favorite'] == true,
-      avatar: json['avatar'],
-      roleId: json['role_id'] ?? 4,
-      status: json['status'] ?? 'active',
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at'])
-          : DateTime.now(),
-    );
+    try {
+      DateTime? createdAt;
+      if (json['created_at'] != null) {
+        try {
+          if (json['created_at'] is String) {
+            createdAt = DateTime.parse(json['created_at']);
+          } else if (json['created_at'] is int) {
+            createdAt = DateTime.fromMillisecondsSinceEpoch(json['created_at']);
+          }
+        } catch (e) {
+          print('User.fromJson: Lỗi parse created_at: $e, value: ${json['created_at']}');
+          createdAt = DateTime.now();
+        }
+      }
+      createdAt ??= DateTime.now();
+      
+      return User(
+        id: json['id'] is int ? json['id'] : (int.tryParse(json['id']?.toString() ?? '0') ?? 0),
+        username: json['username']?.toString() ?? '',
+        email: json['email']?.toString() ?? '',
+        name: json['name']?.toString() ?? '',
+        address: json['address']?.toString(),
+        phone: json['phone']?.toString(),
+        avatar: json['avatar']?.toString(),
+        roleId: json['role_id'] is int ? json['role_id'] : (int.tryParse(json['role_id']?.toString() ?? '4') ?? 4),
+        status: json['status']?.toString() ?? 'active',
+        createdAt: createdAt,
+      );
+    } catch (e) {
+      print('User.fromJson: Lỗi khi parse user: $e');
+      print('User.fromJson: JSON data: $json');
+      rethrow;
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -79,7 +93,6 @@ class User {
       'name': name,
       'address': address,
       'phone': phone,
-      'favorite': favorite ? 1 : 0,
       'avatar': avatar,
       'role_id': roleId,
       'status': status,

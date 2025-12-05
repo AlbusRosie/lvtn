@@ -107,14 +107,11 @@ class CartProvider extends ChangeNotifier {
   }
 
 
-  // Check if switching to a different branch with items in cart
   bool needsBranchSwitchConfirmation(int newBranchId) {
-    // If no current cart or cart is empty, no confirmation needed
     if (_cart == null || _cart!.items.isEmpty) {
       return false;
     }
     
-    // If switching to different branch, need confirmation
     if (_currentBranchId != null && _currentBranchId != newBranchId) {
       return true;
     }
@@ -122,7 +119,6 @@ class CartProvider extends ChangeNotifier {
     return false;
   }
 
-  // Clear cart from old branch before switching
   Future<void> clearCartForBranchSwitch() async {
     try {
       final token = AuthService().token;
@@ -131,16 +127,13 @@ class CartProvider extends ChangeNotifier {
         return;
       }
 
-      // Clear the cart in backend
       await CartService.clearCart(
         token: token,
         cartId: _cart!.id,
       );
       
-      // Clear local cart
       clearCart();
     } catch (e) {
-      // If error, still clear local cart
       clearCart();
     }
   }

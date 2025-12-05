@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/AuthProvider.dart';
 import '../../services/OrderService.dart';
+import '../../services/AuthService.dart';
 import '../../models/order.dart';
 import '../../models/reservation.dart';
 import '../../constants/app_constants.dart';
@@ -145,24 +146,6 @@ class _OrdersScreenState extends State<OrdersScreen>
         ),
       ),
       centerTitle: true,
-      actions: [
-        Container(
-          margin: EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Color(0xFFF5F5F5),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: IconButton(
-            icon: Icon(
-              Icons.more_horiz_rounded,
-              color: Colors.black,
-              size: 20,
-            ),
-            onPressed: () {
-            },
-          ),
-        ),
-      ],
       bottom: PreferredSize(
         preferredSize: Size.fromHeight(50),
         child: Container(
@@ -800,12 +783,19 @@ class _OrdersScreenState extends State<OrdersScreen>
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case AppConstants.pending:
+        return Colors.orange;
       case AppConstants.preparing:
+        return Colors.blue;
       case AppConstants.ready:
+        return Colors.green;
       case AppConstants.outForDelivery:
+        return Colors.purple;
       case AppConstants.completed:
+        return Colors.green.shade700;
       case AppConstants.cancelled:
+        return Colors.red;
       default:
+        return Colors.grey;
     }
   }
 
@@ -828,7 +818,10 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   List<Widget> _buildActionButtons(Order order) {
-    if (order.status.toLowerCase() == AppConstants.pending) {
+    final canCancel = order.status.toLowerCase() == AppConstants.pending || 
+                      order.status.toLowerCase() == AppConstants.preparing;
+    
+    if (canCancel) {
       return [
         Expanded(
           child: Container(
@@ -840,7 +833,7 @@ class _OrdersScreenState extends State<OrdersScreen>
             child: TextButton(
               onPressed: () => _viewOrderDetails(order),
               child: Text(
-                'Track Order',
+                'Theo dõi',
                 style: TextStyle(
                   color: Color(0xFFFF8C00),
                   fontSize: 14,
@@ -861,7 +854,7 @@ class _OrdersScreenState extends State<OrdersScreen>
             child: TextButton(
               onPressed: () => _cancelOrder(order),
               child: Text(
-                'Cancel',
+                'Hủy đơn',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 14,
@@ -924,33 +917,100 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   void _cancelOrder(Order order) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final authService = AuthService();
+    final token = authService.token;
+    
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bạn cần đăng nhập để hủy đơn hàng'),
+          backgroundColor: Color(0xFFEF5350),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Cancel Order'),
-          content: Text('Are you sure you want to cancel this order?'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Hủy đơn hàng',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: const Text('Bạn có chắc chắn muốn hủy đơn hàng này không?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('No'),
+              child: const Text('Không', style: TextStyle(color: Color(0xFF95A5A6))),
             ),
-            TextButton(
-              onPressed: () {
+            ElevatedButton(
+              onPressed: () async {
                 Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Order cancellation functionality coming soon!'),
-                    backgroundColor: Color(0xFFEF5350),
-                  ),
-                );
+                await _handleCancelOrder(order, token);
               },
-              child: Text('Yes'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF5350),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Có, hủy đơn'),
             ),
           ],
         );
       },
     );
+  }
+
+  Future<void> _handleCancelOrder(Order order, String token) async {
+    try {
+      final orderService = OrderService();
+      
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFFFF8C00),
+          ),
+        ),
+      );
+
+      final success = await orderService.cancelOrder(order.id, token: token);
+      
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+      
+      if (success) {
+        await _loadData();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đơn hàng đã được hủy thành công'),
+              backgroundColor: Color(0xFF4CAF50),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể hủy đơn hàng: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: const Color(0xFFEF5350),
+          ),
+        );
+      }
+    }
   }
 
   void _showOrderDetails(Order order) {
@@ -992,7 +1052,6 @@ class _OrdersScreenState extends State<OrdersScreen>
                     ),
                   ),
                   SizedBox(height: 24),
-                  // Add order details here
                   Text('Order details will be displayed here'),
                 ],
               ),

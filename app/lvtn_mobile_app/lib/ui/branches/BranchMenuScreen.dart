@@ -17,10 +17,12 @@ import '../widgets/AppBottomNav.dart';
 
 class BranchMenuScreen extends StatefulWidget {
   final Branch branch;
+  final int? reservationId;
   
   const BranchMenuScreen({
     Key? key,
     required this.branch,
+    this.reservationId,
   }) : super(key: key);
   
   static const String routeName = '/branch-menu';
@@ -31,15 +33,43 @@ class BranchMenuScreen extends StatefulWidget {
 
 class _BranchMenuScreenState extends State<BranchMenuScreen> {
   int? selectedCategoryId = 0; 
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      Provider.of<CategoryProvider>(context, listen: false).loadCategories();
-      Provider.of<ProductProvider>(context, listen: false).loadProducts(branchId: widget.branch.id);
-      await Provider.of<CartProvider>(context, listen: false).loadCart(widget.branch.id);
+      final productProvider = Provider.of<ProductProvider>(context, listen: false);
+      final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      
+      categoryProvider.loadCategories();
+      
+      productProvider.resetPagination();
+      await productProvider.loadProducts(branchId: widget.branch.id, loadAll: true);
+      
+      await cartProvider.loadCart(widget.branch.id);
+      
+      if (widget.reservationId != null) {
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      final productProvider = Provider.of<ProductProvider>(context, listen: false);
+      if (!productProvider.isLoadingMore && productProvider.hasMore) {
+        productProvider.loadMoreProducts();
+      }
+    }
   }
 
   String _getCategoryEmoji(String categoryName) {
@@ -150,9 +180,23 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
         ],
       ),
       body: SafeArea(
-        child: Consumer<CategoryProvider>(
-          builder: (context, categoryProvider, child) {
-            if (categoryProvider.isLoading) {
+        child: Consumer2<CategoryProvider, ProductProvider>(
+          builder: (context, categoryProvider, productProvider, child) {
+            List<CategoryModel.Category> availableCategories = [];
+            if (!productProvider.isLoading && productProvider.allProducts.isNotEmpty) {
+              Set<int> categoryIds = productProvider.allProducts
+                  .where((p) => p.categoryId != null)
+                  .map((p) => p.categoryId!)
+                  .toSet();
+              
+              availableCategories = categoryProvider.categories
+                  .where((cat) => categoryIds.contains(cat.id))
+                  .toList();
+            } else if (!categoryProvider.isLoading) {
+              availableCategories = categoryProvider.categories;
+            }
+
+            if (categoryProvider.isLoading || productProvider.isLoading) {
               return Center(
                 child: CircularProgressIndicator(
                   color: Colors.orange,
@@ -160,7 +204,7 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
               );
             }
 
-            if (categoryProvider.categories.isEmpty) {
+            if (availableCategories.isEmpty && !productProvider.isLoading) {
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -172,11 +216,19 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                     ),
                     SizedBox(height: 16),
                     Text(
-                      'No Categories',
+                      'Không có danh mục nào',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                         color: Colors.grey[600],
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Chi nhánh này chưa có sản phẩm',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[500],
                       ),
                     ),
                   ],
@@ -184,9 +236,8 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
               );
             }
 
-            return SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            return ListView(
+              controller: _scrollController,
                 children: [
                   SizedBox(height: 24),
                   
@@ -195,25 +246,29 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: categoryProvider.categories.length + 1, // +1 for All category
+                      itemCount: availableCategories.length + 1,
                         itemBuilder: (context, index) {
                           if (index == 0) {
                              final isAllSelected = selectedCategoryId == 0;
                             return GestureDetector(
                               onTap: () {
+                                final productProvider = Provider.of<ProductProvider>(context, listen: false);
                                 setState(() {
-                                  selectedCategoryId = isAllSelected ? null : 0; // 0 for All
+                                  selectedCategoryId = isAllSelected ? null : 0;
                                 });
                                 if (isAllSelected) {
-                                  Provider.of<ProductProvider>(context, listen: false).clearCategoryFilter();
+                                  productProvider.clearCategoryFilter();
+                                productProvider.resetPagination();
+                                  productProvider.loadProducts(branchId: widget.branch.id);
                                 } else {
-                                  Provider.of<ProductProvider>(context, listen: false).loadProducts(branchId: widget.branch.id);
+                                productProvider.resetPagination();
+                                  productProvider.loadProducts(branchId: widget.branch.id);
                                 }
                               },
                               child: Container(
                                 width: 80,
                                 margin: EdgeInsets.only(right: 12),
-                                padding: EdgeInsets.all(8),
+                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                                 decoration: BoxDecoration(
                                   color: isAllSelected ? Colors.orange : Colors.white,
                                   borderRadius: BorderRadius.circular(16),
@@ -227,10 +282,11 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                   ],
                                 ),
                                 child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                    Container(
-                                     width: 40,
-                                     height: 40,
+                                     width: 36,
+                                     height: 36,
                                      decoration: BoxDecoration(
                                        shape: BoxShape.circle,
                                        color: Colors.white,
@@ -250,42 +306,44 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                      child: Icon(
                                        Icons.apps,
                                        color: Colors.grey[600],
-                                       size: 22,
+                                       size: 20,
                                      ),
                                    ),
                                     
-                                     SizedBox(height: 8),
+                                     SizedBox(height: 6),
                                      
                                      Text(
                                        'All',
                                        style: TextStyle(
-                                         fontSize: 12,
+                                         fontSize: 11,
                                          fontWeight: FontWeight.bold,
                                          color: isAllSelected ? Colors.white : Colors.grey[700],
                                          fontFamily: 'Inter',
                                        ),
                                        textAlign: TextAlign.center,
+                                       maxLines: 1,
+                                       overflow: TextOverflow.ellipsis,
                                      ),
                                      
-                                     SizedBox(height: 8),
+                                     SizedBox(height: 4),
                                      
                                     Container(
                                       margin: EdgeInsets.symmetric(horizontal: 1),
                                       child: Center(
                                         child: Container(
-                                          width: 30,
+                                          width: 28,
                                           height: 1,
                                           color: isAllSelected ? Colors.white : Colors.orange,
                                         ),
                                       ),
                                     ),
                                     
-                                    SizedBox(height: 12),
+                                    SizedBox(height: 4),
                                     
                                     Container(
                                       margin: EdgeInsets.symmetric(horizontal: 3),
-                                      width: 20,
-                                      height: 20,
+                                      width: 18,
+                                      height: 18,
                                       decoration: BoxDecoration(
                                         color: isAllSelected ? Colors.white : Colors.orange,
                                         shape: BoxShape.circle,
@@ -301,7 +359,7 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                       child: Icon(
                                         Icons.keyboard_arrow_right,
                                         color: isAllSelected ? Colors.orange : Colors.white,
-                                        size: 14,
+                                        size: 12,
                                       ),
                                     ),
                                   ],
@@ -310,25 +368,29 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                             );
                           }
                           
-                          final category = categoryProvider.categories[index - 1]; // -1 because All takes index 0
+                          final category = availableCategories[index - 1];
                           final isSelected = selectedCategoryId == category.id;
                           final shouldHighlight = isSelected;
                           
                           return GestureDetector(
                             onTap: () {
+                              final productProvider = Provider.of<ProductProvider>(context, listen: false);
                               setState(() {
                                 selectedCategoryId = isSelected ? null : category.id;
                               });
                               if (isSelected) {
-                                Provider.of<ProductProvider>(context, listen: false).clearCategoryFilter();
+                                productProvider.clearCategoryFilter();
+                                productProvider.resetPagination();
+                                productProvider.loadProducts(branchId: widget.branch.id);
                               } else {
-                                Provider.of<ProductProvider>(context, listen: false).applyCategoryFilter(category.id);
+                                productProvider.resetPagination();
+                                  productProvider.loadProducts(branchId: widget.branch.id, categoryId: category.id);
                               }
                             },
                             child: Container(
                               width: 80,
                               margin: EdgeInsets.only(right: 12),
-                              padding: EdgeInsets.all(8),
+                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                               decoration: BoxDecoration(
                                 color: shouldHighlight ? Colors.orange : Colors.white,
                                 borderRadius: BorderRadius.circular(16),
@@ -342,10 +404,11 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                 ],
                               ),
                               child: Column(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Container(
-                                    width: 40,
-                                    height: 40,
+                                    width: 36,
+                                    height: 36,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: Colors.white,
@@ -365,17 +428,17 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                     child: Center(
                                       child: Text(
                                         _getCategoryEmoji(category.name),
-                                        style: TextStyle(fontSize: 20),
+                                        style: TextStyle(fontSize: 18),
                                       ),
                                     ),
                                   ),
                                   
-                                  SizedBox(height: 8),
+                                  SizedBox(height: 6),
                                   
                                   Text(
                                     category.name,
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                       color: shouldHighlight ? Colors.white : Colors.grey[700],
                                       fontFamily: 'Inter',
@@ -385,25 +448,25 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   
-                                  SizedBox(height: 8),
+                                  SizedBox(height: 4),
                                   
                                   Container(
                                     margin: EdgeInsets.symmetric(horizontal: 1),
                                     child: Center(
                                       child: Container(
-                                        width: 30,
+                                        width: 28,
                                         height: 1,
                                         color: shouldHighlight ? Colors.white : Colors.orange,
                                       ),
                                     ),
                                   ),
                                   
-                                  SizedBox(height: 12),
+                                  SizedBox(height: 4),
                                   
                                   Container(
                                     margin: EdgeInsets.symmetric(horizontal: 3),
-                                    width: 20,
-                                    height: 20,
+                                    width: 18,
+                                    height: 18,
                                     decoration: BoxDecoration(
                                       color: shouldHighlight ? Colors.white : Colors.orange,
                                       shape: BoxShape.circle,
@@ -419,7 +482,7 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                     child: Icon(
                                       Icons.keyboard_arrow_right,
                                       color: shouldHighlight ? Colors.orange : Colors.white,
-                                      size: 14,
+                                      size: 12,
                                     ),
                                   ),
                                 ],
@@ -438,39 +501,13 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Popular Dishes',
+                          'Món phổ biến',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.grey[900],
                             fontFamily: 'Inter',
                           ),
-                        ),
-                        Row(
-                          children: [
-                            Text(
-                              'View All',
-                              style: TextStyle(
-                                color: Colors.orange,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            Container(
-                              width: 18,
-                              height: 18,
-                              decoration: BoxDecoration(
-                                color: Colors.orange,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.arrow_forward,
-                                color: Colors.white,
-                                size: 12,
-                              ),
-                            ),
-                          ],
                         ),
                       ],
                     ),
@@ -480,12 +517,41 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                   
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: _buildPopularDishesGrid(categoryProvider),
+                    child: _buildPopularDishesGrid(),
+                  ),
+                  
+                  Consumer<ProductProvider>(
+                    builder: (context, productProvider, child) {
+                      if (productProvider.isLoadingMore) {
+                        return Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.orange,
+                            ),
+                          ),
+                        );
+                      }
+                      if (!productProvider.hasMore && productProvider.products.isNotEmpty) {
+                        return Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(
+                            child: Text(
+                              'Đã hiển thị tất cả món ăn',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      return SizedBox.shrink();
+                    },
                   ),
                   
                   SizedBox(height: 24),
                 ],
-              ),
             );
           },
         ),
@@ -496,7 +562,7 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
     );
   }
 
-Widget _buildPopularDishesGrid(CategoryProvider categoryProvider) {
+Widget _buildPopularDishesGrid() {
   return Consumer<ProductProvider>(
     builder: (context, productProvider, child) {
       if (productProvider.isLoading) {
@@ -520,7 +586,7 @@ Widget _buildPopularDishesGrid(CategoryProvider categoryProvider) {
                 Icon(Icons.error_outline, color: Colors.grey[400], size: 48),
                 SizedBox(height: 8),
                 Text(
-                  'Failed to load products',
+                  'Tải sản phẩm thất bại',
                   style: TextStyle(color: Colors.grey[600]),
                 ),
                 SizedBox(height: 4),
@@ -528,7 +594,7 @@ Widget _buildPopularDishesGrid(CategoryProvider categoryProvider) {
                   onPressed: () {
                     productProvider.refreshProducts();
                   },
-                  child: Text('Retry', style: TextStyle(color: Colors.orange)),
+                  child: Text('Thử lại', style: TextStyle(color: Colors.orange)),
                 ),
               ],
             ),
@@ -548,7 +614,7 @@ Widget _buildPopularDishesGrid(CategoryProvider categoryProvider) {
                 Icon(Icons.restaurant_menu, color: Colors.grey[400], size: 48),
                 SizedBox(height: 8),
                 Text(
-                  'No products available',
+                  'Không có sản phẩm nào',
                   style: TextStyle(color: Colors.grey[600]),
                 ),
               ],
@@ -556,9 +622,6 @@ Widget _buildPopularDishesGrid(CategoryProvider categoryProvider) {
           ),
         );
       }
-
-      // Show only first 6 products for Popular Dishes (2 rows of 3)
-      List<Product> popularProducts = products.take(6).toList();
 
       return LayoutBuilder(
         builder: (context, constraints) {
@@ -575,9 +638,9 @@ Widget _buildPopularDishesGrid(CategoryProvider categoryProvider) {
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
-            itemCount: popularProducts.length,
+            itemCount: products.length,
             itemBuilder: (context, index) {
-              final product = popularProducts[index];
+              final product = products[index];
               return _buildPopularDishCard(product);
             },
           );
@@ -745,7 +808,6 @@ Widget _buildPopularDishCard(Product product) {
     bool isLoadingOptions = true;
     double totalPriceModifier = 0.0;
 
-    // Load product options
     try {
       productOptions = await ProductOptionService().getProductOptionsWithDetails(product.id);
       selectedOptions = ProductOptionService().createDefaultSelections(productOptions);
@@ -793,7 +855,6 @@ Widget _buildPopularDishCard(Product product) {
                   ),
                   child: Column(
                     children: [
-                      // Drag Handle
                       Container(
                         margin: EdgeInsets.only(top: 12, bottom: 8),
                         width: 40,
@@ -804,18 +865,16 @@ Widget _buildPopularDishCard(Product product) {
                         ),
                       ),
 
-                      // Scrollable Content
                       Expanded(
                         child: ListView(
                           controller: controller,
                           padding: EdgeInsets.zero,
                           children: [
-                            // Product Header Section
                             Container(
                               padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
                               child: Column(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  // Close Button
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: GestureDetector(
@@ -837,7 +896,6 @@ Widget _buildPopularDishCard(Product product) {
 
                                   SizedBox(height: 16),
 
-                                  // Product Image
                                   Container(
                                     width: 120,
                                     height: 120,
@@ -881,7 +939,6 @@ Widget _buildPopularDishCard(Product product) {
 
                                   SizedBox(height: 20),
 
-                                  // Product Name
                                   Text(
                                     product.name,
                                     style: TextStyle(
@@ -897,7 +954,6 @@ Widget _buildPopularDishCard(Product product) {
 
                                   SizedBox(height: 8),
 
-                                  // Branch Name
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
@@ -920,7 +976,6 @@ Widget _buildPopularDishCard(Product product) {
                                   
                                   SizedBox(height: 16),
                                   
-                                  // Base Price
                                   Container(
                                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                                     decoration: BoxDecoration(
@@ -955,7 +1010,6 @@ Widget _buildPopularDishCard(Product product) {
                               ),
                             ),
 
-                            // Options Section
                             if (isLoadingOptions)
                               Container(
                                 padding: EdgeInsets.all(40),
@@ -971,7 +1025,6 @@ Widget _buildPopularDishCard(Product product) {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Section Title
                                     Row(
                                       children: [
                                         Container(
@@ -995,7 +1048,6 @@ Widget _buildPopularDishCard(Product product) {
                                     ),
                                     SizedBox(height: 20),
 
-                                    // Options List
                                     ...productOptions.map((option) => _buildModernOptionWidget(
                                       option,
                                       selectedOptions,
@@ -1006,7 +1058,6 @@ Widget _buildPopularDishCard(Product product) {
                               ),
                             ],
 
-                            // Quantity Section
                             Container(
                               margin: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                               padding: EdgeInsets.all(20),
@@ -1029,7 +1080,6 @@ Widget _buildPopularDishCard(Product product) {
                                   SizedBox(height: 16),
                                   Row(
                                     children: [
-                                      // Decrease Button
                                       GestureDetector(
                                         onTap: () {
                                           if (quantity > 1) {
@@ -1057,7 +1107,6 @@ Widget _buildPopularDishCard(Product product) {
                                         ),
                                       ),
 
-                                      // Quantity Display
                                       Expanded(
                                         child: Center(
                                           child: Container(
@@ -1078,7 +1127,6 @@ Widget _buildPopularDishCard(Product product) {
                                         ),
                                       ),
 
-                                      // Increase Button
                                       GestureDetector(
                                         onTap: () {
                                           setState(() {
@@ -1114,7 +1162,6 @@ Widget _buildPopularDishCard(Product product) {
                               ),
                             ),
 
-                            // Special Instructions
                             Container(
                               margin: EdgeInsets.symmetric(horizontal: 24),
                               child: Column(
@@ -1175,12 +1222,11 @@ Widget _buildPopularDishCard(Product product) {
                               ),
                             ),
 
-                            SizedBox(height: 120), // Space for bottom bar
+                            SizedBox(height: 120),
                           ],
                         ),
                       ),
 
-                      // Bottom Action Bar
                       Container(
                         padding: EdgeInsets.fromLTRB(24, 16, 24, 24),
                         decoration: BoxDecoration(
@@ -1199,7 +1245,6 @@ Widget _buildPopularDishCard(Product product) {
                         child: SafeArea(
                           child: Row(
                             children: [
-                              // Total Price Column
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1239,7 +1284,6 @@ Widget _buildPopularDishCard(Product product) {
 
                               SizedBox(width: 16),
 
-                              // Add to Cart Button
                               Expanded(
                                 child: Container(
                                   height: 56,
@@ -1309,7 +1353,6 @@ Widget _buildPopularDishCard(Product product) {
     );
   }
 
-  // Modern Option Widget
   Widget _buildModernOptionWidget(
     ProductOptionType option,
     List<SelectedOption> selectedOptions,
@@ -1331,7 +1374,6 @@ Widget _buildPopularDishCard(Product product) {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Option Title
           Row(
             children: [
               Text(
@@ -1386,7 +1428,6 @@ Widget _buildPopularDishCard(Product product) {
           
           SizedBox(height: 12),
 
-          // Option Values
           if (option.type == 'select')
             Column(
               children: option.values
@@ -1422,7 +1463,6 @@ Widget _buildPopularDishCard(Product product) {
     );
   }
 
-  // Modern Select Option
   Widget _buildModernSelectOption(
     ProductOptionValue value,
     SelectedOption currentSelection,
@@ -1473,7 +1513,6 @@ Widget _buildPopularDishCard(Product product) {
         ),
         child: Row(
           children: [
-            // Radio Button
             Container(
               width: 20,
               height: 20,
@@ -1501,7 +1540,6 @@ Widget _buildPopularDishCard(Product product) {
 
             SizedBox(width: 12),
 
-            // Value Text
             Expanded(
               child: Text(
                 value.value,
@@ -1513,7 +1551,6 @@ Widget _buildPopularDishCard(Product product) {
               ),
             ),
 
-            // Price Modifier
             if (value.priceModifier != 0)
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1540,7 +1577,6 @@ Widget _buildPopularDishCard(Product product) {
     );
   }
 
-  // Modern Checkbox Option
   Widget _buildModernCheckboxOption(
     ProductOptionValue value,
     SelectedOption currentSelection,
@@ -1637,7 +1673,6 @@ Widget _buildPopularDishCard(Product product) {
     try {
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
       
-      // Check if switching branches with items in cart
       if (cartProvider.needsBranchSwitchConfirmation(widget.branch.id)) {
         final shouldSwitch = await _showBranchSwitchDialog(
           cartProvider.currentBranchName ?? 'previous branch',
@@ -1645,10 +1680,9 @@ Widget _buildPopularDishCard(Product product) {
         );
         
         if (shouldSwitch != true) {
-          return; // User cancelled
+          return;
         }
         
-        // Clear old cart before adding to new branch
         await cartProvider.clearCartForBranchSwitch();
       }
       

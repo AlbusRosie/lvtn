@@ -28,7 +28,7 @@ class _TableReservationWidgetState extends State<TableReservationWidget> {
   void initState() {
     super.initState();
     if (widget.cart.hasTableReservation) {
-      _tableController.text = widget.cart.tableNumber ?? '';
+      _tableController.text = widget.cart.tableIdDisplay?.toString() ?? '';
       _guestController.text = widget.cart.guestCount?.toString() ?? '';
       if (widget.cart.reservationDate != null) {
         _selectedDate = DateTime.parse(widget.cart.reservationDate!);

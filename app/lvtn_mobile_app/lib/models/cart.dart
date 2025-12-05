@@ -94,13 +94,13 @@ class Cart {
   final String? reservationDate;
   final String? reservationTime;
   final int? guestCount;
-  final String status;
-  final DateTime expiresAt;
+  final String? status;
+  final DateTime? expiresAt;
   final String? specialRequests;
-  final String? note; // Thêm field note
+  final String? note;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final String? tableNumber;
+  final int? tableIdDisplay;
   final int? tableCapacity;
   final String? branchName;
   final List<CartItem> items;
@@ -116,13 +116,13 @@ class Cart {
     this.reservationDate,
     this.reservationTime,
     this.guestCount,
-    required this.status,
-    required this.expiresAt,
+    this.status,
+    this.expiresAt,
     this.specialRequests,
     this.note,
     required this.createdAt,
     required this.updatedAt,
-    this.tableNumber,
+    this.tableIdDisplay,
     this.tableCapacity,
     this.branchName,
     required this.items,
@@ -141,12 +141,12 @@ class Cart {
       reservationTime: json['reservation_time'],
       guestCount: json['guest_count'],
       status: json['status'],
-      expiresAt: DateTime.parse(json['expires_at']),
+      expiresAt: json['expires_at'] != null ? DateTime.parse(json['expires_at']) : null,
       specialRequests: json['special_requests'],
       note: json['note'],
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
-      tableNumber: json['table_number'],
+      tableIdDisplay: json['table_id'],
       tableCapacity: json['capacity'],
       branchName: json['branch_name'],
       items: (json['items'] as List<dynamic>?)
@@ -168,12 +168,12 @@ class Cart {
       'reservation_time': reservationTime,
       'guest_count': guestCount,
       'status': status,
-      'expires_at': expiresAt.toIso8601String(),
+      'expires_at': expiresAt?.toIso8601String(),
       'special_requests': specialRequests,
       'note': note,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
-      'table_number': tableNumber,
+      'table_id': tableIdDisplay,
       'capacity': tableCapacity,
       'branch_name': branchName,
       'items': items.map((item) => item.toJson()).toList(),
@@ -197,7 +197,7 @@ class Cart {
     String? note,
     DateTime? createdAt,
     DateTime? updatedAt,
-    String? tableNumber,
+    int? tableIdDisplay,
     int? tableCapacity,
     String? branchName,
     List<CartItem>? items,
@@ -219,7 +219,7 @@ class Cart {
       note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      tableNumber: tableNumber ?? this.tableNumber,
+      tableIdDisplay: tableIdDisplay ?? this.tableIdDisplay,
       tableCapacity: tableCapacity ?? this.tableCapacity,
       branchName: branchName ?? this.branchName,
       items: items ?? this.items,
@@ -227,7 +227,7 @@ class Cart {
     );
   }
 
-  bool get isExpired => DateTime.now().isAfter(expiresAt);
+  bool get isExpired => false;
   bool get isEmpty => items.isEmpty;
   bool get hasTableReservation => tableId != null;
   bool get isDineIn => orderType == 'dine_in';

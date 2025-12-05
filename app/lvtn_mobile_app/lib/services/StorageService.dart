@@ -7,8 +7,18 @@ class StorageService {
 
   SharedPreferences? _prefs;
 
+  bool get isInitialized => _prefs != null;
+
   Future<void> initialize() async {
-    _prefs = await SharedPreferences.getInstance();
+    if (_prefs == null) {
+      _prefs = await SharedPreferences.getInstance();
+    }
+  }
+
+  Future<void> ensureInitialized() async {
+    if (_prefs == null) {
+      await initialize();
+    }
   }
 
   Future<void> setString(String key, String value) async {

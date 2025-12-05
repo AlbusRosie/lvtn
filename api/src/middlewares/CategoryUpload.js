@@ -1,6 +1,5 @@
 const multer = require('multer');
 const path = require('path');
-
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, 'public/uploads/');
@@ -10,7 +9,6 @@ const storage = multer.diskStorage({
         cb(null, 'category-' + uniqueSuffix + path.extname(file.originalname));
     }
 });
-
 const fileFilter = (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
         cb(null, true);
@@ -18,7 +16,6 @@ const fileFilter = (req, file, cb) => {
         cb(new Error('Only image files are allowed!'), false);
     }
 };
-
 const upload = multer({
     storage: storage,
     fileFilter: fileFilter,
@@ -26,9 +23,7 @@ const upload = multer({
         fileSize: 5 * 1024 * 1024
     }
 });
-
 const categoryImageUpload = upload.single('categoryImage');
-
 const optionalCategoryImageUpload = (req, res, next) => {
     categoryImageUpload(req, res, (err) => {
         if (err instanceof multer.MulterError) {
@@ -57,7 +52,6 @@ const optionalCategoryImageUpload = (req, res, next) => {
         next();
     });
 };
-
 module.exports = {
     categoryImageUpload,
     optionalCategoryImageUpload

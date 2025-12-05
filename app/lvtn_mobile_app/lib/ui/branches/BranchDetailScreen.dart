@@ -17,6 +17,7 @@ import '../widgets/AppBottomNav.dart';
 import '../products/ProductDetailScreen.dart';
 import '../../services/AuthService.dart';
 import '../../services/ReservationService.dart';
+import '../../services/TableService.dart';
 
 class BranchDetailScreen extends StatefulWidget {
   final Branch branch;
@@ -38,37 +39,86 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
   final BranchService _branchService = BranchService();
   final ProductService _productService = ProductService();
   final CategoryService _categoryService = CategoryService();
+  final TableService _tableService = TableService();
+  final ScrollController _scrollController = ScrollController();
   
   Branch? _branch;
   List<Product> _products = [];
   List<Category> _categories = [];
+  List<Map<String, dynamic>> _tables = [];
+  List<Map<String, dynamic>> _filteredTables = [];
+  Map<int, bool> _tableAvailability = {};
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _isLoadingTables = false;
+  bool _isCheckingAvailability = false;
   String? _error;
   int _selectedTabIndex = 0;
+  int _selectedReservationTabIndex = 0;
   int? _selectedCategoryId;
+  DateTime? _tableSelectionDate;
+  TimeOfDay? _tableSelectionTime;
+  
+  int _currentPage = 1;
+  int _limit = 20;
+  bool _hasMore = true;
+  Map<String, dynamic>? _metadata;
 
   @override
   void initState() {
     super.initState();
     _selectedTabIndex = widget.initialTabIndex;
+    _scrollController.addListener(_onScroll);
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients && 
+        _scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _hasMore && _selectedTabIndex == 0) {
+        _loadMoreProducts();
+      }
+    }
   }
 
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
       _error = null;
+      _currentPage = 1;
+      _hasMore = true;
+      _products = [];
     });
 
     try {
-      // Load branch details
       final branch = await _branchService.getBranchById(widget.branch.id);
       
-      // Load products for this branch
-      final products = await _productService.getBranchProducts(widget.branch.id);
+      final result = await _productService.getBranchProductsWithMetadata(
+        widget.branch.id,
+        categoryId: _selectedCategoryId,
+        page: _currentPage,
+        limit: _limit,
+      );
       
-      // Load categories
+      final products = result['products'] as List<Product>? ?? [];
+      _metadata = result['metadata'] as Map<String, dynamic>?;
+      
       final categories = await _categoryService.getAllCategories();
+      
+      if (_metadata != null) {
+        final currentPage = _metadata!['page'] as int? ?? 1;
+        final lastPage = _metadata!['lastPage'] as int? ?? 1;
+        _hasMore = currentPage < lastPage;
+      } else {
+        _hasMore = products.length >= _limit;
+      }
       
       if (mounted) {
         setState(() {
@@ -83,6 +133,50 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
         setState(() {
           _error = e.toString();
           _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMoreProducts() async {
+    if (_isLoadingMore || !_hasMore) return;
+    
+    setState(() {
+      _isLoadingMore = true;
+    });
+    
+    try {
+      _currentPage++;
+      final result = await _productService.getBranchProductsWithMetadata(
+        widget.branch.id,
+        categoryId: _selectedCategoryId,
+        page: _currentPage,
+        limit: _limit,
+      );
+      
+      final newProducts = result['products'] as List<Product>? ?? [];
+      _metadata = result['metadata'] as Map<String, dynamic>?;
+      
+      if (_metadata != null) {
+        final currentPage = _metadata!['page'] as int? ?? 1;
+        final lastPage = _metadata!['lastPage'] as int? ?? 1;
+        _hasMore = currentPage < lastPage;
+      } else {
+        _hasMore = newProducts.length >= _limit;
+      }
+      
+      if (mounted) {
+        setState(() {
+          _products.addAll(newProducts);
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      _currentPage--;
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+          _error = e.toString();
         });
       }
     }
@@ -111,7 +205,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
               Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
               const SizedBox(height: 16),
               Text(
-                'Error loading data',
+                'Lỗi khi tải dữ liệu',
                 style: TextStyle(fontSize: 18, color: Colors.red[700]),
               ),
               const SizedBox(height: 8),
@@ -123,7 +217,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadData,
-                child: const Text('Try Again'),
+                child: const Text('Thử lại'),
               ),
             ],
           ),
@@ -133,161 +227,203 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(56),
+        child: SafeArea(
+          bottom: false,
+          child: Container(
+            color: Colors.transparent,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
               children: [
-                // Header with branch image
-                Container(
-                  height: 180,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(30),
-                      bottomRight: Radius.circular(30),
+                  SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => Navigator.pop(context),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          constraints: BoxConstraints(
+                            minWidth: 40,
+                            maxWidth: 40,
+                            minHeight: 40,
+                            maxHeight: 40,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.arrow_back_ios_rounded,
+                            color: Colors.grey[800],
+                            size: 20,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.only(
-                            bottomLeft: Radius.circular(30),
-                            bottomRight: Radius.circular(30),
-                          ),
-                          child: effectiveBranch.image != null && effectiveBranch.image!.isNotEmpty
-                              ? Image.network(
-                                  _getImageUrl(effectiveBranch.image),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                          decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: [
-                                            Color(0xFFE53E3E),
-                                            Color(0xFFC53030),
-                                          ],
-                                        ),
-                                      ),
-                                      child: Center(
-                                        child: Icon(
-                                          Icons.restaurant,
-                                          color: Colors.white,
-                                          size: 80,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                )
-                              : Container(
-                          decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        Color(0xFFE53E3E),
-                                        Color(0xFFC53030),
-                                      ],
-                                    ),
+                  Spacer(),
+                  Consumer<CartProvider>(
+                    builder: (context, cartProvider, child) {
+                      return SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _showCartBottomSheet(cartProvider, effectiveBranch),
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  constraints: BoxConstraints(
+                                    minWidth: 40,
+                                    maxWidth: 40,
+                                    minHeight: 40,
+                                    maxHeight: 40,
                                   ),
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.restaurant,
-                                      color: Colors.white,
-                                      size: 80,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.9),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.3),
+                                      width: 1,
                                     ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 4,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.shopping_cart_outlined,
+                                    color: Colors.grey[800],
+                                    size: 20,
                                   ),
                                 ),
-                        ),
-                      ),
-                      // Back button
-                      Positioned(
-                        top: 20,
-                        left: 20,
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                        child: Container(
-                            width: 48,
-                            height: 48,
-                          decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.3),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.3),
-                                width: 1,
                               ),
                             ),
-                            child: Icon(
-                              Icons.arrow_back_ios,
-                                  color: Colors.white,
-                              size: 20,
-                                ),
-                              ),
-                        ),
-                      ),
-                      // Cart button
-                      Positioned(
-                        top: 20,
-                        right: 20,
-                        child: Consumer<CartProvider>(
-                          builder: (context, cartProvider, child) {
-                            return Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                GestureDetector(
-                                  onTap: () => _showCartBottomSheet(cartProvider, effectiveBranch),
-                                  child: Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.3),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.3),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Icon(Icons.shopping_bag_outlined, color: Colors.white, size: 24),
-                                  ),
-                                ),
                                 if (cartProvider.itemCount > 0)
                                   Positioned(
-                                    right: 0,
-                                    top: 0,
+                              right: -2,
+                              top: -2,
                                     child: Container(
-                                      padding: EdgeInsets.all(4),
+                                width: 20,
+                                height: 20,
                                       decoration: BoxDecoration(
-                                        color: Colors.orange,
+                                  color: Color(0xFFFF8A00),
                                         shape: BoxShape.circle,
                                         border: Border.all(
                                           color: Colors.white,
                                           width: 2,
                                         ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Color(0xFFFF8A00).withOpacity(0.4),
+                                      blurRadius: 6,
+                                      offset: Offset(0, 2),
                                       ),
-                                      constraints: BoxConstraints(
-                                        minWidth: 20,
-                                        minHeight: 20,
+                                  ],
                                       ),
+                                child: Center(
                                       child: Text(
-                                        '${cartProvider.itemCount}',
+                                    '${cartProvider.itemCount > 99 ? '99+' : cartProvider.itemCount}',
                                         style: TextStyle(
                                           color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1,
                                         ),
-                                        textAlign: TextAlign.center,
+                                  ),
                                       ),
                                     ),
                                   ),
                               ],
-                            );
-                          },
+                            ),
+                        );
+                    },
+                  ),
+                  ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        controller: _scrollController,
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              height: 180,
+              child: effectiveBranch.image != null && effectiveBranch.image!.isNotEmpty
+                  ? Image.network(
+                      _getImageUrl(effectiveBranch.image),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFFE53E3E),
+                                Color(0xFFC53030),
+                    ],
+                            ),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.restaurant,
+                              color: Colors.white,
+                              size: 80,
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFE53E3E),
+                            Color(0xFFC53030),
+                          ],
                         ),
                       ),
-                    ],
+                      child: Center(
+                        child: Icon(
+                          Icons.restaurant,
+                          color: Colors.white,
+                          size: 80,
+                        ),
+                      ),
                   ),
                 ),
-            // Restaurant Info Card
             Container(
               margin: EdgeInsets.only(left: 16, right: 16, top: 0),
               padding: EdgeInsets.all(20),
@@ -377,7 +513,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
               ),
             ),
             
-            // Navigation Tabs
             Container(
               margin: EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -438,7 +573,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
             
             SizedBox(height: 16),
             
-            // Category Navigation Bar - Only show in Menu tab
             if (_selectedTabIndex == 0) ...[
               SizedBox(
                 height: 50,
@@ -448,7 +582,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                     children: [
                     _buildCategoryChip('All', '🔥', _selectedCategoryId == null, null),
                     SizedBox(width: 12),
-                    ..._categories.map<Widget>((category) {
+                    ..._getAvailableCategories().map<Widget>((category) {
                       return Row(
                         children: [
                           _buildCategoryChip(
@@ -467,12 +601,9 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
               SizedBox(height: 16),
             ],
             
-            // Content based on selected tab
-            Expanded(
-              child: _selectedTabIndex == 0 
+            _selectedTabIndex == 0 
                 ? _buildMenuContent()
                 : _buildTableReservationContent(effectiveBranch),
-            ),
           ],
     ),
   ),
@@ -503,9 +634,25 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
     return 'Opening hours not available';
   }
 
+  List<Category> _getAvailableCategories() {
+    if (_products.isEmpty) {
+      return [];
+    }
+    
+    Set<int> categoryIds = _products
+        .where((p) => p.categoryId != null)
+        .map((p) => p.categoryId!)
+        .toSet();
+    
+    return _categories
+        .where((cat) => categoryIds.contains(cat.id))
+        .toList();
+  }
+
   Widget _buildMenuContent() {
     if (_products.isEmpty) {
-      return Center(
+      return Container(
+        padding: EdgeInsets.all(40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -525,14 +672,11 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
       );
     }
 
-    // Filter products by selected category
     List<Product> filteredProducts = _products;
-    if (_selectedCategoryId != null) {
-      filteredProducts = _products.where((product) => product.categoryId == _selectedCategoryId).toList();
-    }
 
     if (filteredProducts.isEmpty) {
-      return Center(
+      return Container(
+        padding: EdgeInsets.all(40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -552,7 +696,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
       );
     }
 
-    // Group filtered products by category
     final Map<int, List<Product>> productsByCategory = {};
     for (final product in filteredProducts) {
       if (!productsByCategory.containsKey(product.categoryId)) {
@@ -567,9 +710,11 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
         int crossAxisCount = screenWidth > 600 ? 3 : 2;
         double childAspectRatio = screenWidth > 600 ? 0.7 : 0.6;
         
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: ClampingScrollPhysics(),
+        return Column(
+          children: [
+            GridView.builder(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
           padding: EdgeInsets.symmetric(horizontal: 16),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
@@ -582,74 +727,138 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
             final product = filteredProducts[index];
             return _buildProductCard(product);
           },
+            ),
+            if (_isLoadingMore)
+              Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: Colors.orange,
+                  ),
+                ),
+              ),
+            if (!_hasMore && filteredProducts.isNotEmpty)
+              Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(
+                  child: Text(
+                    'Đã hiển thị tất cả món ăn',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
   }
 
   Widget _buildTableReservationContent(Branch branch) {
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        children: [
-          // Tab Bar
-          Container(
-            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: TabBar(
-              indicator: BoxDecoration(
-                color: Colors.orange,
-                borderRadius: BorderRadius.circular(12),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          margin: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 8,
+                offset: Offset(0, 2),
               ),
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.grey[700],
-              labelStyle: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-              unselectedLabelStyle: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-              tabs: [
-                Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.edit_calendar, size: 18),
-                      SizedBox(width: 8),
-                      Text('Quick Reserve'),
-                    ],
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                  onTap: () => setState(() => _selectedReservationTabIndex = 0),
+                    borderRadius: BorderRadius.circular(16),
+                    child: AnimatedContainer(
+                      duration: Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                        color: _selectedReservationTabIndex == 0 ? Color(0xFFFF8A00) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                            Icons.edit_calendar_rounded,
+                            size: 20,
+                          color: _selectedReservationTabIndex == 0 ? Colors.white : Colors.grey[700],
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                            'Đặt nhanh',
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            color: _selectedReservationTabIndex == 0 ? Colors.white : Colors.grey[700],
+                              letterSpacing: -0.3,
+                          ),
+                        ),
+                      ],
+                      ),
+                    ),
                   ),
                 ),
-                Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.table_restaurant, size: 18),
-                      SizedBox(width: 8),
-                      Text('Select Table'),
-                    ],
+              ),
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                  onTap: () => setState(() => _selectedReservationTabIndex = 1),
+                    borderRadius: BorderRadius.circular(16),
+                    child: AnimatedContainer(
+                      duration: Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                        color: _selectedReservationTabIndex == 1 ? Color(0xFFFF8A00) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                            Icons.table_restaurant_rounded,
+                            size: 20,
+                          color: _selectedReservationTabIndex == 1 ? Colors.white : Colors.grey[700],
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                            'Chọn bàn',
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            color: _selectedReservationTabIndex == 1 ? Colors.white : Colors.grey[700],
+                              letterSpacing: -0.3,
+                          ),
+                        ),
+                      ],
+                      ),
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          
-          // Tab Views
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildQuickReserveForm(branch),
-                _buildSelectTableView(branch),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+        
+        _selectedReservationTabIndex == 0
+            ? _buildQuickReserveForm(branch)
+            : _buildSelectTableView(branch),
+      ],
     );
   }
 
@@ -663,217 +872,311 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
     return StatefulBuilder(
       builder: (context, setState) {
         return SingleChildScrollView(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
-                Text(
-                  'Reserve a Table',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[900],
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Fill in your reservation details and we\'ll find the perfect table for you',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                SizedBox(height: 24),
 
-                // Date Selection
-                Text(
-                  'Reservation Date',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
-                  ),
-                ),
-                SizedBox(height: 8),
-                InkWell(
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(Duration(days: 90)),
-                    );
-                    if (date != null) {
-                      setState(() => selectedDate = date);
-                    }
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.calendar_today, color: Colors.orange, size: 20),
-                        SizedBox(width: 12),
-                        Text(
-                          selectedDate != null
-                              ? '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'
-                              : 'Select date',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: selectedDate != null ? Colors.black87 : Colors.grey[500],
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Ngày đặt bàn',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[800],
+                              letterSpacing: -0.2,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20),
-
-                // Time Selection
-                Text(
-                  'Reservation Time',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
-                  ),
-                ),
-                SizedBox(height: 8),
-                InkWell(
-                  onTap: () async {
-                    final time = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay.now(),
-                    );
-                    if (time != null) {
-                      setState(() => selectedTime = time);
-                    }
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.access_time, color: Colors.orange, size: 20),
-                        SizedBox(width: 12),
-                        Text(
-                          selectedTime != null
-                              ? '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}'
-                              : 'Select time',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: selectedTime != null ? Colors.black87 : Colors.grey[500],
+                          SizedBox(height: 8),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now().add(Duration(days: 90)),
+                                );
+                                if (date != null) {
+                                  setState(() => selectedDate = date);
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: Colors.grey[200]!, width: 1),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.03),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Color(0xFFFF8A00).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(Icons.calendar_today_rounded, color: Color(0xFFFF8A00), size: 18),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        selectedDate != null
+                                            ? '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'
+                                            : 'Chọn ngày',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: selectedDate != null ? Colors.grey[900] : Colors.grey[500],
+                                          letterSpacing: -0.2,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey[400], size: 18),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Giờ đặt bàn',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[800],
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () async {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: TimeOfDay.now(),
+                                );
+                                if (time != null) {
+                                  setState(() => selectedTime = time);
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: Colors.grey[200]!, width: 1),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.03),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Color(0xFFFF8A00).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(Icons.access_time_rounded, color: Color(0xFFFF8A00), size: 18),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        selectedTime != null
+                                            ? '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}'
+                                            : 'Chọn giờ',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: selectedTime != null ? Colors.grey[900] : Colors.grey[500],
+                                          letterSpacing: -0.2,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey[400], size: 18),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 20),
+                SizedBox(height: 16),
 
-                // Guest Count
                 Text(
-                  'Number of Guests',
+                  'Số lượng khách',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: Colors.grey[800],
+                    letterSpacing: -0.2,
                   ),
                 ),
                 SizedBox(height: 8),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    border: Border.all(color: Colors.grey[300]!),
-                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!, width: 1),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.people, color: Colors.orange, size: 20),
-                      SizedBox(width: 12),
+                      Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Color(0xFFFF8A00).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.people_rounded, color: Color(0xFFFF8A00), size: 20),
+                      ),
+                      SizedBox(width: 14),
                       Expanded(
                         child: Text(
-                          '$guestCount guests',
-                          style: TextStyle(fontSize: 16, color: Colors.black87),
+                          '$guestCount người',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[900],
+                            letterSpacing: -0.2,
+                          ),
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.remove_circle_outline),
-                        color: Colors.orange,
+                        icon: Icon(Icons.remove_circle_outline_rounded),
+                        color: guestCount > 1 ? Color(0xFFFF8A00) : Colors.grey[300],
                         onPressed: guestCount > 1 ? () => setState(() => guestCount--) : null,
                       ),
-                      Text(
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Color(0xFFFF8A00).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
                         '$guestCount',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFFF8A00),
+                          ),
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.add_circle_outline),
-                        color: Colors.orange,
+                        icon: Icon(Icons.add_circle_outline_rounded),
+                        color: guestCount < 20 ? Color(0xFFFF8A00) : Colors.grey[300],
                         onPressed: guestCount < 20 ? () => setState(() => guestCount++) : null,
                       ),
                     ],
                   ),
                 ),
-                SizedBox(height: 20),
+                SizedBox(height: 16),
 
-                // Special Requests
                 Text(
-                  'Special Requests (Optional)',
+                  'Yêu cầu đặc biệt (Tùy chọn)',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: Colors.grey[800],
+                    letterSpacing: -0.2,
                   ),
                 ),
                 SizedBox(height: 8),
                 TextFormField(
                   maxLines: 3,
                   decoration: InputDecoration(
-                    hintText: 'Any special requests or dietary requirements?',
+                    hintText: 'Ví dụ: Không hành, cay vừa, chín kỹ...',
+                    hintStyle: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 14,
+                    ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey[200]!, width: 1),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey[200]!, width: 1),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.orange, width: 2),
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Color(0xFFFF8A00), width: 2),
                     ),
                     filled: true,
                     fillColor: Colors.white,
+                    contentPadding: EdgeInsets.all(18),
+                  ),
+                  style: TextStyle(
+                    fontSize: 14,
+                    letterSpacing: -0.1,
                   ),
                   onChanged: (value) => specialRequests = value,
                 ),
-                SizedBox(height: 32),
+                SizedBox(height: 24),
 
-                // Reserve Button
                 SizedBox(
                   width: double.infinity,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFFFF8A00).withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
                   child: ElevatedButton(
                     onPressed: () async {
                       if (selectedDate == null || selectedTime == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Please select date and time'),
+                              content: Text('Vui lòng chọn ngày và giờ'),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -881,11 +1184,9 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                       }
 
                       try {
-                        // Format date and time
                         final formattedDate = '${selectedDate!.year}-${selectedDate!.month.toString().padLeft(2, '0')}-${selectedDate!.day.toString().padLeft(2, '0')}';
                         final formattedTime = '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}:00';
 
-                        // Show loading
                         showDialog(
                           context: context,
                           barrierDismissible: false,
@@ -906,7 +1207,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                           return;
                         }
 
-                        // Create reservation with auto-assigned table
                         final response = await ReservationService().createQuickReservation(
                           token: token,
                           branchId: branch.id,
@@ -916,10 +1216,9 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                           specialRequests: specialRequests,
                         );
 
-                        Navigator.pop(context); // Close loading
+                        Navigator.pop(context);
 
                         if (response != null) {
-                          // Success
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
@@ -972,7 +1271,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                               actions: [
                                 TextButton(
                                   onPressed: () {
-                                    Navigator.pop(context); // Close dialog
+                                    Navigator.pop(context);
                                   },
                                   child: Text(
                                     'View Menu',
@@ -986,14 +1285,12 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                               ],
                             ),
                           ).then((_) {
-                            // Switch to Menu tab
                             setState(() {
                               _selectedTabIndex = 0;
                             });
                           });
                         }
                       } catch (e) {
-                        // Close loading if still open
                         if (Navigator.canPop(context)) {
                           Navigator.pop(context);
                         }
@@ -1008,19 +1305,28 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
+                        backgroundColor: Color(0xFFFF8A00),
                       foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 16),
+                        padding: EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(16),
                       ),
                       elevation: 0,
                     ),
-                    child: Text(
-                      'Confirm Reservation',
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_outline_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Xác nhận đặt bàn',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1034,56 +1340,797 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
   }
 
   Widget _buildSelectTableView(Branch branch) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.table_restaurant, size: 64, color: Colors.orange),
-          const SizedBox(height: 16),
-          Text(
-            'View & Select Tables',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[900],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              'Browse available tables by floor and select the perfect spot for your dining experience',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-                height: 1.5,
+    if (_tables.isEmpty && !_isLoadingTables) {
+      _loadTables(branch.id);
+    }
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Ngày',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[800],
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: _tableSelectionDate ?? DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(Duration(days: 90)),
+                              );
+                              if (date != null) {
+                                setState(() {
+                                  _tableSelectionDate = date;
+                                  if (_tableSelectionTime == null) {
+                                    _filteredTables = [];
+                                  }
+                                });
+                                if (_tableSelectionTime != null) {
+                                  _checkTableAvailability(branch.id);
+                                }
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(color: Colors.grey[200]!, width: 1),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.03),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Color(0xFFFF8A00).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(Icons.calendar_today_rounded, color: Color(0xFFFF8A00), size: 18),
+                                  ),
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _tableSelectionDate != null
+                                          ? '${_tableSelectionDate!.day}/${_tableSelectionDate!.month}/${_tableSelectionDate!.year}'
+                                          : 'Chọn ngày',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: _tableSelectionDate != null ? Colors.grey[900] : Colors.grey[500],
+                                        letterSpacing: -0.2,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey[400], size: 18),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Giờ',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[800],
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () async {
+                              final time = await showTimePicker(
+                                context: context,
+                                initialTime: _tableSelectionTime ?? TimeOfDay.now(),
+                              );
+                              if (time != null) {
+                                setState(() {
+                                  _tableSelectionTime = time;
+                                  if (_tableSelectionDate == null) {
+                                    _filteredTables = [];
+                                  }
+                                });
+                                if (_tableSelectionDate != null) {
+                                  _checkTableAvailability(branch.id);
+                                }
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(color: Colors.grey[200]!, width: 1),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.03),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Color(0xFFFF8A00).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(Icons.access_time_rounded, color: Color(0xFFFF8A00), size: 18),
+                                  ),
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _tableSelectionTime != null
+                                          ? '${_tableSelectionTime!.hour.toString().padLeft(2, '0')}:${_tableSelectionTime!.minute.toString().padLeft(2, '0')}'
+                                          : 'Chọn giờ',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: _tableSelectionTime != null ? Colors.grey[900] : Colors.grey[500],
+                                        letterSpacing: -0.2,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey[400], size: 18),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => TableScreen(branch: branch),
+              SizedBox(height: 16),
+              
+              if (_isLoadingTables)
+                Container(
+                  padding: EdgeInsets.all(40),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFFFF8A00),
+                    ),
+                  ),
+                )
+              else if (_tables.isEmpty)
+                Container(
+                  padding: EdgeInsets.all(40),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.table_restaurant_outlined,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Không có bàn nào',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (_tableSelectionDate != null && _tableSelectionTime != null && _isCheckingAvailability)
+                Container(
+                  padding: EdgeInsets.all(40),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        CircularProgressIndicator(
+                          color: Color(0xFFFF8A00),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Đang kiểm tra bàn trống...',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (_tableSelectionDate != null && _tableSelectionTime != null)
+                _filteredTables.isEmpty
+                    ? Container(
+                        padding: EdgeInsets.all(40),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.table_restaurant_outlined,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'Không có bàn trống',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Vui lòng chọn thời gian khác',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : GridView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.85,
+                        ),
+                        itemCount: _filteredTables.length,
+                        itemBuilder: (context, index) {
+                          final table = _filteredTables[index];
+                          return _buildTableCard(table, branch);
+                        },
+                      )
+              else
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.85,
+                  ),
+                  itemCount: _tables.length,
+                  itemBuilder: (context, index) {
+                    final table = _tables[index];
+                    return _buildTableCard(table, branch);
+                  },
                 ),
-              );
-            },
-            icon: Icon(Icons.visibility, size: 20),
-            label: Text('View All Tables'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 0,
-            ),
+              
+              SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _loadTables(int branchId) async {
+    setState(() {
+      _isLoadingTables = true;
+    });
+
+    try {
+      final tables = await _tableService.getTablesByBranch(branchId);
+      final normalized = tables.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      
+      setState(() {
+        _tables = normalized;
+        if (_tableSelectionDate != null && _tableSelectionTime != null) {
+          _filteredTables = [];
+        } else {
+          _filteredTables = normalized;
+        }
+        _isLoadingTables = false;
+      });
+      
+      if (_tableSelectionDate != null && _tableSelectionTime != null) {
+        _checkTableAvailability(branchId);
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingTables = false;
+      });
+    }
+  }
+
+  Future<void> _checkTableAvailability(int branchId) async {
+    if (_tableSelectionDate == null || _tableSelectionTime == null) {
+      setState(() {
+        _filteredTables = _tables;
+      });
+      return;
+    }
+
+    if (_tables.isEmpty) {
+      await _loadTables(branchId);
+      return;
+    }
+
+    setState(() {
+      _isCheckingAvailability = true;
+      _tableAvailability.clear();
+    });
+
+    try {
+      final formattedDate = '${_tableSelectionDate!.year}-${_tableSelectionDate!.month.toString().padLeft(2, '0')}-${_tableSelectionDate!.day.toString().padLeft(2, '0')}';
+      final formattedTime = '${_tableSelectionTime!.hour.toString().padLeft(2, '0')}:${_tableSelectionTime!.minute.toString().padLeft(2, '0')}:00';
+
+      print('_checkTableAvailability: date=$formattedDate, time=$formattedTime');
+
+      final List<Map<String, dynamic>> availableTables = [];
+      
+      for (final table in _tables) {
+        final tableId = table['id'] ?? table['table_id'];
+        if (tableId == null) continue;
+
+        try {
+          final schedule = await ReservationService.getTableSchedule(
+            tableId: tableId,
+            startDate: formattedDate,
+            endDate: formattedDate,
+          );
+
+          print('_checkTableAvailability: tableId=$tableId, schedule count=${schedule.length}');
+          if (schedule.isNotEmpty) {
+            print('_checkTableAvailability: schedule items for tableId=$tableId:');
+            for (int i = 0; i < schedule.length; i++) {
+              print('  Item $i: ${schedule[i]}');
+            }
+          }
+
+          bool isAvailable = true;
+          
+          final startDateTime = DateTime.parse('$formattedDate ${formattedTime}');
+          final endDateTime = startDateTime.add(Duration(hours: 2));
+          final endTime = '${endDateTime.hour.toString().padLeft(2, '0')}:${endDateTime.minute.toString().padLeft(2, '0')}:00';
+
+          print('_checkTableAvailability: tableId=$tableId, request time=$formattedTime to $endTime');
+
+          if (schedule.isEmpty) {
+            print('_checkTableAvailability: tableId=$tableId has no schedule items, marking as available');
+          }
+          
+          for (final item in schedule) {
+            final reservationDate = item['reservation_date']?.toString() ?? 
+                                    item['schedule_date']?.toString() ??
+                                    item['date']?.toString();
+            final reservationTime = item['reservation_time']?.toString() ?? 
+                                    item['start_time']?.toString() ??
+                                    item['time']?.toString();
+            final reservationEndTime = item['end_time']?.toString();
+            final status = item['status']?.toString()?.toLowerCase();
+            final durationMinutes = item['duration_minutes'] as int?;
+
+            print('_checkTableAvailability: checking item - date=$reservationDate, time=$reservationTime, endTime=$reservationEndTime, status=$status, duration=$durationMinutes');
+
+            if (status == 'cancelled') {
+              print('_checkTableAvailability: skipping cancelled item');
+              continue;
+            }
+
+            String reservationDateOnly = '';
+            if (reservationDate != null && reservationDate.isNotEmpty) {
+              if (reservationDate.contains('T')) {
+                reservationDateOnly = reservationDate.split('T')[0];
+              } 
+              else if (reservationDate.contains(' ')) {
+                reservationDateOnly = reservationDate.split(' ')[0];
+              } 
+              else {
+                reservationDateOnly = reservationDate;
+              }
+            }
+
+            print('_checkTableAvailability: reservationDateOnly=$reservationDateOnly, formattedDate=$formattedDate');
+
+            if (reservationDateOnly != formattedDate) {
+              print('_checkTableAvailability: date mismatch, skipping');
+              continue;
+            }
+
+            if (reservationTime != null && reservationTime.isNotEmpty) {
+              String resStart = reservationTime.trim();
+              
+              if (resStart.contains(' ')) {
+                resStart = resStart.split(' ')[1];
+              }
+              
+              if (resStart.length >= 5) {
+                resStart = resStart.substring(0, 5);
+              }
+              
+              String? resEnd;
+              if (reservationEndTime != null && reservationEndTime.isNotEmpty) {
+                resEnd = reservationEndTime.trim();
+                if (resEnd.contains(' ')) {
+                  resEnd = resEnd.split(' ')[1];
+                }
+                if (resEnd.length >= 5) {
+                  resEnd = resEnd.substring(0, 5);
+                }
+              } else if (durationMinutes != null && durationMinutes > 0) {
+                int resStartMinutes = _timeToMinutes(resStart);
+                int resEndCalculatedMinutes = resStartMinutes + durationMinutes;
+                resEnd = _minutesToTime(resEndCalculatedMinutes);
+              } else {
+                int resStartMinutes = _timeToMinutes(resStart);
+                int resEndCalculatedMinutes = resStartMinutes + 120;
+                resEnd = _minutesToTime(resEndCalculatedMinutes);
+              }
+              
+              final reqStart = formattedTime.substring(0, 5);
+              final reqEnd = endTime.substring(0, 5);
+
+              print('_checkTableAvailability: comparing - reqStart=$reqStart, reqEnd=$reqEnd, resStart=$resStart, resEnd=$resEnd');
+
+              int reqStartMinutes = _timeToMinutes(reqStart);
+              int reqEndMinutes = _timeToMinutes(reqEnd);
+              int resStartMinutes = _timeToMinutes(resStart);
+              int resEndMinutes = _timeToMinutes(resEnd ?? resStart);
+              
+              bool hasOverlap = (reqStartMinutes < resEndMinutes) && (reqEndMinutes > resStartMinutes);
+              
+              print('_checkTableAvailability: overlap check - reqStart=$reqStartMinutes, reqEnd=$reqEndMinutes, resStart=$resStartMinutes, resEnd=$resEndMinutes, hasOverlap=$hasOverlap');
+
+              if (hasOverlap) {
+                print('_checkTableAvailability: tableId=$tableId is NOT available due to overlap with status=$status');
+                isAvailable = false;
+                break;
+              }
+            }
+          }
+
+          if (isAvailable) {
+            print('_checkTableAvailability: tableId=$tableId is available');
+            availableTables.add(table);
+            _tableAvailability[tableId] = true;
+          } else {
+            print('_checkTableAvailability: tableId=$tableId is NOT available');
+            _tableAvailability[tableId] = false;
+          }
+        } catch (e, stackTrace) {
+          print('_checkTableAvailability: Error checking tableId=$tableId: $e');
+          print('_checkTableAvailability: Stack trace: $stackTrace');
+          _tableAvailability[tableId] = false;
+        }
+      }
+
+      print('_checkTableAvailability: Found ${availableTables.length} available tables out of ${_tables.length}');
+
+      setState(() {
+        _filteredTables = availableTables;
+        _isCheckingAvailability = false;
+      });
+    } catch (e, stackTrace) {
+      print('_checkTableAvailability: Error: $e');
+      print('_checkTableAvailability: Stack trace: $stackTrace');
+      setState(() {
+        _filteredTables = [];
+        _isCheckingAvailability = false;
+      });
+    }
+  }
+
+  int _timeToMinutes(String time) {
+    final parts = time.split(':');
+    if (parts.length < 2) return 0;
+    final hours = int.tryParse(parts[0]) ?? 0;
+    final minutes = int.tryParse(parts[1]) ?? 0;
+    return hours * 60 + minutes;
+  }
+
+  String _minutesToTime(int minutes) {
+    final hours = minutes ~/ 60;
+    final mins = minutes % 60;
+    return '${hours.toString().padLeft(2, '0')}:${mins.toString().padLeft(2, '0')}';
+  }
+
+
+  Widget _buildTableCard(Map<String, dynamic> table, Branch branch) {
+    final tableName = table['name'] ?? table['table_name'] ?? 'Bàn ${table['id']}';
+    final capacity = table['capacity'] ?? table['guest_capacity'] ?? 0;
+    final floorName = table['floor_name'] ?? 'Tầng ${table['floor_number'] ?? ''}';
+    final tableId = table['id'] ?? table['table_id'];
+    
+    String status;
+    if (_tableSelectionDate != null && _tableSelectionTime != null && _tableAvailability.containsKey(tableId)) {
+      status = _tableAvailability[tableId] == true ? 'available' : 'reserved';
+    } else {
+      status = table['status'] ?? 'available';
+    }
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.grey[200]!,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: Offset(0, 2),
           ),
         ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TableScreen(branch: branch),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Color(0xFFFF8A00).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.table_restaurant_rounded,
+                        color: Color(0xFFFF8A00),
+                        size: 28,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      tableName,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey[900],
+                        letterSpacing: -0.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.people_outline_rounded,
+                          size: 14,
+                          color: Colors.grey[600],
+                        ),
+                        SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            '$capacity người',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.layers_outlined,
+                          size: 14,
+                          color: Colors.grey[600],
+                        ),
+                        SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            floorName,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: status == 'available' 
+                        ? Colors.green[50] 
+                        : status == 'reserved'
+                        ? Colors.orange[50]
+                        : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    status == 'available' 
+                        ? 'Trống' 
+                        : status == 'reserved'
+                        ? 'Đã đặt'
+                        : 'Không dùng',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: status == 'available' 
+                          ? Colors.green[700] 
+                          : status == 'reserved'
+                          ? Colors.orange[700]
+                          : Colors.grey[700],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReservationCard({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.grey[200]!,
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                spreadRadius: 0,
+                blurRadius: 20,
+                offset: Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                spreadRadius: 0,
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 28,
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: Colors.grey[900],
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.4,
+                        height: 1.3,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: -0.1,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: color,
+                  size: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1107,7 +2154,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
       ),
       child: Row(
         children: [
-          // Product Image
           Container(
             width: 80,
             height: 80,
@@ -1141,7 +2187,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
             ),
           ),
           SizedBox(width: 16),
-          // Product Details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1180,7 +2225,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
             ),
           ),
           SizedBox(width: 12),
-          // Add to Cart Button
           GestureDetector(
             onTap: () => _showProductOptionsDialog(product),
             child: Container(
@@ -1360,7 +2404,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
     bool isLoadingOptions = true;
     double totalPriceModifier = 0.0;
 
-    // Load product options
     try {
       productOptions = await ProductOptionService().getProductOptionsWithDetails(product.id);
       selectedOptions = ProductOptionService().createDefaultSelections(productOptions);
@@ -1408,7 +2451,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                   ),
                   child: Column(
               children: [
-                      // Drag Handle
                       Container(
                         margin: EdgeInsets.only(top: 12, bottom: 8),
                         width: 40,
@@ -1419,18 +2461,15 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                         ),
                       ),
 
-                      // Scrollable Content
                       Expanded(
                         child: ListView(
                           controller: controller,
                           padding: EdgeInsets.zero,
                           children: [
-                            // Product Header Section
                             Container(
                               padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
                               child: Column(
                                 children: [
-                                  // Close Button
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: GestureDetector(
@@ -1452,7 +2491,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
 
                                   SizedBox(height: 16),
 
-                                  // Product Image
                                   Container(
                       width: 120,
                       height: 120,
@@ -1496,7 +2534,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
 
                                   SizedBox(height: 20),
 
-                                  // Product Name
                                   Text(
                                     product.name,
                                     style: TextStyle(
@@ -1512,7 +2549,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
 
                                   SizedBox(height: 8),
 
-                                  // Branch Name
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
@@ -1535,7 +2571,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                   
                   SizedBox(height: 16),
                   
-                                  // Base Price
                                   Container(
                                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                                     decoration: BoxDecoration(
@@ -1570,7 +2605,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                               ),
                             ),
 
-                            // Options Section
                             if (isLoadingOptions)
                               Container(
                                 padding: EdgeInsets.all(40),
@@ -1586,7 +2620,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Section Title
                                     Row(
                                       children: [
                                         Container(
@@ -1610,7 +2643,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                                     ),
                                     SizedBox(height: 20),
 
-                                    // Options List
                                     ...productOptions.map((option) => _buildModernOptionWidget(
                                       option,
                                       selectedOptions,
@@ -1621,7 +2653,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                               ),
                             ],
 
-                            // Quantity Section
                             Container(
                               margin: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                               padding: EdgeInsets.all(20),
@@ -1644,7 +2675,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                                   SizedBox(height: 16),
                       Row(
                         children: [
-                                      // Decrease Button
                           GestureDetector(
                             onTap: () {
                               if (quantity > 1) {
@@ -1672,7 +2702,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                                         ),
                                       ),
 
-                                      // Quantity Display
                                       Expanded(
                                         child: Center(
                                           child: Container(
@@ -1693,7 +2722,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                                         ),
                                       ),
 
-                                      // Increase Button
                           GestureDetector(
                             onTap: () {
                               setState(() {
@@ -1729,7 +2757,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                               ),
                             ),
 
-                            // Special Instructions
                             Container(
                               margin: EdgeInsets.symmetric(horizontal: 24),
                               child: Column(
@@ -1790,12 +2817,11 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
               ),
                             ),
 
-                            SizedBox(height: 120), // Space for bottom bar
+                            SizedBox(height: 120),
                           ],
                         ),
                       ),
 
-                      // Bottom Action Bar
                       Container(
                         padding: EdgeInsets.fromLTRB(24, 16, 24, 24),
                         decoration: BoxDecoration(
@@ -1814,7 +2840,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                         child: SafeArea(
                           child: Row(
                             children: [
-                              // Total Price Column
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1854,7 +2879,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
 
                               SizedBox(width: 16),
 
-                              // Add to Cart Button
                               Expanded(
                                 child: Container(
                                   height: 56,
@@ -1924,7 +2948,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
     );
   }
 
-  // Modern Option Widget
   Widget _buildModernOptionWidget(
     ProductOptionType option,
     List<SelectedOption> selectedOptions,
@@ -1946,7 +2969,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Option Title
           Row(
             children: [
               Text(
@@ -2001,7 +3023,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
           
           SizedBox(height: 12),
 
-          // Option Values
           if (option.type == 'select')
             Column(
               children: option.values
@@ -2037,7 +3058,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
     );
   }
 
-  // Modern Select Option
   Widget _buildModernSelectOption(
     ProductOptionValue value,
     SelectedOption currentSelection,
@@ -2088,7 +3108,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
         ),
         child: Row(
           children: [
-            // Radio Button
             Container(
               width: 20,
               height: 20,
@@ -2116,7 +3135,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
 
             SizedBox(width: 12),
 
-            // Value Text
             Expanded(
               child: Text(
                 value.value,
@@ -2128,7 +3146,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
               ),
             ),
 
-            // Price Modifier
             if (value.priceModifier != 0)
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -2155,7 +3172,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
     );
   }
 
-  // Modern Checkbox Option
   Widget _buildModernCheckboxOption(
     ProductOptionValue value,
     SelectedOption currentSelection,
@@ -2252,7 +3268,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
     try {
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
       
-      // Check if switching branches with items in cart
       if (cartProvider.needsBranchSwitchConfirmation(widget.branch.id)) {
         final shouldSwitch = await _showBranchSwitchDialog(
           cartProvider.currentBranchName ?? 'previous branch',
@@ -2260,10 +3275,9 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
         );
         
         if (shouldSwitch != true) {
-          return; // User cancelled
+          return;
         }
         
-        // Clear old cart before adding to new branch
         await cartProvider.clearCartForBranchSwitch();
       }
       
@@ -2598,6 +3612,9 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
         setState(() {
           _selectedCategoryId = category?.id;
         });
+        _currentPage = 1;
+        _hasMore = true;
+        _loadData();
       },
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),

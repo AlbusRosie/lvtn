@@ -8,6 +8,7 @@ import '../../services/CartService.dart';
 import '../../services/AuthService.dart';
 import '../../ui/cart/CartProvider.dart';
 import '../../providers/AuthProvider.dart';
+import '../../providers/ChatProvider.dart';
 import '../../constants/api_constants.dart';
 import '../products/ProductOptionEditDialog.dart';
 import '../branches/BranchDetailScreen.dart';
@@ -46,7 +47,6 @@ class _CartScreenState extends State<CartScreen> {
     try {
       final token = AuthService().token;
       if (token == null) {
-        // No token - redirect to login
         if (mounted) {
           Navigator.pushReplacementNamed(context, '/auth');
         }
@@ -66,12 +66,15 @@ class _CartScreenState extends State<CartScreen> {
       if (mounted) {
         final errorMessage = e.toString();
         
-        // Check if it's an authentication error
         if (errorMessage.contains('Invalid token') || 
             errorMessage.contains('401') ||
             errorMessage.contains('Unauthorized')) {
-          // Token expired or invalid - clear and redirect to login
           await AuthService().logout();
+          
+          if (mounted) {
+            final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+            chatProvider.reset();
+          }
           
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -81,14 +84,12 @@ class _CartScreenState extends State<CartScreen> {
             ),
           );
           
-          // Redirect to login after a short delay
           Future.delayed(Duration(seconds: 1), () {
             if (mounted) {
               Navigator.pushReplacementNamed(context, '/auth');
             }
           });
         } else {
-          // Other errors - show error state
           setState(() {
             _error = errorMessage;
           });
@@ -192,8 +193,6 @@ class _CartScreenState extends State<CartScreen> {
       final cart = context.read<CartProvider>().cart;
       if (cart == null) return;
 
-      // Always proceed to checkout directly (delivery orders only)
-      // No table reservation needed from cart
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -229,7 +228,6 @@ class _CartScreenState extends State<CartScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Icon
                 Container(
                   width: 70,
                   height: 70,
@@ -246,7 +244,6 @@ class _CartScreenState extends State<CartScreen> {
                 
                 SizedBox(height: 20),
                 
-                // Title
                 Text(
                   'Đặt bàn trước?',
                   style: TextStyle(
@@ -259,7 +256,6 @@ class _CartScreenState extends State<CartScreen> {
                 
                 SizedBox(height: 12),
                 
-                // Description
                 Text(
                   'Bạn có muốn đặt bàn trước không? Điều này sẽ đảm bảo bạn có chỗ ngồi khi đến nhà hàng.',
                   style: TextStyle(
@@ -272,10 +268,8 @@ class _CartScreenState extends State<CartScreen> {
                 
                 SizedBox(height: 24),
                 
-                // Buttons
                 Column(
                   children: [
-                    // Confirm Button
                     SizedBox(
                       width: double.infinity,
                       height: 48,
@@ -304,7 +298,6 @@ class _CartScreenState extends State<CartScreen> {
                     
                     SizedBox(height: 12),
                     
-                    // Cancel Button
                     SizedBox(
                       width: double.infinity,
                       height: 48,
@@ -424,7 +417,6 @@ class _CartScreenState extends State<CartScreen> {
 
           return Column(
             children: [
-              // Restaurant Header
               Container(
                 margin: EdgeInsets.all(16),
                 padding: EdgeInsets.all(16),
@@ -472,7 +464,6 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
 
-              // Cart Items
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -513,7 +504,6 @@ class _CartScreenState extends State<CartScreen> {
                         ),
                         child: Row(
                           children: [
-                            // Product Image with Quantity Controls below
                             Column(
                               children: [
                                 Container(
@@ -551,7 +541,6 @@ class _CartScreenState extends State<CartScreen> {
                                 
                                 SizedBox(height: 8),
                                 
-                                // Quantity Controls - Below the image
                                 Container(
                                   decoration: BoxDecoration(
                                     color: Colors.grey[100],
@@ -616,7 +605,6 @@ class _CartScreenState extends State<CartScreen> {
                             
                             SizedBox(width: 16),
                             
-                            // Product Details
                             Expanded(
                               child: GestureDetector(
                                 onTap: () => _editProductOptions(item),
@@ -666,7 +654,6 @@ class _CartScreenState extends State<CartScreen> {
                                       ),
                                     ),
                                     
-                                    // Show selected options if any
                                     if (item.selectedOptions != null && item.selectedOptions!.isNotEmpty) ...[
                                       const SizedBox(height: 4),
                                       Text(
@@ -690,7 +677,6 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
 
-              // Bottom Summary
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -711,7 +697,6 @@ class _CartScreenState extends State<CartScreen> {
                   top: false,
                   child: Column(
                     children: [
-                      // Order Summary
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -788,7 +773,6 @@ class _CartScreenState extends State<CartScreen> {
                       
                       SizedBox(height: 20),
                       
-                      // Checkout Button
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(

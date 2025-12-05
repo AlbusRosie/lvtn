@@ -4,8 +4,10 @@ import 'ui/home/HomeScreen.dart';
 import 'ui/branches/BranchScreen.dart';
 import 'ui/branches/BranchDetailScreen.dart';
 import 'ui/branches/BranchMenuScreen.dart';
+import 'ui/reservation/ReservationMenuScreen.dart';
 import 'ui/products/ProductDetailScreen.dart';
 import 'ui/profile/ProfileScreen.dart';
+import 'ui/profile/EditProfileScreen.dart';
 import 'ui/splash_screen.dart';
 import 'ui/auth/AuthScreen.dart';
 import 'providers/AuthProvider.dart';
@@ -21,6 +23,7 @@ import 'ui/tables/TableScreen.dart';
 import 'ui/orders/QuickOrderScreen.dart';
 import 'ui/orders/OrdersScreen.dart';
 import 'ui/chat/ChatScreen.dart';
+import 'ui/widgets/AuthGuard.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,11 +32,13 @@ Future<void> main() async {
   final authProvider = AuthProvider();
   await authProvider.tryAutoLogin();
   
-  runApp(const LVTNRestaurantApp());
+  runApp(LVTNRestaurantApp(authProvider: authProvider));
 }
 
 class LVTNRestaurantApp extends StatelessWidget {
-  const LVTNRestaurantApp({super.key});
+  final AuthProvider authProvider;
+  
+  const LVTNRestaurantApp({super.key, required this.authProvider});
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +82,7 @@ class LVTNRestaurantApp extends StatelessWidget {
 
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => BranchProvider()),
         ChangeNotifierProvider(create: (_) => LocationProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
@@ -91,12 +96,27 @@ class LVTNRestaurantApp extends StatelessWidget {
         home: const SafeArea(child: SplashScreen()),
         routes: {
           '/auth': (ctx) => const SafeArea(child: AuthScreen()),
-          HomeScreen.routeName: (ctx) => const SafeArea(child: HomeScreen()),
-          BranchScreen.routeName: (ctx) => const SafeArea(child: BranchScreen()),
-          OrdersScreen.routeName: (ctx) => const SafeArea(child: OrdersScreen()),
-          ProfileScreen.routeName: (ctx) => const SafeArea(child: ProfileScreen()),
-          QuickOrderScreen.routeName: (ctx) => const SafeArea(child: QuickOrderScreen()),
-          ChatScreen.routeName: (ctx) => const SafeArea(child: ChatScreen()),
+          HomeScreen.routeName: (ctx) => AuthGuard(
+            child: const HomeScreen(),
+          ),
+          BranchScreen.routeName: (ctx) => AuthGuard(
+            child: const BranchScreen(),
+          ),
+          OrdersScreen.routeName: (ctx) => AuthGuard(
+            child: const SafeArea(child: OrdersScreen()),
+          ),
+          ProfileScreen.routeName: (ctx) => AuthGuard(
+            child: const SafeArea(child: ProfileScreen()),
+          ),
+          EditProfileScreen.routeName: (ctx) => AuthGuard(
+            child: const SafeArea(child: EditProfileScreen()),
+          ),
+          QuickOrderScreen.routeName: (ctx) => AuthGuard(
+            child: const SafeArea(child: QuickOrderScreen()),
+          ),
+          ChatScreen.routeName: (ctx) => AuthGuard(
+            child: const SafeArea(child: ChatScreen()),
+          ),
         },
         onGenerateRoute: (settings) {
           if (settings.name == BranchDetailScreen.routeName) {
@@ -113,10 +133,12 @@ class LVTNRestaurantApp extends StatelessWidget {
             
             return MaterialPageRoute(
               builder: (ctx) {
-                return SafeArea(
-                  child: BranchDetailScreen(
-                    branch: branch,
-                    initialTabIndex: initialTabIndex,
+                return AuthGuard(
+                  child: SafeArea(
+                    child: BranchDetailScreen(
+                      branch: branch,
+                      initialTabIndex: initialTabIndex,
+                    ),
                   ),
                 );
               },
@@ -124,11 +146,61 @@ class LVTNRestaurantApp extends StatelessWidget {
           }
           
           if (settings.name == BranchMenuScreen.routeName) {
-            final branch = settings.arguments as dynamic;
+            final args = settings.arguments;
+            Branch branch;
+            int? reservationId;
+            
+            if (args is Map) {
+              branch = args['branch'] as Branch;
+              reservationId = args['reservationId'] as int?;
+            } else {
+              branch = args as Branch;
+            }
+            
+            // Nếu có reservationId, dùng trang menu mới
+            if (reservationId != null) {
+              return MaterialPageRoute(
+                builder: (ctx) {
+                  return AuthGuard(
+                    child: SafeArea(
+                      child: ReservationMenuScreen(
+                        branch: branch,
+                        reservationId: reservationId!,
+                      ),
+                    ),
+                  );
+                },
+              );
+            }
+            
             return MaterialPageRoute(
               builder: (ctx) {
-                return SafeArea(
-                  child: BranchMenuScreen(branch: branch),
+                return AuthGuard(
+                  child: SafeArea(
+                    child: BranchMenuScreen(
+                      branch: branch,
+                      reservationId: reservationId,
+                    ),
+                  ),
+                );
+              },
+            );
+          }
+          
+          if (settings.name == ReservationMenuScreen.routeName) {
+            final args = settings.arguments as Map<String, dynamic>;
+            final branch = args['branch'] as Branch;
+            final reservationId = args['reservationId'] as int;
+            
+            return MaterialPageRoute(
+              builder: (ctx) {
+                return AuthGuard(
+                  child: SafeArea(
+                    child: ReservationMenuScreen(
+                      branch: branch,
+                      reservationId: reservationId,
+                    ),
+                  ),
                 );
               },
             );
@@ -137,8 +209,10 @@ class LVTNRestaurantApp extends StatelessWidget {
           if (settings.name == ProductDetailScreen.routeName) {
             return MaterialPageRoute(
               builder: (ctx) {
-                return SafeArea(
-                  child: ProductDetailScreen(),
+                return AuthGuard(
+                  child: SafeArea(
+                    child: ProductDetailScreen(),
+                  ),
                 );
               },
               settings: settings,
@@ -148,8 +222,10 @@ class LVTNRestaurantApp extends StatelessWidget {
             final branch = settings.arguments as Branch;
             return MaterialPageRoute(
               builder: (ctx) {
-                return SafeArea(
-                  child: TableScreen(branch: branch),
+                return AuthGuard(
+                  child: SafeArea(
+                    child: TableScreen(branch: branch),
+                  ),
                 );
               },
             );

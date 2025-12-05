@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/AuthProvider.dart';
+import '../../providers/ChatProvider.dart';
 import '../widgets/AppBottomNav.dart';
+import 'EditProfileScreen.dart';
+import '../../utils/image_utils.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -15,70 +18,186 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Color(0xFFFF8A00);
+    
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: Colors.grey[600]),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Cá nhân',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
+      extendBodyBehindAppBar: false,
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(100),
+        child: SafeArea(
+          bottom: false,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 12),
+              child: Center(
+                child: Text(
+                  'Cá nhân',
+                  style: TextStyle(
+                    color: Colors.grey[900],
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.4,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
-        centerTitle: true,
       ),
       body: Consumer<AuthProvider>(
         builder: (context, authProvider, child) {
           final user = authProvider.currentUser;
           
+          print('ProfileScreen: isAuth = ${authProvider.isAuth}');
+          print('ProfileScreen: currentUser = ${user?.id ?? "null"}');
+          if (user != null) {
+            print('ProfileScreen: username = ${user.username}, name = ${user.name}, email = ${user.email}');
+          }
+          
           if (user == null) {
-            return const Center(
-              child: Text('Không có thông tin người dùng'),
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(40),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                    Container(
+                      padding: EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.person_off_rounded,
+                        size: 64,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Không có thông tin người dùng',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Vui lòng đăng nhập để tiếp tục',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: primaryColor.withOpacity(0.3),
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushReplacementNamed(context, '/auth');
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          'Đăng nhập lại',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             );
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 12,
+              bottom: MediaQuery.of(context).padding.bottom + 20,
+            ),
             child: Column(
               children: [
-                // User Profile Card
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withOpacity(0.06),
+                        spreadRadius: 0,
+                        blurRadius: 20,
+                        offset: Offset(0, 4),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        spreadRadius: 0,
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
                       ),
                     ],
                   ),
                   child: Column(
                     children: [
-                      // Profile Avatar
                       Container(
                         width: 100,
                         height: 100,
                         decoration: const BoxDecoration(
-                          color: Color(0xFFFF8A00), // Orange matching app theme
+                          color: Color(0xFFFF8A00),
                           shape: BoxShape.circle,
                         ),
-                        child: user.avatar != null
+                        child: user.avatar != null && user.avatar!.isNotEmpty
                             ? ClipOval(
                                 child: Image.network(
-                                  user.avatar!,
+                                  ImageUtils.getImageUrl(user.avatar),
                                   width: 100,
                                   height: 100,
                                   fit: BoxFit.cover,
@@ -98,88 +217,127 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                       ),
                       const SizedBox(height: 16),
-                      // Username
                       Text(
-                        user.name,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                          fontFamily: 'Inter',
+                        user.name.isNotEmpty ? user.name : 'Người dùng',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey[900],
+                          letterSpacing: -0.4,
+                          height: 1.2,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // Email
-                      Text(
-                        user.email,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                          fontFamily: 'Inter',
+                      if (user.email.isNotEmpty)
+                        Text(
+                          user.email,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                            height: 1.4,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      // Username tag
-                      Text(
-                        '@${user.username}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                          fontFamily: 'Inter',
+                      if (user.email.isEmpty) const SizedBox(height: 0),
+                      const SizedBox(height: 6),
+                      if (user.username.isNotEmpty)
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '@${user.username}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
 
-                // Menu Items
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        'Tài khoản',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey[900],
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 _buildMenuItem(
                   context,
                   'Thông tin cá nhân',
-                  Icons.person_outline,
-                  () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Tính năng đang phát triển')),
-                    );
+                  Icons.person_outline_rounded,
+                  primaryColor,
+                  () async {
+                    final result = await Navigator.pushNamed(context, EditProfileScreen.routeName);
+                    if (result == true && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Cập nhật thông tin thành công'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _buildMenuItem(
                   context,
                   'Đơn hàng của tôi',
-                  Icons.receipt_long,
+                  Icons.receipt_long_rounded,
+                  primaryColor,
                   () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Tính năng đang phát triển')),
+                      SnackBar(
+                        content: Text('Tính năng đang phát triển'),
+                        backgroundColor: primaryColor,
+                      ),
                     );
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _buildMenuItem(
                   context,
                   'Cài đặt',
-                  Icons.settings,
+                  Icons.settings_rounded,
+                  primaryColor,
                   () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Tính năng đang phát triển')),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                _buildMenuItem(
-                  context,
-                  'Hỗ trợ',
-                  Icons.help_outline,
-                  () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Tính năng đang phát triển')),
+                      SnackBar(
+                        content: Text('Tính năng đang phát triển'),
+                        backgroundColor: primaryColor,
+                      ),
                     );
                   },
                 ),
                 const SizedBox(height: 32),
 
-                // Logout Button
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -205,6 +363,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       if (confirmed == true) {
                         await authProvider.logout();
+                        final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+                        chatProvider.reset();
                         if (mounted) {
                           Navigator.pushReplacementNamed(context, '/auth');
                         }
@@ -214,16 +374,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       elevation: 0,
+                      padding: EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Đăng xuất',
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ),
@@ -241,6 +402,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     BuildContext context,
     String title,
     IconData icon,
+    Color primaryColor,
     VoidCallback onTap,
   ) {
     return Container(
@@ -248,44 +410,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.06),
+            spreadRadius: 0,
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            spreadRadius: 0,
+            blurRadius: 8,
+            offset: Offset(0, 2),
           ),
         ],
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: Colors.black,
-              size: 24,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black,
-                  fontFamily: 'Inter',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: primaryColor,
+                  size: 22,
                 ),
               ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.black,
-              size: 16,
-            ),
-          ],
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[900],
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: Colors.grey[600],
+                size: 16,
+              ),
+            ],
+          ),
         ),
       ),
     );

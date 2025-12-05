@@ -11,13 +11,18 @@ class ChatProvider with ChangeNotifier {
 
   List<ChatMessage> _messages = [];
   List<ChatSuggestion> _suggestions = [];
+  List<Map<String, dynamic>> _allConversations = [];
   bool _isLoading = false;
   bool _isTyping = false;
   String? _conversationId;
   int? _currentBranchId;
+  int? _lastUserId;
+  
+  Function(String routeName, {Map<String, dynamic>? arguments})? onNavigate;
 
   List<ChatMessage> get messages => _messages;
   List<ChatSuggestion> get suggestions => _suggestions;
+  List<Map<String, dynamic>> get allConversations => _allConversations;
   bool get isLoading => _isLoading;
   bool get isTyping => _isTyping;
   String? get conversationId => _conversationId;
@@ -27,31 +32,100 @@ class ChatProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void startNewConversation() {
+  Future<void> startNewConversation() async {
     _conversationId = _uuid.v4();
     _messages.clear();
-    _addWelcomeMessage();
+    await _addWelcomeMessage();
+    notifyListeners();
+  }
+
+  void continueExistingConversation() {
     _loadSuggestions();
     notifyListeners();
   }
 
-  void _addWelcomeMessage() {
-    final welcomeMessage = ChatMessage(
-      id: _uuid.v4(),
-      content: 'Xin chào! Tôi là trợ lý ảo của Beast Bite. Tôi có thể giúp bạn:\n\n'
-          '• 🍽️ Xem menu và đặt món\n'
-          '• 🪑 Đặt bàn tại nhà hàng\n'
-          '• ℹ️ Tìm hiểu thông tin chi nhánh\n'
-          '• 📦 Kiểm tra đơn hàng của bạn\n\n'
-          'Bạn cần tôi giúp gì?',
-      isUser: false,
-      timestamp: DateTime.now(),
-      type: ChatMessageType.text,
-    );
-    _messages.add(welcomeMessage);
+  Future<void> _addWelcomeMessage() async {
+    final token = _authService.token;
+    if (token == null) {
+      final welcomeMessage = ChatMessage(
+        id: _uuid.v4(),
+        content: 'Xin chào! Tôi là trợ lý ảo của Beast Bite. Tôi có thể giúp bạn:\n\n'
+            '🍽️ Xem menu - Xem menu theo từng chi nhánh\n'
+            '🪑 Đặt bàn - Đặt bàn tại nhà hàng\n'
+            '🔍 Tìm món - Tìm kiếm món ăn theo từng chi nhánh\n'
+            '📍 Thông tin chi nhánh - Xem giờ làm việc, địa chỉ, số điện thoại theo từng chi nhánh\n'
+            '📦 Kiểm tra đơn hàng - Xem đơn hàng của bạn\n\n'
+            'Bạn cần tôi giúp gì?',
+        isUser: false,
+        timestamp: DateTime.now(),
+        type: ChatMessageType.text,
+      );
+      _messages.add(welcomeMessage);
+      _suggestions = _getDefaultSuggestions();
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final response = await _chatService.getWelcomeMessage(
+        token: token,
+        branchId: _currentBranchId,
+        conversationId: _conversationId,
+      );
+
+      if (response['conversation_id'] != null) {
+        _conversationId = response['conversation_id'] as String;
+      }
+
+      List<ChatSuggestion>? messageSuggestions;
+      if (response['suggestions'] != null && response['suggestions'] is List) {
+        try {
+          messageSuggestions = (response['suggestions'] as List)
+              .map((json) => ChatSuggestion.fromJson(json))
+              .toList();
+          _suggestions = messageSuggestions;
+        } catch (e) {
+          messageSuggestions = _getDefaultSuggestions();
+          _suggestions = messageSuggestions;
+        }
+      } else {
+        messageSuggestions = _getDefaultSuggestions();
+        _suggestions = messageSuggestions;
+      }
+
+      final welcomeMessage = ChatMessage(
+        id: response['id'] ?? _uuid.v4(),
+        content: response['message'] ?? 'Xin chào! Tôi là trợ lý ảo của Beast Bite.',
+        isUser: false,
+        timestamp: DateTime.now(),
+        type: _getMessageType(response['type']),
+        metadata: response['entities'],
+        suggestions: messageSuggestions,
+      );
+      _messages.add(welcomeMessage);
+
+      notifyListeners();
+    } catch (e) {
+      final welcomeMessage = ChatMessage(
+        id: _uuid.v4(),
+        content: 'Xin chào! Tôi là trợ lý ảo của Beast Bite. Tôi có thể giúp bạn:\n\n'
+            '🍽️ Xem menu - Xem menu theo từng chi nhánh\n'
+            '🪑 Đặt bàn - Đặt bàn tại nhà hàng\n'
+            '🔍 Tìm món - Tìm kiếm món ăn theo từng chi nhánh\n'
+            '📍 Thông tin chi nhánh - Xem giờ làm việc, địa chỉ, số điện thoại theo từng chi nhánh\n'
+            '📦 Kiểm tra đơn hàng - Xem đơn hàng của bạn\n\n'
+            'Bạn cần tôi giúp gì?',
+        isUser: false,
+        timestamp: DateTime.now(),
+        type: ChatMessageType.text,
+      );
+      _messages.add(welcomeMessage);
+      _suggestions = _getDefaultSuggestions();
+      notifyListeners();
+    }
   }
 
-  Future<void> loadChatHistory() async {
+  Future<void> loadAllConversations() async {
     final token = _authService.token;
     if (token == null) return;
 
@@ -59,20 +133,60 @@ class ChatProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final history = await _chatService.getChatHistory(
-        token: token,
-        conversationId: _conversationId,
-      );
-      
-      if (history.isNotEmpty) {
-        _messages = history;
-      } else if (_messages.isEmpty) {
-        _addWelcomeMessage();
+      _allConversations = await _chatService.getAllConversations(token: token);
+    } catch (e) {
+      _allConversations = [];
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadChatHistory() async {
+    final token = _authService.token;
+    final currentUser = _authService.currentUser;
+    final currentUserId = currentUser?.id;
+
+    if (currentUserId != null && _lastUserId != null && currentUserId != _lastUserId) {
+      _conversationId = null;
+      _messages.clear();
+      _allConversations.clear();
+    }
+    _lastUserId = currentUserId;
+
+    if (token == null) {
+      _conversationId = null;
+      _lastUserId = null;
+      return;
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      if (_conversationId != null) {
+        final history = await _chatService.getChatHistory(
+          token: token,
+          conversationId: _conversationId,
+        );
+        
+        if (history.isNotEmpty) {
+          _messages = history;
+          
+          _loadSuggestionsFromHistory();
+        } else {
+          _conversationId = null;
+          _messages.clear();
+          await _addWelcomeMessage();
+        }
+      } else {
+        _messages.clear();
+        await _addWelcomeMessage();
       }
     } catch (e) {
-      if (_messages.isEmpty) {
-        _addWelcomeMessage();
-      }
+      _conversationId = null;
+      _messages.clear();
+      await _addWelcomeMessage();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -95,6 +209,26 @@ class ChatProvider with ChangeNotifier {
     }
   }
 
+  /// Load suggestions từ last bot message trong history
+  void _loadSuggestionsFromHistory() {
+    if (_messages.isEmpty) {
+      _suggestions = _getDefaultSuggestions();
+      return;
+    }
+    
+    final lastBotMessage = _messages.reversed.firstWhere(
+      (msg) => !msg.isUser && msg.suggestions != null && msg.suggestions!.isNotEmpty,
+      orElse: () => _messages.last,
+    );
+    
+    if (lastBotMessage.suggestions != null && lastBotMessage.suggestions!.isNotEmpty) {
+      _suggestions = lastBotMessage.suggestions!;
+    } else {
+      _suggestions = _getDefaultSuggestions();
+    }
+    notifyListeners();
+  }
+  
   List<ChatSuggestion> _getDefaultSuggestions() {
     return [
       ChatSuggestion(
@@ -108,8 +242,8 @@ class ChatProvider with ChangeNotifier {
         data: {'branch_id': _currentBranchId},
       ),
       ChatSuggestion(
-        text: '📍 Chi nhánh gần tôi',
-        action: 'find_branch',
+        text: '📍 Xem chi nhánh',
+        action: 'view_branches',
         data: {},
       ),
       ChatSuggestion(
@@ -120,7 +254,7 @@ class ChatProvider with ChangeNotifier {
     ];
   }
 
-  Future<void> sendMessage(String content) async {
+  Future<void> sendMessage(String content, {bool isRetry = false, String? messageId}) async {
     if (content.trim().isEmpty) return;
 
     final token = _authService.token;
@@ -150,25 +284,35 @@ class ChatProvider with ChangeNotifier {
         conversationId: _conversationId,
       );
 
+      if (response['conversation_id'] != null) {
+        _conversationId = response['conversation_id'] as String;
+      }
+
+      List<ChatSuggestion>? messageSuggestions;
+      if (response['suggestions'] != null && response['suggestions'] is List) {
+        try {
+          messageSuggestions = (response['suggestions'] as List)
+              .map((json) => ChatSuggestion.fromJson(json))
+              .toList();
+          _suggestions = messageSuggestions;
+        } catch (e) {
+          messageSuggestions = _getDefaultSuggestions();
+          _suggestions = messageSuggestions;
+        }
+      } else {
+        _suggestions = [];
+      }
+
       final botMessage = ChatMessage(
         id: response['id'] ?? _uuid.v4(),
         content: response['message'] ?? 'Xin lỗi, tôi không hiểu. Bạn có thể nói rõ hơn được không?',
         isUser: false,
         timestamp: DateTime.now(),
         type: _getMessageType(response['type']),
-        metadata: response['metadata'],
+        metadata: response['entities'] ?? response['metadata'],
+        suggestions: messageSuggestions,
       );
       _messages.add(botMessage);
-
-      if (response['suggestions'] != null && response['suggestions'] is List) {
-        try {
-          _suggestions = (response['suggestions'] as List)
-              .map((json) => ChatSuggestion.fromJson(json))
-              .toList();
-        } catch (e) {
-          _suggestions = _getDefaultSuggestions();
-        }
-      }
 
       if (response['action'] != null && response['action_data'] != null) {
         try {
@@ -185,14 +329,32 @@ class ChatProvider with ChangeNotifier {
         }
       }
     } catch (e) {
-      final errorMessage = ChatMessage(
+      String errorMessage;
+      if (e.toString().contains('Network error') || 
+          e.toString().contains('connection') ||
+          e.toString().contains('timeout')) {
+        errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng và thử lại.';
+      } else if (e.toString().contains('401') || 
+                 e.toString().contains('authentication') ||
+                 e.toString().contains('not authenticated')) {
+        errorMessage = 'Bạn cần đăng nhập để sử dụng tính năng này.';
+      } else if (e.toString().contains('429') || 
+                 e.toString().contains('rate limit') ||
+                 e.toString().contains('Too many')) {
+        errorMessage = 'Bạn đã gửi quá nhiều tin nhắn. Vui lòng đợi một chút rồi thử lại.';
+      } else {
+        errorMessage = 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.';
+      }
+      
+      final errorChatMessage = ChatMessage(
         id: _uuid.v4(),
-        content: 'Xin lỗi, đã có lỗi xảy ra: ${e.toString()}',
+        content: errorMessage,
         isUser: false,
         timestamp: DateTime.now(),
         type: ChatMessageType.error,
+        errorMessage: e.toString(),
       );
-      _messages.add(errorMessage);
+      _messages.add(errorChatMessage);
     } finally {
       _isTyping = false;
       notifyListeners();
@@ -226,8 +388,220 @@ class ChatProvider with ChangeNotifier {
     }
   }
 
-  void handleSuggestionTap(ChatSuggestion suggestion) {
-    sendMessage(suggestion.text);
+  void handleSuggestionTap(ChatSuggestion suggestion) async {
+      final actionsRequiringExecute = [
+      'confirm_booking',
+      'modify_booking', 
+      'select_branch',
+      'select_time',
+      'add_to_cart',
+      'order_food',
+      'navigate_menu',
+      'navigate_orders',
+      'show_reservation_details',
+      'search_food',
+      'call_confirmation',
+      'confirm_reservation_only',
+      'check_order_status',
+      'use_existing_cart',
+      'order_takeaway',
+      'confirm_delivery_address',
+      'change_delivery_address',
+      'use_saved_address',
+      'enter_delivery_address',
+    ];
+
+    if (suggestion.action != null && 
+        suggestion.action!.isNotEmpty && 
+        actionsRequiringExecute.contains(suggestion.action)) {
+      final token = _authService.token;
+      if (token == null) {
+        final errorMessage = ChatMessage(
+          id: _uuid.v4(),
+          content: 'Bạn cần đăng nhập để sử dụng tính năng này.',
+          isUser: false,
+          timestamp: DateTime.now(),
+          type: ChatMessageType.error,
+        );
+        _messages.add(errorMessage);
+        notifyListeners();
+        return;
+      }
+
+      final isNavigationAction = suggestion.action == 'navigate_menu' || 
+                                  suggestion.action == 'navigate_orders' ||
+                                  suggestion.action == 'show_reservation_details' ||
+                                  suggestion.action == 'order_food' ||
+                                  suggestion.action == 'view_menu' ||
+                                  suggestion.action == 'order_takeaway' ||
+                                  suggestion.action == 'select_branch_for_takeaway';
+      
+      if (!isNavigationAction) {
+        final userMessage = ChatMessage(
+          id: _uuid.v4(),
+          content: suggestion.text,
+          isUser: true,
+          timestamp: DateTime.now(),
+          type: ChatMessageType.text,
+        );
+        _messages.add(userMessage);
+        notifyListeners();
+      }
+
+      _isTyping = true;
+      notifyListeners();
+
+      try {
+        final result = await _chatService.executeAction(
+          token: token,
+          action: suggestion.action!,
+          data: suggestion.data ?? {},
+        );
+
+        List<ChatSuggestion>? messageSuggestions;
+        final suggestionsData = result['suggestions'] ?? result['data']?['suggestions'];
+        if (suggestionsData != null && suggestionsData is List) {
+          try {
+            messageSuggestions = (suggestionsData as List)
+                .map((json) => ChatSuggestion.fromJson(json))
+                .toList();
+            _suggestions = messageSuggestions;
+          } catch (e) {
+            messageSuggestions = null;
+          }
+        }
+
+        if (!isNavigationAction && result['message'] != null && (result['message'] as String).trim().isNotEmpty) {
+          final actionMessage = ChatMessage(
+            id: _uuid.v4(),
+            content: result['message'] as String,
+            isUser: false,
+            timestamp: DateTime.now(),
+            type: result['success'] == false ? ChatMessageType.error : ChatMessageType.text,
+            suggestions: messageSuggestions,
+          );
+          _messages.add(actionMessage);
+        }
+        
+        if (messageSuggestions != null && messageSuggestions.isEmpty) {
+          _suggestions = [];
+        }
+
+        if (suggestion.action == 'confirm_booking') {
+          if (result['success'] == true) {
+          }
+        } else if (suggestion.action == 'select_branch') {
+          if (result['data'] != null && result['data']['suggestions'] != null) {
+          } else {
+            sendMessage('📍 Xem danh sách chi nhánh');
+            return;
+          }
+        } else if (suggestion.action == 'modify_booking') {
+        } else if (suggestion.action == 'navigate_menu' || suggestion.action == 'order_food') {
+          if (onNavigate != null) {
+            final branchId = suggestion.data?['branch_id'];
+            final reservationId = suggestion.data?['reservation_id'];
+            if (branchId != null) {
+              onNavigate!('/branch-menu', arguments: {
+                'branchId': branchId,
+                'reservationId': reservationId,
+              });
+            }
+          }
+        } else if (suggestion.action == 'order_takeaway') {
+          if (onNavigate != null) {
+            onNavigate!('/takeaway-branch-selection');
+          }
+        } else if (suggestion.action == 'confirm_reservation_only') {
+        } else if (suggestion.action == 'check_order_status') {
+        } else if (suggestion.action == 'use_existing_cart') {
+        } else if (suggestion.action == 'navigate_orders') {
+          if (onNavigate != null) {
+            onNavigate!('/orders', arguments: {});
+          }
+        } else if (suggestion.action == 'show_reservation_details') {
+          if (onNavigate != null) {
+            final reservationId = suggestion.data?['reservation_id'];
+            if (reservationId != null) {
+              onNavigate!('/order-detail', arguments: {'orderId': reservationId});
+            }
+          }
+        }
+      } catch (e) {
+        String errorMessage;
+        if (e.toString().contains('Network error') || 
+            e.toString().contains('connection')) {
+          errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+        } else if (e.toString().contains('401') || 
+                   e.toString().contains('authentication')) {
+          errorMessage = 'Bạn cần đăng nhập để thực hiện hành động này.';
+        } else {
+          errorMessage = 'Có lỗi khi thực hiện hành động. Vui lòng thử lại.';
+        }
+        
+        final errorChatMessage = ChatMessage(
+          id: _uuid.v4(),
+          content: errorMessage,
+          isUser: false,
+          timestamp: DateTime.now(),
+          type: ChatMessageType.error,
+          errorMessage: e.toString(),
+        );
+        _messages.add(errorChatMessage);
+      } finally {
+        _isTyping = false;
+        notifyListeners();
+      }
+    } else {
+      if (suggestion.action == 'select_branch_for_takeaway') {
+        if (onNavigate != null) {
+          final branchId = suggestion.data?['branch_id'];
+          if (branchId != null) {
+            onNavigate!('/takeaway-menu', arguments: {
+              'branchId': branchId,
+            });
+            return;
+          }
+        }
+      }
+      
+      if (suggestion.action == 'select_branch_for_delivery') {
+        if (onNavigate != null) {
+          final branchId = suggestion.data?['branch_id'];
+          final deliveryAddress = suggestion.data?['delivery_address'];
+          if (branchId != null) {
+            onNavigate!('/takeaway-menu', arguments: {
+              'branchId': branchId,
+              'orderType': 'delivery',
+              'deliveryAddress': deliveryAddress,
+            });
+            return;
+          }
+        }
+      }
+      
+      
+      if (suggestion.action == 'view_menu') {
+        final branchId = suggestion.data?['branch_id'];
+        final reservationId = suggestion.data?['reservation_id'];
+        if (branchId != null && onNavigate != null) {
+          onNavigate!('/branch-menu', arguments: {
+            'branchId': branchId,
+            'reservationId': reservationId,
+          });
+        }
+      } else if (suggestion.action == 'view_orders') {
+        if (onNavigate != null) {
+          onNavigate!('/orders', arguments: {});
+        }
+      } else if (suggestion.action == 'find_branch') {
+        if (onNavigate != null) {
+          onNavigate!('/branches', arguments: {});
+        }
+      }
+      
+      sendMessage(suggestion.text);
+    }
   }
 
   ChatMessageType _getMessageType(String? type) {
@@ -255,6 +629,77 @@ class ChatProvider with ChangeNotifier {
     _messages.clear();
     _conversationId = null;
     notifyListeners();
+  }
+
+  /// Add a message directly to the messages list (for programmatic messages)
+  void addMessage(ChatMessage message) {
+    _messages.add(message);
+    notifyListeners();
+  }
+
+  /// Clear suggestions
+  void clearSuggestions() {
+    _suggestions = [];
+    notifyListeners();
+  }
+
+  /// Reset tất cả state của chat khi logout hoặc đăng nhập tài khoản khác
+  void reset() {
+    _messages.clear();
+    _conversationId = null;
+    _allConversations.clear();
+    _suggestions.clear();
+    _currentBranchId = null;
+    _isLoading = false;
+    _isTyping = false;
+    _lastUserId = null;
+    notifyListeners();
+  }
+
+  /// Check order status sau khi quay lại từ menu screen
+  Future<void> checkOrderStatus(int reservationId) async {
+    final token = _authService.token;
+    if (token == null) return;
+
+    try {
+      final result = await _chatService.executeAction(
+        token: token,
+        action: 'check_order_status',
+        data: {'reservation_id': reservationId},
+      );
+
+      if (result['message'] != null && (result['message'] as String).trim().isNotEmpty) {
+        List<ChatSuggestion>? messageSuggestions;
+        final suggestionsData = result['suggestions'] ?? result['data']?['suggestions'];
+        if (suggestionsData != null && suggestionsData is List) {
+          try {
+            messageSuggestions = (suggestionsData as List)
+                .map((json) => ChatSuggestion.fromJson(json))
+                .toList();
+            _suggestions = messageSuggestions;
+          } catch (e) {
+            messageSuggestions = [];
+          }
+        } else {
+          messageSuggestions = [];
+          _suggestions = [];
+        }
+
+        final orderMessage = ChatMessage(
+          id: _uuid.v4(),
+          content: result['message'] as String,
+          isUser: false,
+          timestamp: DateTime.now(),
+          type: _getMessageType('order'),
+          suggestions: messageSuggestions,
+        );
+
+        _messages.add(orderMessage);
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error checking order status: $e');
+    }
   }
 
   @override

@@ -2,7 +2,7 @@ class ProductOptionType {
   final int id;
   final int productId;
   final String name;
-  final String type; // 'select' or 'checkbox'
+  final String type;
   final bool required;
   final int displayOrder;
   final List<ProductOptionValue> values;

@@ -56,7 +56,11 @@ class _SplashScreenState extends State<SplashScreen>
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
     try {
-      final isAuthenticated = await authProvider.tryAutoLogin();
+      bool isAuthenticated = authProvider.isAuth;
+      
+      if (!isAuthenticated) {
+        isAuthenticated = await authProvider.tryAutoLogin();
+      }
       
       if (mounted) {
         if (isAuthenticated) {

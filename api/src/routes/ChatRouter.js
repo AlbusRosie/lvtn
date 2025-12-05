@@ -1,24 +1,1 @@
-const express = require('express');
-const ChatController = require('../controllers/ChatController');
-const { methodNotAllowed } = require('../controllers/ErrorController');
-const { verifyToken } = require('../middlewares/AuthMiddleware');
-
-const router = express.Router();
-
-module.exports.setup = (app) => {
-    app.use('/api/chat', router);
-
-    router.post('/message', verifyToken, ChatController.sendMessage);
-    
-    router.get('/history', verifyToken, ChatController.getChatHistory);
-    
-    router.get('/suggestions', verifyToken, ChatController.getSuggestions);
-    
-    router.post('/action', verifyToken, ChatController.executeAction);
-
-    router.all('/message', methodNotAllowed);
-    router.all('/history', methodNotAllowed);
-    router.all('/suggestions', methodNotAllowed);
-    router.all('/action', methodNotAllowed);
-};
-
+const express = require('express');const rateLimit = require('express-rate-limit');const ChatController = require('../controllers/ChatController');const { methodNotAllowed } = require('../controllers/ErrorController');const { verifyToken } = require('../middlewares/AuthMiddleware');const AnalyticsService = require('../services/chat/AnalyticsService');const router = express.Router();const chatMessageLimiter = rateLimit({    windowMs: 60 * 1000,     max: 10,     message: {        error: 'Too many chat messages. Please wait before sending another message.',        retryAfter: 60    },    standardHeaders: true,    legacyHeaders: false,    skip: (req) => {        return req.user && req.user.id;    },    handler: async (req, res) => {        try {            await AnalyticsService.trackEvent(                req.user?.id || null,                'rate_limit_exceeded',                {                    endpoint: '/api/chat/message',                    ip: req.ip,                    userAgent: req.get('user-agent')                }            );        } catch (error) {            }        res.status(429).json({            status: 'error',            message: 'Too many chat messages. Please wait before sending another message.',            retryAfter: 60        });    }});const chatMessageLimiterAuthenticated = rateLimit({    windowMs: 60 * 1000,     max: 30,     message: {        error: 'Too many chat messages. Please slow down.',        retryAfter: 60    },    standardHeaders: true,    legacyHeaders: false,    handler: async (req, res) => {        try {            await AnalyticsService.trackEvent(                req.user?.id || null,                'rate_limit_exceeded_authenticated',                {                    endpoint: '/api/chat/message',                    ip: req.ip,                    userAgent: req.get('user-agent')                }            );        } catch (error) {            }        res.status(429).json({            status: 'error',            message: 'Too many chat messages. Please slow down.',            retryAfter: 60        });    }});const generalChatLimiter = rateLimit({    windowMs: 60 * 1000,     max: 60,     message: {        error: 'Too many requests. Please try again later.',        retryAfter: 60    },    standardHeaders: true,    legacyHeaders: false,});module.exports.setup = (app) => {    app.use('/api/chat', router);    router.post('/message', chatMessageLimiter, chatMessageLimiterAuthenticated, verifyToken, ChatController.sendMessage);    router.get('/history', generalChatLimiter, verifyToken, ChatController.getChatHistory);    router.get('/conversations', generalChatLimiter, verifyToken, ChatController.getAllConversations);    router.get('/suggestions', generalChatLimiter, verifyToken, ChatController.getSuggestions);    router.get('/welcome', generalChatLimiter, verifyToken, ChatController.getWelcomeMessage);    router.post('/action', generalChatLimiter, verifyToken, ChatController.executeAction);    router.post('/reset', generalChatLimiter, verifyToken, ChatController.resetChat);    router.all('/message', methodNotAllowed);    router.all('/history', methodNotAllowed);    router.all('/conversations', methodNotAllowed);    router.all('/suggestions', methodNotAllowed);    router.all('/welcome', methodNotAllowed);    router.all('/action', methodNotAllowed);    router.all('/reset', methodNotAllowed);};

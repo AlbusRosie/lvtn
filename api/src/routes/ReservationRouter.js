@@ -1,26 +1,1 @@
-const express = require('express');
-const ReservationController = require('../controllers/ReservationController');
-const { methodNotAllowed } = require('../controllers/ErrorController');
-const { verifyToken } = require('../middlewares/AuthMiddleware');
-
-const router = express.Router();
-
-module.exports.setup = (app) => {
-    app.use('/api/reservations', router);
-
-    router.get('/', ReservationController.getReservations);
-    router.get('/date-range', ReservationController.getReservationsByDateRange);
-    router.get('/table/:tableId/schedule', ReservationController.getTableSchedule);
-    router.get('/:id', ReservationController.getReservationById);
-    
-    router.post('/', verifyToken, ReservationController.createReservation);
-    router.post('/quick', verifyToken, ReservationController.createQuickReservation);
-    router.put('/:id', verifyToken, ReservationController.updateReservation);
-    router.delete('/:id', verifyToken, ReservationController.deleteReservation);
-
-    router.all('/', methodNotAllowed);
-    router.all('/quick', methodNotAllowed);
-    router.all('/date-range', methodNotAllowed);
-    router.all('/table/:tableId/schedule', methodNotAllowed);
-    router.all('/:id', methodNotAllowed);
-};
+const express = require('express');const ReservationController = require('../controllers/ReservationController');const { methodNotAllowed } = require('../controllers/ErrorController');const { verifyToken, requireRole } = require('../middlewares/AuthMiddleware');const BranchMiddleware = require('../middlewares/BranchMiddleware');const router = express.Router();module.exports.setup = (app) => {    app.use('/api/reservations', router);    router.get('/', ReservationController.getReservations);    router.get('/date-range', ReservationController.getReservationsByDateRange);    router.get('/table/:tableId/schedule', ReservationController.getTableSchedule);    router.get('/:id', ReservationController.getReservationById);    const staffAccess = [        verifyToken,         requireRole(['admin', 'manager', 'staff', 'cashier']),        BranchMiddleware.enforceBranchAccess    ];    router.get('/overdue', ...staffAccess, ReservationController.getOverdueReservations);    router.get('/warning', ...staffAccess, ReservationController.getReservationsNeedingWarning);    router.post('/', verifyToken, BranchMiddleware.enforceBranchAccess, ReservationController.createReservation);    router.post('/quick', verifyToken, BranchMiddleware.enforceBranchAccess, ReservationController.createQuickReservation);    router.put('/:id', verifyToken, BranchMiddleware.enforceBranchAccess, BranchMiddleware.validateResourceBranch('reservation'), ReservationController.updateReservation);    router.delete('/:id', verifyToken, BranchMiddleware.validateResourceBranch('reservation'), ReservationController.deleteReservation);    router.all('/', methodNotAllowed);    router.all('/quick', methodNotAllowed);    router.all('/date-range', methodNotAllowed);    router.all('/overdue', methodNotAllowed);    router.all('/warning', methodNotAllowed);    router.all('/table/:tableId/schedule', methodNotAllowed);    router.all('/:id', methodNotAllowed);};

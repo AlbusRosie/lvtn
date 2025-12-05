@@ -4,11 +4,9 @@ class AppConstants {
   static const int staffRole = 3;
   static const int customerRole = 4;
   
-  // Order types: Only 2 types
-  static const String dineIn = 'dine_in';      // With table reservation
-  static const String delivery = 'delivery';    // Without table (delivery/takeaway)
+  static const String dineIn = 'dine_in';
+  static const String delivery = 'delivery';
   
-  // Order statuses
   static const String pending = 'pending';
   static const String preparing = 'preparing';
   static const String ready = 'ready';

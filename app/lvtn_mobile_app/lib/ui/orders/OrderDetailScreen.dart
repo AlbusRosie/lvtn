@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/order.dart';
 import '../../constants/app_constants.dart';
 import '../../utils/image_utils.dart';
 import '../../services/OrderService.dart';
+import '../../providers/AuthProvider.dart';
+import '../../services/AuthService.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final Order order;
@@ -20,7 +23,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   late Animation<Offset> _slideAnimation;
   bool _isInitialized = false;
   
-  // Order data
   Order? _order;
   bool _isLoading = false;
   String? _error;
@@ -53,7 +55,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     _animationController.forward();
     _isInitialized = true;
     
-    // Load order details
     _loadOrderDetails();
   }
 
@@ -218,7 +219,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
         background: Stack(
           fit: StackFit.expand,
           children: [
-            // Branch Image Background
             order.branchImage != null && order.branchImage!.isNotEmpty
                 ? Image.network(
                     ImageUtils.getBranchImageUrl(order.branchImage),
@@ -250,7 +250,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                       ),
                     ),
                   ),
-            // Dark overlay for better text visibility
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -263,7 +262,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 ),
               ),
             ),
-            // Content - Order ID ở trên cùng header
             SafeArea(
       child: Column(
         children: [
@@ -309,7 +307,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Phần header động theo order type
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -376,7 +373,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icon column
             Column(
               children: [
               Container(
@@ -410,7 +406,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             ],
           ),
             const SizedBox(width: 16),
-            // Content column
             Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -752,7 +747,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 child: IconButton(
                   icon: const Icon(Icons.call, color: Colors.white, size: 20),
                   onPressed: () {
-                    // Handle call
                   },
                 ),
               ),
@@ -774,7 +768,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 child: IconButton(
                   icon: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 20),
                   onPressed: () {
-                    // Handle chat
                   },
                 ),
               ),
@@ -818,7 +811,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             ],
           ),
           const SizedBox(height: 16),
-          // Display actual order items from database
           if (order.items != null && order.items!.isNotEmpty)
             ...order.items!.map((item) => _buildOrderItem(
               item.productName ?? 'Unknown Item',
@@ -826,7 +818,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
               item.price,
             )).toList()
           else
-            // Show message when no items available
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20),
@@ -917,6 +908,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   }
 
   Widget _buildBottomActions(Order order) {
+    final canCancel = order.status.toLowerCase() == AppConstants.pending || 
+                      order.status.toLowerCase() == AppConstants.preparing;
+    
+    if (order.status.toLowerCase() == AppConstants.cancelled || 
+        order.status.toLowerCase() == AppConstants.completed) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       decoration: BoxDecoration(
@@ -931,35 +930,43 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       ),
       child: Row(
       children: [
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () {
-                // Handle cancel order
-                _showCancelDialog();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFEF5350),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                  'Cancel Order',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+          if (canCancel)
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : () {
+                  _showCancelDialog();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF5350),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  elevation: 0,
                 ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Hủy đơn hàng',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
-          const SizedBox(width: 12),
+          if (canCancel) const SizedBox(width: 12),
           Expanded(
             child: ElevatedButton(
               onPressed: () {
-                // Handle track order
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF8C00),
@@ -972,7 +979,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 shadowColor: const Color(0xFFFF8C00).withOpacity(0.3),
               ),
               child: const Text(
-                'Track Order',
+                'Theo dõi đơn hàng',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -986,6 +993,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   }
   
   void _showCancelDialog() {
+    final order = _order ?? widget.order;
+    final authService = AuthService();
+    final token = authService.token;
+    
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bạn cần đăng nhập để hủy đơn hàng'),
+          backgroundColor: Color(0xFFEF5350),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -994,26 +1015,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             borderRadius: BorderRadius.circular(20),
           ),
           title: const Text(
-            'Cancel Order',
+            'Hủy đơn hàng',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          content: const Text('Are you sure you want to cancel this order?'),
+          content: const Text('Bạn có chắc chắn muốn hủy đơn hàng này không?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('No', style: TextStyle(color: Color(0xFF95A5A6))),
+              child: const Text('Không', style: TextStyle(color: Color(0xFF95A5A6))),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(context).pop();
-                // Implement cancel order
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Order cancelled successfully'),
-                    backgroundColor: Color(0xFFEF5350),
-                  ),
-                );
-                Navigator.of(context).pop();
+                await _handleCancelOrder(order, token);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFEF5350),
@@ -1021,16 +1035,56 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('Yes, Cancel'),
+              child: const Text('Có, hủy đơn'),
             ),
           ],
         );
       },
     );
   }
+
+  Future<void> _handleCancelOrder(Order order, String token) async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final success = await _orderService.cancelOrder(order.id, token: token);
+      
+      if (success) {
+        await _loadOrderDetails();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đơn hàng đã được hủy thành công'),
+              backgroundColor: Color(0xFF4CAF50),
+            ),
+          );
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              Navigator.of(context).pop();
+            }
+          });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể hủy đơn hàng: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: const Color(0xFFEF5350),
+          ),
+        );
+      }
+    }
+  }
   
   List<Map<String, dynamic>> _getOrderSteps(Order order) {
-    // Timeline for takeaway/delivery system
     return [
       {
         'title': 'Order Placed',
@@ -1086,7 +1140,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       case AppConstants.completed:
         return 3;
       case AppConstants.cancelled:
-        return -1; // Cancelled order
+        return -1;
       default:
         return 0;
     }
@@ -1136,19 +1190,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case AppConstants.pending:
-        return const Color(0xFFFFA726); // Orange - waiting
+        return const Color(0xFFFFA726);
       case AppConstants.preparing:
-        return const Color(0xFF42A5F5); // Blue - in progress
+        return const Color(0xFF42A5F5);
       case AppConstants.ready:
-        return const Color(0xFFAB47BC); // Purple - ready for pickup
+        return const Color(0xFFAB47BC);
       case AppConstants.outForDelivery:
-        return const Color(0xFF66BB6A); // Green - on the way
+        return const Color(0xFF66BB6A);
       case AppConstants.completed:
-        return const Color(0xFF4CAF50); // Dark green - done
+        return const Color(0xFF4CAF50);
       case AppConstants.cancelled:
-        return const Color(0xFFEF5350); // Red - cancelled
+        return const Color(0xFFEF5350);
       default:
-        return const Color(0xFF95A5A6); // Grey - unknown
+        return const Color(0xFF95A5A6);
     }
   }
 
@@ -1163,7 +1217,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
-  // Helper function for payment method display
   String _getPaymentMethodText(String? paymentMethod) {
     if (paymentMethod == null) return 'Not specified';
     
@@ -1179,7 +1232,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     }
   }
 
-  // Helper functions for dynamic content based on order data
   String _getOrderHeaderTitle(Order order) {
     switch (order.orderType.toLowerCase()) {
       case AppConstants.dineIn:
@@ -1194,8 +1246,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   String _getOrderHeaderSubtitle(Order order) {
     switch (order.orderType.toLowerCase()) {
       case AppConstants.dineIn:
-        return order.tableNumber != null 
-            ? 'Table ${order.tableNumber}' 
+        return order.tableIdDisplay != null 
+            ? 'Table #${order.tableIdDisplay}' 
             : 'Please wait for table assignment';
       case AppConstants.delivery:
         return 'Coming within 30 minutes';
@@ -1207,8 +1259,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   String _getDestinationTitle(Order order) {
     switch (order.orderType.toLowerCase()) {
       case AppConstants.dineIn:
-        return order.tableNumber != null 
-            ? 'Table ${order.tableNumber}' 
+        return order.tableIdDisplay != null 
+            ? 'Table #${order.tableIdDisplay}' 
             : 'Table N/A';
       case AppConstants.delivery:
         return order.deliveryAddress ?? 'Your Location';

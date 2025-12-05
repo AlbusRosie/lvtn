@@ -6,17 +6,51 @@ import '../profile/ProfileScreen.dart';
 import '../orders/OrdersScreen.dart';
 import '../chat/ChatScreen.dart';
 
-// Constants for theming
 class _NavConstants {
   static const double iconSize = 24.0;
-  static const double fontSize = 12.0;
+  static const double activeIconSize = 26.0;
   static const double navItemWidth = 70.0;
+  static const double navBarHeight = 68.0;
   static const double indicatorHeight = 3.0;
-  static const Duration animationDuration = Duration(milliseconds: 200);
+  static const double indicatorWidth = 28.0;
+  static const double chatIconPadding = 11.0;
+  static const double regularIconPadding = 9.0;
+  static const double chatBorderRadius = 16.0;
+  static const double homeBorderRadius = 14.0;
   
-  static const Color activeColor = Color(0xFFFF9800); // Orange
-  static const Color inactiveColor = Color(0xFFBDBDBD);
+  static const Duration animationDuration = Duration(milliseconds: 250);
+  static const Curve animationCurve = Curves.easeOutCubic;
+  
+  static const Color activeColor = Color(0xFFFF8A00);
+  static const Color activeColorDark = Color(0xFFFF6B00);
+  static const Color inactiveColor = Color(0xFF9E9E9E);
   static const Color backgroundColor = Colors.white;
+  static const Color borderColor = Color(0xFFF5F5F5);
+  static const Color badgeColor = Color(0xFFFF3B30);
+  
+  static const List<BoxShadow> navBarShadow = [
+    BoxShadow(
+      color: Color(0x0A000000),
+      blurRadius: 12,
+      offset: Offset(0, -4),
+      spreadRadius: 0,
+    ),
+  ];
+  
+  static List<BoxShadow> getActiveShadow(Color color) => [
+    BoxShadow(
+      color: color.withOpacity(0.25),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+      spreadRadius: 0,
+    ),
+    BoxShadow(
+      color: color.withOpacity(0.15),
+      blurRadius: 6,
+      offset: const Offset(0, 2),
+      spreadRadius: 0,
+    ),
+  ];
 }
 
 class AppBottomNav extends StatelessWidget {
@@ -30,22 +64,46 @@ class AppBottomNav extends StatelessWidget {
   void _handleTap(BuildContext context, int index) {
     if (index == currentIndex) return;
 
+    final mainRoutes = [
+      HomeScreen.routeName,
+      BranchScreen.routeName,
+      ChatScreen.routeName,
+      OrdersScreen.routeName,
+      ProfileScreen.routeName,
+    ];
+
+    String targetRoute;
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, HomeScreen.routeName);
+        targetRoute = HomeScreen.routeName;
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, BranchScreen.routeName);
+        targetRoute = BranchScreen.routeName;
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, ChatScreen.routeName);
+        targetRoute = ChatScreen.routeName;
         break;
       case 3:
-        Navigator.pushReplacementNamed(context, OrdersScreen.routeName);
+        targetRoute = OrdersScreen.routeName;
         break;
       case 4:
-        Navigator.pushReplacementNamed(context, ProfileScreen.routeName);
+        targetRoute = ProfileScreen.routeName;
         break;
+      default:
+        return;
+    }
+
+    final currentRoute = ModalRoute.of(context)?.settings.name;
+    final isCurrentRouteMainTab = currentRoute != null && mainRoutes.contains(currentRoute);
+
+    if (isCurrentRouteMainTab) {
+      Navigator.pushReplacementNamed(context, targetRoute);
+    } else {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        targetRoute,
+        (route) => false,
+      );
     }
   }
 
@@ -54,51 +112,46 @@ class AppBottomNav extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: _NavConstants.backgroundColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, -2),
-            spreadRadius: 0,
+        border: Border(
+          top: BorderSide(
+            color: _NavConstants.borderColor,
+            width: 1,
           ),
-        ],
+        ),
+        boxShadow: _NavConstants.navBarShadow,
       ),
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        child: Container(
+          height: _NavConstants.navBarHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _NavItem(
                 icon: Icons.home_rounded,
-                label: '',
                 isActive: currentIndex == 0,
                 onTap: () => _handleTap(context, 0),
+                isSpecial: true,
               ),
               _NavItem(
                 icon: Icons.store_rounded,
-                label: '',
                 isActive: currentIndex == 1,
                 onTap: () => _handleTap(context, 1),
               ),
               _NavItem(
                 icon: Icons.chat_bubble_rounded,
-                label: '',
                 isActive: currentIndex == 2,
                 onTap: () => _handleTap(context, 2),
                 isChatBot: true,
               ),
               _NavItem(
                 icon: Icons.receipt_long_rounded,
-                label: '',
                 isActive: currentIndex == 3,
                 onTap: () => _handleTap(context, 3),
-                // badge: 3, // Optional: Uncomment to show badge
               ),
               _NavItem(
                 icon: Icons.person_rounded,
-                label: '',
                 isActive: currentIndex == 4,
                 onTap: () => _handleTap(context, 4),
               ),
@@ -112,19 +165,19 @@ class AppBottomNav extends StatelessWidget {
 
 class _NavItem extends StatefulWidget {
   final IconData icon;
-  final String label;
   final bool isActive;
   final VoidCallback onTap;
   final int? badge;
   final bool isChatBot;
+  final bool isSpecial;
 
   const _NavItem({
     required this.icon,
-    required this.label,
     required this.isActive,
     required this.onTap,
     this.badge,
     this.isChatBot = false,
+    this.isSpecial = false,
   });
 
   @override
@@ -143,8 +196,11 @@ class _NavItemState extends State<_NavItem>
       duration: _NavConstants.animationDuration,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.88).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: _NavConstants.animationCurve,
+      ),
     );
   }
 
@@ -167,8 +223,55 @@ class _NavItemState extends State<_NavItem>
     _controller.reverse();
   }
 
+  Color _getIconColor() {
+    if (widget.isChatBot && widget.isActive) {
+      return Colors.white;
+    }
+    if (widget.isChatBot && !widget.isActive) {
+      return _NavConstants.activeColor;
+    }
+    return widget.isActive
+        ? _NavConstants.activeColor
+        : _NavConstants.inactiveColor;
+  }
+
+  double _getIconSize() {
+    if (widget.isChatBot) {
+      return _NavConstants.activeIconSize;
+    }
+    if (widget.isSpecial && widget.isActive) {
+      return _NavConstants.activeIconSize;
+    }
+    return _NavConstants.iconSize;
+  }
+
+  double _getPadding() {
+    if (widget.isChatBot) {
+      return _NavConstants.chatIconPadding;
+    }
+    if (widget.isSpecial && widget.isActive) {
+      return _NavConstants.chatIconPadding;
+    }
+    return _NavConstants.regularIconPadding;
+  }
+
+  double _getBorderRadius() {
+    if (widget.isChatBot) {
+      return _NavConstants.chatBorderRadius;
+    }
+    if (widget.isSpecial) {
+      return _NavConstants.homeBorderRadius;
+    }
+    return 0;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final iconColor = _getIconColor();
+    final iconSize = _getIconSize();
+    final padding = _getPadding();
+    final borderRadius = _getBorderRadius();
+
     return GestureDetector(
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,
@@ -178,72 +281,73 @@ class _NavItemState extends State<_NavItem>
         scale: _scaleAnimation,
         child: Container(
           width: _NavConstants.navItemWidth,
-          padding: const EdgeInsets.symmetric(vertical: 2),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Icon with badge
               Stack(
                 clipBehavior: Clip.none,
                 children: [
                   AnimatedContainer(
                     duration: _NavConstants.animationDuration,
-                    curve: Curves.easeInOut,
-                    padding: EdgeInsets.all(widget.isChatBot ? 10 : 8),
+                    curve: _NavConstants.animationCurve,
+                    padding: EdgeInsets.all(padding),
                     decoration: BoxDecoration(
                       gradient: widget.isChatBot && widget.isActive
-                          ? LinearGradient(
-                              colors: [Colors.orange, Colors.deepOrange],
+                          ? const LinearGradient(
+                              colors: [
+                                _NavConstants.activeColor,
+                                _NavConstants.activeColorDark,
+                              ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             )
                           : null,
                       color: widget.isChatBot && !widget.isActive
-                          ? Colors.orange.withOpacity(0.1)
-                          : widget.isActive
-                              ? _NavConstants.activeColor.withOpacity(0.12)
+                          ? _NavConstants.activeColor.withOpacity(0.1)
+                          : widget.isSpecial && widget.isActive
+                              ? _NavConstants.activeColor.withOpacity(0.15)
                               : Colors.transparent,
-                      borderRadius: BorderRadius.circular(widget.isChatBot ? 14 : 12),
-                      boxShadow: widget.isChatBot && widget.isActive
-                          ? [
-                              BoxShadow(
-                                color: Colors.orange.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
-                            ]
+                      borderRadius: BorderRadius.circular(borderRadius),
+                      boxShadow: (widget.isChatBot && widget.isActive) ||
+                              (widget.isSpecial && widget.isActive)
+                          ? _NavConstants.getActiveShadow(
+                              _NavConstants.activeColor)
                           : null,
                     ),
                     child: Icon(
                       widget.icon,
-                      color: widget.isChatBot && widget.isActive
-                          ? Colors.white
-                          : widget.isChatBot
-                              ? Colors.orange
-                              : widget.isActive
-                                  ? _NavConstants.activeColor
-                                  : _NavConstants.inactiveColor,
-                      size: widget.isChatBot ? 26 : _NavConstants.iconSize,
+                      color: iconColor,
+                      size: iconSize,
                     ),
                   ),
-                  // Badge
                   if (widget.badge != null && widget.badge! > 0)
                     Positioned(
-                      right: 2,
-                      top: 2,
+                      right: -2,
+                      top: -2,
                       child: Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
                         constraints: const BoxConstraints(
                           minWidth: 18,
                           minHeight: 18,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.red,
+                          color: _NavConstants.badgeColor,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: _NavConstants.backgroundColor,
-                            width: 1.5,
+                            width: 2,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _NavConstants.badgeColor.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Text(
                           widget.badge! > 99 ? '99+' : '${widget.badge}',
@@ -251,7 +355,8 @@ class _NavItemState extends State<_NavItem>
                             color: Colors.white,
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            height: 1,
+                            height: 1.1,
+                            letterSpacing: -0.2,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -259,15 +364,22 @@ class _NavItemState extends State<_NavItem>
                     ),
                 ],
               ),
-               // Active indicator
-               const SizedBox(height: 2),
+              const SizedBox(height: 6),
               AnimatedContainer(
                 duration: _NavConstants.animationDuration,
-                curve: Curves.easeInOut,
+                curve: _NavConstants.animationCurve,
                 height: _NavConstants.indicatorHeight,
-                width: widget.isActive ? 20 : 0,
+                width: widget.isActive ? _NavConstants.indicatorWidth : 0,
                 decoration: BoxDecoration(
-                  color: _NavConstants.activeColor,
+                  gradient: widget.isActive
+                      ? const LinearGradient(
+                          colors: [
+                            _NavConstants.activeColor,
+                            _NavConstants.activeColorDark,
+                          ],
+                        )
+                      : null,
+                  color: widget.isActive ? null : Colors.transparent,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),

@@ -43,7 +43,7 @@ class _TableScreenState extends State<TableScreen> {
 
 
   List<Map<String, dynamic>> _floors = [];
-  int? _selectedFloorId; // null means all floors
+  int? _selectedFloorId;
 
   @override
   void initState() {
@@ -79,7 +79,7 @@ class _TableScreenState extends State<TableScreen> {
       result = result.where((t) => (t['capacity'] ?? 0) >= _minCapacity!).toList();
     }
     if (_search.isNotEmpty) {
-      result = result.where((t) => (t['table_number'] ?? '').toString().toLowerCase().contains(_search.toLowerCase())).toList();
+      result = result.where((t) => (t['id'] ?? '').toString().toLowerCase().contains(_search.toLowerCase())).toList();
     }
     _filteredTables = result;
     if (mounted) setState(() {});
@@ -123,7 +123,7 @@ class _TableScreenState extends State<TableScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         title: Text(
-          'Reserve Table',
+          'Đặt bàn',
           style: TextStyle(
             color: Colors.grey[900],
             fontSize: 18,
@@ -230,7 +230,7 @@ class _TableScreenState extends State<TableScreen> {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          '${_filteredTables.length} tables available',
+                          '${_filteredTables.length} bàn còn trống',
                           style: TextStyle(fontSize: 13, color: Colors.grey[600], fontFamily: 'Inter'),
                         ),
                       ],
@@ -243,9 +243,9 @@ class _TableScreenState extends State<TableScreen> {
             if (_isLoading)
               Expanded(child: Center(child: CircularProgressIndicator(color: Colors.orange)))
             else if (_error != null)
-              Expanded(child: Center(child: Text('Could not load table list')))
+              Expanded(child: Center(child: Text('Không thể tải danh sách bàn')))
             else if (_allTables.isEmpty)
-              Expanded(child: Center(child: Text('No tables available')))
+              Expanded(child: Center(child: Text('Không có bàn nào')))
             else
               Expanded(
                 child: Column(
@@ -302,7 +302,7 @@ class _TableScreenState extends State<TableScreen> {
                                       icon: Icon(Icons.arrow_drop_down, color: Colors.orange),
                                       style: TextStyle(fontSize: 12, color: Colors.grey[900], fontFamily: 'Inter'),
                                       items: [
-                                        DropdownMenuItem<int?>(value: null, child: Text('All Floors', style: TextStyle(fontSize: 12))),
+                                        DropdownMenuItem<int?>(value: null, child: Text('Tất cả tầng', style: TextStyle(fontSize: 12))),
                                         ..._floors.map((f) => DropdownMenuItem<int?>(
                                           value: f['id'] as int,
                                           child: Text(
@@ -339,11 +339,11 @@ class _TableScreenState extends State<TableScreen> {
                                       icon: Icon(Icons.arrow_drop_down, color: Colors.orange),
                                       style: TextStyle(fontSize: 12, color: Colors.grey[900], fontFamily: 'Inter'),
                                       items: const [
-                                        DropdownMenuItem(value: 'all', child: Text('All', style: TextStyle(fontSize: 12))),
-                                        DropdownMenuItem(value: 'available', child: Text('Available', style: TextStyle(fontSize: 12))),
-                                        DropdownMenuItem(value: 'occupied', child: Text('Occupied', style: TextStyle(fontSize: 12))),
-                                        DropdownMenuItem(value: 'reserved', child: Text('Reserved', style: TextStyle(fontSize: 12))),
-                                        DropdownMenuItem(value: 'maintenance', child: Text('Maintenance', style: TextStyle(fontSize: 12))),
+                                        DropdownMenuItem(value: 'all', child: Text('Tất cả', style: TextStyle(fontSize: 12))),
+                                        DropdownMenuItem(value: 'available', child: Text('Còn trống', style: TextStyle(fontSize: 12))),
+                                        DropdownMenuItem(value: 'occupied', child: Text('Đang dùng', style: TextStyle(fontSize: 12))),
+                                        DropdownMenuItem(value: 'reserved', child: Text('Đã đặt', style: TextStyle(fontSize: 12))),
+                                        DropdownMenuItem(value: 'maintenance', child: Text('Bảo trì', style: TextStyle(fontSize: 12))),
                                       ],
                                       onChanged: (v) { setState(() { _statusFilter = v ?? 'all'; }); _applyFilters(); },
                                     ),
@@ -368,7 +368,7 @@ class _TableScreenState extends State<TableScreen> {
                                       Expanded(
                                         child: TextField(
                                           decoration: InputDecoration(
-                                            hintText: 'Min',
+                                            hintText: 'Tối thiểu',
                                             hintStyle: TextStyle(fontSize: 12, color: Colors.grey[400]),
                                             border: InputBorder.none,
                                             contentPadding: EdgeInsets.zero,
@@ -449,7 +449,7 @@ class _TableScreenState extends State<TableScreen> {
         TimeOfDay? selectedTime;
         List<Map<String, dynamic>> tableSchedule = [];
         bool isLoadingSchedule = false;
-        String selectedDateFilter = 'week'; // today, tomorrow, week
+        String selectedDateFilter = 'week';
         return StatefulBuilder(
           builder: (context, setSheetState) {
             Future<void> doLoadSchedule() async {
@@ -672,7 +672,7 @@ class _TableScreenState extends State<TableScreen> {
                 
 
                 final reservation = await ReservationService.createReservation(
-                  userId: 2, // TODO: Lấy từ user hiện tại
+                  userId: 2,
                   branchId: widget.branch.id,
                   tableId: table['id'],
                   reservationDate: reservationDate,
@@ -685,7 +685,7 @@ class _TableScreenState extends State<TableScreen> {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Đặt bàn thành công! Bàn ${table['table_number']} • ${reservationDate} ${selectedTime!.format(context)}'),
+                      content: Text('Đặt bàn thành công! Bàn #${table['id']} • ${reservationDate} ${selectedTime!.format(context)}'),
                       backgroundColor: Colors.green,
                       duration: Duration(seconds: 3),
                     ),
@@ -736,7 +736,7 @@ class _TableScreenState extends State<TableScreen> {
                         ),
                       ),
                       SizedBox(height: 12),
-                      Text('Reserve Table ${table['table_number']}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      Text('Reserve Table #${table['id']}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                       SizedBox(height: 12),
 
                       Row(
@@ -1168,7 +1168,7 @@ class _TableCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Table ${table['table_number']?.toString() ?? '-'}',
+                            'Table #${table['id']?.toString() ?? '-'}',
                             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.grey[900], fontFamily: 'Inter'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

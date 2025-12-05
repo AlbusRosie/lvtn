@@ -1,125 +1,1 @@
-<template>
-  <div class="user-info" v-if="user">
-    <div class="user-card">
-      <div class="user-avatar">
-        <img :src="user.avatar || '/public/images/blank-profile-picture.png'" :alt="user.name" />
-      </div>
-      <div class="user-details">
-        <h3 class="user-name">{{ user.name }}</h3>
-        <p class="user-email">{{ user.email }}</p>
-        <RoleInfo :role-id="user.role_id" />
-      </div>
-      <div class="user-actions">
-        <button class="logout-btn" @click="handleLogout">
-          <i class="fas fa-sign-out-alt"></i>
-          Đăng xuất
-        </button>
-      </div>
-    </div>
-  </div>
-</template>
-
-<script setup>
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { useToast } from 'vue-toastification';
-import authService from '@/services/AuthService';
-import RoleInfo from '@/components/RoleInfo.vue';
-
-const router = useRouter();
-const toast = useToast();
-const user = ref(null);
-
-const emit = defineEmits(['logout']);
-
-onMounted(() => {
-
-  const userStr = localStorage.getItem('currentUser');
-  if (userStr) {
-    user.value = JSON.parse(userStr);
-  }
-});
-
-function handleLogout() {
-  authService.logout();
-  localStorage.removeItem('currentUser');
-  toast.success('Đăng xuất thành công!');
-  emit('logout');
-  router.push('/auth');
-}
-</script>
-
-<style scoped>
-.user-info {
-  margin-top: 20px;
-}
-
-.user-card {
-  background: white;
-  border-radius: 15px;
-  padding: 20px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.user-avatar {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.user-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.user-details {
-  flex: 1;
-}
-
-.user-name {
-  margin: 0 0 5px 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-}
-
-.user-email {
-  margin: 0 0 8px 0;
-  font-size: 14px;
-  color: #666;
-}
-
-.user-actions {
-  flex-shrink: 0;
-}
-
-.logout-btn {
-  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.logout-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
-}
-
-.logout-btn i {
-  font-size: 12px;
-}
-</style>
+<template>  <div class="user-info" v-if="user">    <div class="user-card">      <div class="user-avatar">        <img :src="user.avatar || '/public/images/blank-profile-picture.png'" :alt="user.name" />      </div>      <div class="user-details">        <h3 class="user-name">{{ user.name }}</h3>        <p class="user-email">{{ user.email }}</p>        <RoleInfo :role-id="user.role_id" />      </div>      <div class="user-actions">        <button class="logout-btn" @click="handleLogout">          <i class="fas fa-sign-out-alt"></i>          Đăng xuất        </button>      </div>    </div>  </div></template><script setup>import { ref, onMounted } from 'vue';import { useRouter } from 'vue-router';import { useToast } from 'vue-toastification';import authService from '@/services/AuthService';import RoleInfo from '@/components/RoleInfo.vue';const router = useRouter();const toast = useToast();const user = ref(null);const emit = defineEmits(['logout']);onMounted(() => {  const userStr = localStorage.getItem('currentUser');  if (userStr) {    user.value = JSON.parse(userStr);  }});function handleLogout() {  authService.logout();  localStorage.removeItem('currentUser');  toast.success('Đăng xuất thành công!');  emit('logout');  router.push('/auth');}</script><style scoped>.user-info {  margin-top: 20px;}.user-card {  background: white;  border-radius: 15px;  padding: 20px;  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);  display: flex;  align-items: center;  gap: 15px;}.user-avatar {  width: 60px;  height: 60px;  border-radius: 50%;  overflow: hidden;  flex-shrink: 0;}.user-avatar img {  width: 100%;  height: 100%;  object-fit: cover;}.user-details {  flex: 1;}.user-name {  margin: 0 0 5px 0;  font-size: 18px;  font-weight: 600;  color: #333;}.user-email {  margin: 0 0 8px 0;  font-size: 14px;  color: #666;}.user-actions {  flex-shrink: 0;}.logout-btn {  background: linear-gradient(135deg, #ff6b6b, #ee5a24);  color: white;  border: none;  padding: 8px 16px;  border-radius: 8px;  font-size: 14px;  font-weight: 600;  cursor: pointer;  transition: all 0.3s ease;  display: flex;  align-items: center;  gap: 6px;}.logout-btn:hover {  transform: translateY(-2px);  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);}.logout-btn i {  font-size: 12px;}</style>

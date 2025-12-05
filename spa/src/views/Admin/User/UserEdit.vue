@@ -1,79 +1,1 @@
-<script setup>
-import { ref } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import UserForm from '@/components/Admin/User/UserForm.vue';
-import usersService from '@/services/UserService';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
-
-const props = defineProps({
-  userId: { type: String, required: true }
-});
-
-const router = useRouter();
-const route = useRoute();
-const queryClient = useQueryClient();
-const message = ref('');
-
-const { data: user, isError, isLoading } = useQuery({
-  queryKey: ['user', props.userId],
-  queryFn: () => usersService.fetchUser(props.userId),
-  onError: (error) => {
-    router.push({
-      name: 'notfound',
-      params: { pathMatch: route.path.split('/').slice(1) },
-      query: route.query,
-      hash: route.hash,
-    });
-  },
-});
-
-const updateMutation = useMutation({
-  mutationFn: (updatedUser) => usersService.updateUser(props.userId, updatedUser),
-  onSuccess: () => {
-    message.value = 'Tài khoản được cập nhật thành công.';
-    queryClient.invalidateQueries(['user', props.userId]);
-  },
-  onError: (error) => {
-    message.value = 'Lỗi cập nhật tài khoản.';
-  },
-});
-
-const deleteMutation = useMutation({
-  mutationFn: (id) => usersService.deleteUser(id),
-  onSuccess: () => {
-    router.push({ name: 'home' });
-  },
-  onError: (error) => {
-  },
-});
-
-const onUpdateUser = (user) => {
-  updateMutation.mutate(user);
-};
-
-const onDeleteUser = () => {
-  if (confirm('Bạn muốn xóa tài khoản này?')) {
-    deleteMutation.mutate(props.userId);
-  }
-};
-</script>
-
-<template>
-  <div v-if="!isLoading && !isError" class="page">
-    <h4>Hiệu chỉnh tài khoản</h4>
-    <UserForm
-      :user="user"
-      @submit:user="onUpdateUser"
-      @delete:user="onDeleteUser"
-    />
-    <p>{{ message }}</p>
-  </div>
-
-  <div v-else-if="isLoading">
-    <p>Đang tải dữ liệu...</p>
-  </div>
-
-  <div v-else>
-    <p>Có lỗi xảy ra khi tải tài khoản.</p>
-  </div>
-</template>
+<script setup>import { ref } from 'vue';import { useRouter, useRoute } from 'vue-router';import UserForm from '@/components/Admin/User/UserForm.vue';import usersService from '@/services/UserService';import LoadingSpinner from '@/components/LoadingSpinner.vue';import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';import { useToast } from 'vue-toastification';const props = defineProps({  userId: { type: String, required: true }});const router = useRouter();const route = useRoute();const queryClient = useQueryClient();const toast = useToast();const message = ref('');const isLoading = ref(false);const { data: user, isError, isLoading: isUserLoading } = useQuery({  queryKey: ['user', props.userId],  queryFn: () => usersService.fetchUser(props.userId),  onError: (error) => {    router.push({      name: 'notfound',      params: { pathMatch: route.path.split('/').slice(1) },      query: route.query,      hash: route.hash,    });  },});const updateMutation = useMutation({  mutationFn: (updatedUser) => usersService.updateUser(props.userId, updatedUser),  onSuccess: () => {    message.value = 'Account updated successfully!';    toast.success('Updated successfully!');    queryClient.invalidateQueries(['user', props.userId]);    queryClient.invalidateQueries(['users']);    setTimeout(() => {      router.push({ name: 'home' });    }, 1500);  },  onError: (error) => {    message.value = error.message || 'Error updating account.';    toast.error(error.message || 'Error updating account!');  },});const deleteMutation = useMutation({  mutationFn: (id) => usersService.deleteUser(id),  onSuccess: () => {    message.value = 'Account deleted successfully!';    queryClient.invalidateQueries(['users']);    setTimeout(() => {      router.push({ name: 'home' });    }, 1500);  },  onError: (error) => {    message.value = 'Error deleting account.';  },});const onUpdateUser = async (user) => {  isLoading.value = true;  try {    await updateMutation.mutateAsync(user);  } catch (error) {    } finally {    isLoading.value = false;  }};const onDeleteUser = () => {  if (confirm('Are you sure you want to delete this account? This action cannot be undone!')) {    deleteMutation.mutate(props.userId);  }};function goBack() {  router.push({ name: 'home' });}</script><template>  <div class="user-edit">    <div class="header">      <div class="breadcrumb">        <router-link to="/">User Management</router-link>        <span> / </span>        <span>Edit User</span>      </div>      <h1>Edit User</h1>      <p class="subtitle">Update user account information</p>    </div>    <div class="form-container">      <!-- Loading State -->      <div v-if="isUserLoading" class="loading">        <LoadingSpinner />        <p>Loading user information...</p>      </div>      <!-- Error State -->      <div v-else-if="isError" class="error">        <i class="fas fa-exclamation-triangle"></i>        <p>An error occurred while loading user information.</p>      </div>      <!-- Form -->      <div v-else-if="user">        <UserForm          :user="user"          @submit:user="onUpdateUser"          @delete:user="onDeleteUser"        />        <div v-if="isLoading" class="loading">          <LoadingSpinner />          <p>Updating information...</p>        </div>      </div>    </div>  </div></template><style scoped>.user-edit {  padding: 20px;}.header {  margin-bottom: 30px;}.breadcrumb {  margin-bottom: 10px;  font-size: 14px;  color: #666;}.breadcrumb a {  color: #007bff;  text-decoration: none;}.breadcrumb a:hover {  text-decoration: underline;}.header h1 {  margin: 0 0 5px 0;  font-size: 24px;  color: #333;}.subtitle {  margin: 0;  color: #666;  font-size: 14px;}.form-container {  max-width: 600px;  margin: 0 auto;}.loading,.error {  display: flex;  flex-direction: column;  align-items: center;  justify-content: center;  padding: 40px 20px;  text-align: center;}.loading p,.error p {  margin: 10px 0;  color: #666;}.error i {  font-size: 2rem;  color: #ef4444;  margin-bottom: 10px;}</style>

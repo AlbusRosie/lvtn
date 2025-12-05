@@ -16,7 +16,7 @@ class Order {
   final DateTime createdAt;
   final String? branchName;
   final String? branchImage;
-  final String? tableNumber;
+  final int? tableIdDisplay;
   final int? itemsCount;
   final List<OrderDetail>? items;
 
@@ -36,7 +36,7 @@ class Order {
     required this.createdAt,
     this.branchName,
     this.branchImage,
-    this.tableNumber,
+    this.tableIdDisplay,
     this.itemsCount,
     this.items,
   });
@@ -58,7 +58,7 @@ class Order {
       createdAt: DateTime.parse(json['created_at']),
       branchName: json['branch_name'],
       branchImage: json['branch_image'],
-      tableNumber: json['table_number'],
+      tableIdDisplay: json['table_id'],
       itemsCount: json['items_count'],
       items: (json['items'] as List<dynamic>?)
           ?.map((item) => OrderDetail.fromJson(item))
@@ -83,7 +83,7 @@ class Order {
       'created_at': createdAt.toIso8601String(),
       'branch_name': branchName,
       'branch_image': branchImage,
-      'table_number': tableNumber,
+      'table_id': tableIdDisplay,
       'items_count': itemsCount,
       'items': items?.map((item) => item.toJson()).toList(),
     };

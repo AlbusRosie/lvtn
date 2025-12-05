@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import '../../models/product.dart';
@@ -36,7 +37,7 @@ class ProductReview {
 
 class ProductDetailScreen extends StatefulWidget {
   static const String routeName = '/product-detail';
-  final int? branchId; // Add branchId parameter
+  final int? branchId;
 
   const ProductDetailScreen({Key? key, this.branchId}) : super(key: key);
 
@@ -463,7 +464,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
 
                             final cartProvider = Provider.of<CartProvider>(context, listen: false);
                             
-                            // Check if switching branches with items in cart
                             if (cartProvider.needsBranchSwitchConfirmation(branchId)) {
                               final shouldSwitch = await _showBranchSwitchDialog(
                                 cartProvider.currentBranchName ?? 'previous branch',
@@ -471,19 +471,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                               );
                               
                               if (shouldSwitch != true) {
-                                return; // User cancelled
+                                return;
                               }
                               
-                              // Clear old cart before adding to new branch
                               await cartProvider.clearCartForBranchSwitch();
                             }
                             
                             await cartProvider.addToCart(
-                              branchId, // Use the correct branch ID
+                              branchId,
                               product.id,
                               quantity: 1,
-                              orderType: 'dine_in', // Default to dine_in
-                              selectedOptions: [], // No options for products without options
+                              orderType: 'dine_in',
+                              selectedOptions: [],
                             );
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -528,7 +527,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
             ),
             child: StatefulBuilder(
               builder: (context, setSheetState) {
-                int sheetQuantity = 1; // Move inside StatefulBuilder
+                int sheetQuantity = 1;
                 
                 void updateInSheet(ProductOptionType optionType, ProductOptionValue value, bool isSelected) {
                   setState(() => _updateOptionSelection(optionType, value, isSelected));
@@ -1078,7 +1077,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
 
                                 final cartProvider = Provider.of<CartProvider>(context, listen: false);
                                 
-                                // Check if switching branches with items in cart
                                 if (cartProvider.needsBranchSwitchConfirmation(branchId)) {
                                   final shouldSwitch = await _showBranchSwitchDialog(
                                     cartProvider.currentBranchName ?? 'previous branch',
@@ -1086,14 +1084,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                                   );
                                   
                                   if (shouldSwitch != true) {
-                                    return; // User cancelled, keep bottom sheet open
+                                    return;
                                   }
                                   
-                                  // Clear old cart before adding to new branch
                                   await cartProvider.clearCartForBranchSwitch();
                                 }
                                 
-                                // Close the bottom sheet
                                 Navigator.pop(ctx);
                                 
                                 await cartProvider.addToCart(
@@ -1323,10 +1319,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
       });
     }
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      bottomNavigationBar: _buildBottomBar(product, branchId, branch.name),
-      body: SafeArea(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        bottomNavigationBar: _buildBottomBar(product, branchId, branch.name),
+        body: SafeArea(
         child: SingleChildScrollView(
           physics: BouncingScrollPhysics(),
           child: Column(
@@ -1559,6 +1562,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -1595,7 +1599,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
             onTap: _toggleFavorite,
             child: Center(
               child: Icon(
-                _isFavorite ? Symbols.favorite : Symbols.favorite, // use filled color to distinguish
+                _isFavorite ? Symbols.favorite : Symbols.favorite,
                 color: Colors.white,
                 size: 22,
               ),
@@ -1632,7 +1636,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
               MaterialPageRoute(
                 builder: (context) => CartScreen(
                   branchId: branchId,
-                  branchName: 'Beast Bite Branch $branchId', // You can get actual branch name from context
+                  branchName: 'Beast Bite Branch $branchId',
                 ),
               ),
             );

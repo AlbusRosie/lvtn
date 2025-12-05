@@ -1,228 +1,1 @@
-<template>
-  <div class="floor-card">
-    <div class="floor-header">
-      <div class="floor-info">
-        <h3 class="floor-name">{{ getDisplayName() }}</h3>
-        <span class="floor-status" :class="`status-${floor.status}`">
-          {{ getStatusLabel(floor.status) }}
-        </span>
-      </div>
-      <div class="floor-actions" v-if="isAdmin">
-        <button @click="$emit('edit', floor)" class="btn-icon" title="Chỉnh sửa">
-          <i class="fas fa-edit"></i>
-        </button>
-        <button @click="$emit('delete', floor)" class="btn-icon btn-danger" title="Xóa">
-          <i class="fas fa-trash"></i>
-        </button>
-      </div>
-    </div>
-
-    <div class="floor-details">
-      <div class="detail-item">
-        <i class="fas fa-building"></i>
-        <span>{{ floor.branch_name || 'Chi nhánh không xác định' }}</span>
-      </div>
-
-      <div class="detail-item">
-        <i class="fas fa-hashtag"></i>
-        <span>Tầng số: {{ floor.floor_number }}</span>
-      </div>
-
-      <div class="detail-item">
-        <i class="fas fa-users"></i>
-        <span>Sức chứa: {{ floor.capacity }} người</span>
-      </div>
-
-      <div class="detail-item" v-if="floor.description">
-        <i class="fas fa-info-circle"></i>
-        <span>{{ floor.description }}</span>
-      </div>
-    </div>
-
-    <div class="floor-footer">
-      <div class="floor-meta">
-        <span class="created-date">
-          <i class="fas fa-calendar"></i>
-          Tạo ngày: {{ formatDate(floor.created_at) }}
-        </span>
-      </div>
-    </div>
-  </div>
-</template>
-
-<script>
-import { FLOOR_STATUS } from '@/constants';
-
-export default {
-  name: 'FloorCard',
-  props: {
-    floor: {
-      type: Object,
-      required: true
-    },
-    isAdmin: {
-      type: Boolean,
-      default: false
-    }
-  },
-  methods: {
-    getDisplayName() {
-      const branchName = this.floor.branch_name || 'Chi nhánh không xác định';
-      const floorName = this.floor.name || 'Tầng không xác định';
-      
-      if (floorName.includes(branchName) || floorName.includes('Chi nhánh')) {
-        return floorName;
-      }
-      
-      return `${floorName} - ${branchName}`;
-    },
-
-    getStatusLabel(status) {
-      const statusMap = {
-        [FLOOR_STATUS.ACTIVE]: 'Hoạt động',
-        [FLOOR_STATUS.INACTIVE]: 'Không hoạt động',
-        [FLOOR_STATUS.MAINTENANCE]: 'Bảo trì'
-      };
-      return statusMap[status] || status;
-    },
-
-    formatDate(dateString) {
-      if (!dateString) return '';
-      const date = new Date(dateString);
-      return date.toLocaleDateString('vi-VN');
-    }
-  }
-};
-</script>
-
-<style scoped>
-.floor-card {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-  transition: all 0.2s ease;
-  border: 1px solid #e5e7eb;
-}
-
-.floor-card:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
-}
-
-.floor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-
-.floor-info {
-  flex: 1;
-}
-
-.floor-name {
-  margin: 0 0 8px 0;
-  color: #1f2937;
-  font-size: 1.1rem;
-  font-weight: 600;
-  line-height: 1.3;
-  word-wrap: break-word;
-  hyphens: auto;
-}
-
-.floor-status {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-transform: uppercase;
-}
-
-.status-active {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-inactive {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.status-maintenance {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.floor-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-icon {
-  background: none;
-  border: none;
-  padding: 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: #6b7280;
-}
-
-.btn-icon:hover {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.btn-icon.btn-danger:hover {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.floor-details {
-  margin-bottom: 16px;
-}
-
-.detail-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  color: #6b7280;
-  font-size: 0.9rem;
-}
-
-.detail-item i {
-  width: 16px;
-  color: #9ca3af;
-}
-
-.detail-item span {
-  flex: 1;
-  word-break: break-word;
-}
-
-.floor-footer {
-  border-top: 1px solid #e5e7eb;
-  padding-top: 12px;
-}
-
-.floor-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.8rem;
-  color: #9ca3af;
-}
-
-.created-date {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.created-date i {
-  font-size: 0.75rem;
-}
-</style>
+<template>  <div class="floor-card">    <div class="floor-header">      <div class="floor-info">        <h3 class="floor-name">{{ getDisplayName() }}</h3>        <span class="floor-status" :class="`status-${floor.status}`">          {{ getStatusLabel(floor.status) }}        </span>      </div>      <div class="floor-actions" v-if="isAdmin">        <button @click="$emit('edit', floor)" class="btn-icon" title="Chỉnh sửa">          <i class="fas fa-edit"></i>        </button>        <button @click="$emit('delete', floor)" class="btn-icon btn-danger" title="Xóa">          <i class="fas fa-trash"></i>        </button>      </div>    </div>    <div class="floor-details">      <div class="detail-item">        <i class="fas fa-building"></i>        <span>{{ floor.branch_name || 'Chi nhánh không xác định' }}</span>      </div>      <div class="detail-item">        <i class="fas fa-hashtag"></i>        <span>Tầng số: {{ floor.floor_number }}</span>      </div>      <div class="detail-item">        <i class="fas fa-users"></i>        <span>Sức chứa: {{ floor.capacity }} người</span>      </div>      <div class="detail-item" v-if="floor.description">        <i class="fas fa-info-circle"></i>        <span>{{ floor.description }}</span>      </div>    </div>    <div class="floor-footer">      <div class="floor-meta">        <span class="created-date">          <i class="fas fa-calendar"></i>          Tạo ngày: {{ formatDate(floor.created_at) }}        </span>      </div>    </div>  </div></template><script>import { FLOOR_STATUS } from '@/constants';export default {  name: 'FloorCard',  props: {    floor: {      type: Object,      required: true    },    isAdmin: {      type: Boolean,      default: false    }  },  methods: {    getDisplayName() {      const branchName = this.floor.branch_name || 'Chi nhánh không xác định';      const floorName = this.floor.name || 'Tầng không xác định';      if (floorName.includes(branchName) || floorName.includes('Chi nhánh')) {        return floorName;      }      return `${floorName} - ${branchName}`;    },    getStatusLabel(status) {      const statusMap = {        [FLOOR_STATUS.ACTIVE]: 'Hoạt động',        [FLOOR_STATUS.INACTIVE]: 'Không hoạt động',        [FLOOR_STATUS.MAINTENANCE]: 'Bảo trì'      };      return statusMap[status] || status;    },    formatDate(dateString) {      if (!dateString) return '';      const date = new Date(dateString);      return date.toLocaleDateString('vi-VN');    }  }};</script><style scoped>.floor-card {  background: white;  border-radius: 8px;  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  padding: 20px;  transition: all 0.2s ease;  border: 1px solid #e5e7eb;}.floor-card:hover {  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);  transform: translateY(-2px);}.floor-header {  display: flex;  justify-content: space-between;  align-items: flex-start;  margin-bottom: 16px;}.floor-info {  flex: 1;}.floor-name {  margin: 0 0 8px 0;  color: #1f2937;  font-size: 1.1rem;  font-weight: 600;  line-height: 1.3;  word-wrap: break-word;  hyphens: auto;}.floor-status {  display: inline-block;  padding: 4px 8px;  border-radius: 4px;  font-size: 0.75rem;  font-weight: 500;  text-transform: uppercase;}.status-active {  background: #dcfce7;  color: #166534;}.status-inactive {  background: #fef2f2;  color: #dc2626;}.status-maintenance {  background: #fef3c7;  color: #d97706;}.floor-actions {  display: flex;  gap: 8px;}.btn-icon {  background: none;  border: none;  padding: 8px;  border-radius: 4px;  cursor: pointer;  transition: all 0.2s ease;  color: #6b7280;}.btn-icon:hover {  background: #f3f4f6;  color: #374151;}.btn-icon.btn-danger:hover {  background: #fef2f2;  color: #dc2626;}.floor-details {  margin-bottom: 16px;}.detail-item {  display: flex;  align-items: center;  gap: 8px;  margin-bottom: 8px;  color: #6b7280;  font-size: 0.9rem;}.detail-item i {  width: 16px;  color: #9ca3af;}.detail-item span {  flex: 1;  word-break: break-word;}.floor-footer {  border-top: 1px solid #e5e7eb;  padding-top: 12px;}.floor-meta {  display: flex;  justify-content: space-between;  align-items: center;  font-size: 0.8rem;  color: #9ca3af;}.created-date {  display: flex;  align-items: center;  gap: 4px;}.created-date i {  font-size: 0.75rem;}</style>

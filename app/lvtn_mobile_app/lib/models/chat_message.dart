@@ -5,6 +5,9 @@ class ChatMessage {
   final DateTime timestamp;
   final ChatMessageType type;
   final Map<String, dynamic>? metadata;
+  final List<ChatSuggestion>? suggestions;
+  final MessageStatus status;
+  final String? errorMessage;
 
   ChatMessage({
     required this.id,
@@ -13,9 +16,23 @@ class ChatMessage {
     required this.timestamp,
     this.type = ChatMessageType.text,
     this.metadata,
+    this.suggestions,
+    this.status = MessageStatus.sent,
+    this.errorMessage,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    List<ChatSuggestion>? suggestions;
+    if (json['suggestions'] != null && json['suggestions'] is List) {
+      try {
+        suggestions = (json['suggestions'] as List)
+            .map((item) => ChatSuggestion.fromJson(item))
+            .toList();
+      } catch (e) {
+        suggestions = null;
+      }
+    }
+    
     return ChatMessage(
       id: json['id']?.toString() ?? '',
       content: json['content']?.toString() ?? json['message_content']?.toString() ?? '',
@@ -27,6 +44,33 @@ class ChatMessage {
               : DateTime.now(),
       type: _parseMessageType(json['type']),
       metadata: json['metadata'] ?? json['entities'],
+      suggestions: suggestions,
+      status: MessageStatus.sent,
+      errorMessage: null,
+    );
+  }
+  
+  ChatMessage copyWith({
+    String? id,
+    String? content,
+    bool? isUser,
+    DateTime? timestamp,
+    ChatMessageType? type,
+    Map<String, dynamic>? metadata,
+    List<ChatSuggestion>? suggestions,
+    MessageStatus? status,
+    String? errorMessage,
+  }) {
+    return ChatMessage(
+      id: id ?? this.id,
+      content: content ?? this.content,
+      isUser: isUser ?? this.isUser,
+      timestamp: timestamp ?? this.timestamp,
+      type: type ?? this.type,
+      metadata: metadata ?? this.metadata,
+      suggestions: suggestions ?? this.suggestions,
+      status: status ?? this.status,
+      errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 
@@ -60,7 +104,29 @@ class ChatMessage {
       'timestamp': timestamp.toIso8601String(),
       'type': type.toString().split('.').last,
       'metadata': metadata,
+      'suggestions': suggestions?.map((s) => s.toJson()).toList(),
+      'error_message': errorMessage,
+      'status': status.toString().split('.').last,
     };
+  }
+  
+  bool get isError => type == ChatMessageType.error || errorMessage != null;
+  
+  bool get hasSuggestions => suggestions != null && suggestions!.isNotEmpty;
+  
+  String get formattedTimestamp {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+    
+    if (difference.inMinutes < 1) {
+      return 'Vừa xong';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes} phút trước';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours} giờ trước';
+    } else {
+      return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
+    }
   }
 }
 
@@ -72,6 +138,13 @@ enum ChatMessageType {
   order,
   reservation,
   error,
+}
+
+enum MessageStatus {
+  sending,
+  sent,
+  failed,
+  retrying,
 }
 
 class ChatIntent {
@@ -111,6 +184,25 @@ class ChatSuggestion {
       action: json['action']?.toString() ?? '',
       data: json['data'] is Map<String, dynamic> ? json['data'] : null,
     );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'text': text,
+      'action': action,
+      'data': data,
+    };
+  }
+  
+  bool get hasData => data != null && data!.isNotEmpty;
+  
+  int? get branchId {
+    if (data != null && data!['branch_id'] != null) {
+      final branchIdValue = data!['branch_id'];
+      if (branchIdValue is int) return branchIdValue;
+      if (branchIdValue is String) return int.tryParse(branchIdValue);
+    }
+    return null;
   }
 }
 

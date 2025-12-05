@@ -1,84 +1,1 @@
-import { DEFAULT_AVATAR, DEFAULT_PRODUCT_IMAGE } from '@/constants';
-
-/**
- * Enhanced fetch utility with authentication and error handling
- * @param {string} url
- * @param {RequestInit} options
- * @returns Promise<any>
- */
-async function efetch(url, options = {}) {
-    const token = localStorage.getItem('auth_token');
-    
-    const headers = {
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-
-    if (options.body instanceof FormData) {
-        delete headers['Content-Type'];
-    }
-
-    let result = {};
-    let json = {};
-    
-    try {
-        result = await fetch(url, { ...options, headers });
-        json = await result.json();
-    } catch (error) {
-        throw new Error(error.message);
-    }
-    
-    if (!result.ok || json.status !== 'success') {
-        if (result.status === 401) {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('auth_user');
-            window.location.href = '/admin/login';
-            return;
-        }
-        throw new Error(json.message || 'Bạn cần đăng nhập');
-    }
-    
-    return json.data;
-}
-
-/**
- * Create query string from parameters
- * @param {Object} params
- * @returns {string}
- */
-function buildQueryString(params) {
-    const searchParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== '') {
-            searchParams.append(key, value);
-        }
-    });
-    return searchParams.toString();
-}
-
-/**
- * Transform data with default values
- * @param {Object} data
- * @param {string} defaultImage
- * @returns {Object}
- */
-function transformData(data, defaultImage = DEFAULT_AVATAR) {
-    return {
-        ...data,
-        avatar: data.avatar ?? defaultImage,
-        image: data.image ?? defaultImage
-    };
-}
-
-/**
- * Transform array of data with default values
- * @param {Array} items
- * @param {string} defaultImage
- * @returns {Array}
- */
-function transformDataArray(items, defaultImage = DEFAULT_AVATAR) {
-    return items.map(item => transformData(item, defaultImage));
-}
-
-export { efetch, buildQueryString, transformData, transformDataArray };
+import { DEFAULT_AVATAR, DEFAULT_PRODUCT_IMAGE } from '@/constants';async function efetch(url, options = {}) {    const token = localStorage.getItem('auth_token');    const headers = {        'Content-Type': 'application/json',        ...(options.headers || {}),        ...(token ? { Authorization: `Bearer ${token}` } : {}),    };    if (options.body instanceof FormData) {        delete headers['Content-Type'];    }    let result = {};    let json = {};    try {        result = await fetch(url, { ...options, headers });        const contentType = result.headers.get('content-type');        const text = await result.text();        if (!text || text.trim() === '') {            json = { status: 'success', data: {} };        } else if (contentType && contentType.includes('application/json')) {            try {                json = JSON.parse(text);            } catch (parseError) {                throw new Error('Invalid JSON response from server');            }        } else {            json = { status: 'success', data: text };        }    } catch (error) {        if (error.message === 'Invalid JSON response from server') {            throw error;        }        throw new Error(error.message || 'Network error occurred');    }    if (!result.ok || json.status !== 'success') {        if (result.status === 401) {            localStorage.removeItem('auth_token');            localStorage.removeItem('auth_user');            window.location.href = '/auth';            return;        }        const errorMessage = json.message ||                            json.data?.message ||                            json.error?.message ||                           (json.data && typeof json.data === 'string' ? json.data : null) ||                           `Request failed with status ${result.status}`;        throw new Error(errorMessage);    }    return json.data !== undefined ? json.data : json;}function buildQueryString(params) {    const searchParams = new URLSearchParams();    Object.entries(params).forEach(([key, value]) => {        if (value !== null && value !== undefined && value !== '') {            searchParams.append(key, value);        }    });    return searchParams.toString();}function transformData(data, defaultImage = DEFAULT_AVATAR) {    return {        ...data,        avatar: data.avatar ?? defaultImage,        image: data.image ?? defaultImage    };}function transformDataArray(items, defaultImage = DEFAULT_AVATAR) {    return items.map(item => transformData(item, defaultImage));}export { efetch, buildQueryString, transformData, transformDataArray };

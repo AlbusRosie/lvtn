@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/BranchProvider.dart';
 import '../../providers/AuthProvider.dart';
 import '../../providers/LocationProvider.dart';
-import '../../providers/CategoryProvider.dart';
+import '../../models/branch.dart';
 import '../../ui/cart/CartProvider.dart';
 import '../../ui/cart/CartScreen.dart';
-import '../../models/province.dart';
-import '../../models/category.dart' as CategoryModel;
 import '../branches/BranchDetailScreen.dart';
 import '../branches/BranchMenuScreen.dart';
 import '../../constants/app_constants.dart';
 import '../../utils/image_utils.dart';
 import '../orders/QuickOrderScreen.dart';
 import '../widgets/AppBottomNav.dart';
+import '../widgets/MapboxAutocompleteField.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,18 +25,32 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  bool _locationDialogShown = false;
+  String _selectedOrderType = 'dine-in';
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _isSearchExpanded = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<BranchProvider>(context, listen: false).loadBranches();
-      Provider.of<LocationProvider>(context, listen: false).loadProvinces();
-      Provider.of<CategoryProvider>(context, listen: false).loadCategories();
-      
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final branchProvider = Provider.of<BranchProvider>(context, listen: false);
+      final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+
+      if (locationProvider.latitude != null && locationProvider.longitude != null) {
+        await branchProvider.loadNearbyBranches(
+          latitude: locationProvider.latitude!,
+          longitude: locationProvider.longitude!,
+        );
+      } else {
+        await branchProvider.loadBranches();
+      }
 
       _loadUserCart();
+      _showLocationDialogIfNeeded();
     });
   }
 
@@ -103,115 +117,645 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  void _showLocationDialogIfNeeded() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+            final branchProvider = Provider.of<BranchProvider>(context, listen: false);
+
+            final addressController = TextEditingController(text: locationProvider.detailAddress);
+            
+            double? selectedLat = locationProvider.latitude;
+            double? selectedLng = locationProvider.longitude;
+
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: Offset(0, 10),
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.fromLTRB(24, 24, 20, 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Color(0xFFFFA500).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.location_on_rounded,
+                              color: Color(0xFFFFA500),
+                              size: 24,
+                            ),
+                          ),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Chọn địa chỉ giao hàng',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Tìm nhà hàng gần bạn nhất',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                _locationDialogShown = false;
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: EdgeInsets.all(8),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  color: Colors.grey[600],
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    Divider(height: 1, thickness: 1, color: Colors.grey[200]),
+                
+                Flexible(
+                  child: Consumer<LocationProvider>(
+                    builder: (context, lp, child) {
+                      if (lp.isLoading && lp.provinces.isEmpty) {
+                        return Container(
+                          padding: EdgeInsets.all(40),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFFFFA500),
+                            ),
+                          ),
+                        );
+                      }
+
+                      return SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(height: 16),
+                            
+                            MapboxAutocompleteField(
+                              controller: addressController,
+                              labelText: 'Địa chỉ giao hàng',
+                              hintText: 'Nhập địa chỉ để tìm kiếm...',
+                              proximity: locationProvider.latitude != null && locationProvider.longitude != null
+                                  ? '${locationProvider.longitude},${locationProvider.latitude}'
+                                  : null,
+                              onPlaceSelected: (address, lat, lng) {
+                                locationProvider.setDetailAddress(address);
+                                locationProvider.setCoordinates(lat, lng);
+                                addressController.text = address;
+                                selectedLat = lat;
+                                selectedLng = lng;
+                                print('MapboxService: Đã chọn địa chỉ - address: $address, lat: $lat, lng: $lng');
+                                setDialogState(() {});
+                              },
+                              onChanged: (value) {
+                                setDialogState(() {});
+                              },
+                            ),
+                            
+                            SizedBox(height: 24),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                
+                    Container(
+                      padding: EdgeInsets.fromLTRB(24, 20, 24, 24),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                _locationDialogShown = false;
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                side: BorderSide(
+                                  color: Colors.grey[300]!,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Text(
+                                'Bỏ qua',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Color(0xFFFFA500).withOpacity(0.3),
+                                    blurRadius: 12,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  final lp = Provider.of<LocationProvider>(context, listen: false);
+                                  final bp = Provider.of<BranchProvider>(context, listen: false);
+                                  final ap = Provider.of<AuthProvider>(context, listen: false);
+
+                                  final address = addressController.text.trim().isNotEmpty 
+                                      ? addressController.text.trim()
+                                      : lp.detailAddress;
+
+                                  final finalLat = selectedLat ?? locationProvider.latitude ?? lp.latitude;
+                                  final finalLng = selectedLng ?? locationProvider.longitude ?? lp.longitude;
+                                  
+                                  if (finalLat == null || finalLng == null) {
+                                    print('MapboxService: Debug - selectedLat: $selectedLat, selectedLng: $selectedLng');
+                                    print('MapboxService: Debug - locationProvider.lat: ${locationProvider.latitude}, lng: ${locationProvider.longitude}');
+                                    print('MapboxService: Debug - lp.lat: ${lp.latitude}, lng: ${lp.longitude}');
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Vui lòng chọn địa chỉ từ danh sách đề xuất'),
+                                        backgroundColor: Colors.orange,
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  if (address.isNotEmpty) {
+                                    lp.setDetailAddress(address);
+                                  }
+                                  lp.setCoordinates(finalLat, finalLng);
+                                  
+                                  print('MapboxService: Đã lưu địa chỉ - address: $address, lat: $finalLat, lng: $finalLng');
+                                  
+                                  try {
+                                    print('HomeScreen: Đang reload branches với tọa độ mới - lat: $finalLat, lng: $finalLng');
+                                    await bp.loadNearbyBranches(
+                                      latitude: finalLat,
+                                      longitude: finalLng,
+                                    );
+                                    print('HomeScreen: Đã reload ${bp.nearbyBranches.length} branches với distance từ backend');
+                                    if (bp.nearbyBranches.isNotEmpty) {
+                                      print('HomeScreen: Chi nhánh gần nhất sau khi reload: ${bp.nearbyBranches.first.name} - ${bp.nearbyBranches.first.distanceKm?.toStringAsFixed(2) ?? "N/A"} km');
+                                      print('HomeScreen: Chi nhánh xa nhất sau khi reload: ${bp.nearbyBranches.last.name} - ${bp.nearbyBranches.last.distanceKm?.toStringAsFixed(2) ?? "N/A"} km');
+                                    }
+                                  } catch (e) {
+                                    print('HomeScreen: Lỗi khi reload branches: $e');
+                                  }
+                                  
+                                  bp.clearFilters();
+
+                                  if (ap.isAuth && ap.currentUser != null && address.isNotEmpty) {
+                                    ap.updateUserAddress(address).catchError((e) {
+                                      print('Không thể lưu địa chỉ vào tài khoản: $e');
+                                    });
+                                  }
+
+                                  Navigator.of(context).pop();
+                                  _locationDialogShown = false;
+                                  
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  backgroundColor: Color(0xFFFFA500),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.check_circle_outline, size: 20),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Xác nhận',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+              ],
+            ),
+          ),
+        );
+          },
+        );
+      },
+    ).then((_) {
+      _locationDialogShown = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
         backgroundColor: Colors.white,
-        elevation: 0,
-        leading: Padding(
-          padding: EdgeInsets.only(left: 16, top: 12, bottom: 12),
+      extendBodyBehindAppBar: false,
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(100),
+        child: SafeArea(
+          bottom: false,
           child: Container(
-            width: 40,
-            height: 40,
             decoration: BoxDecoration(
-              color: Colors.grey[200],
-              shape: BoxShape.circle,
+            color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
             ),
-            child: Icon(Icons.menu, color: Colors.grey[600], size: 20),
+              ],
+            ),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 12),
+              child: Row(
+                children: [
+                  AnimatedContainer(
+                    duration: Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    width: _isSearchExpanded ? 0 : null,
+                    child: _isSearchExpanded
+                        ? SizedBox.shrink()
+                        : Expanded(
+                    child: GestureDetector(
+                      onTap: _showLocationDialogIfNeeded,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[50],
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey[200]!,
+                                    width: 1,
+                                  ),
+                                ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_rounded,
+                            color: Color(0xFFFF8A00),
+                            size: 20,
           ),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+                                    SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'DELIVER TO',
+              'GIAO ĐẾN',
               style: TextStyle(
                 color: Color(0xFFFF8A00),
-                fontSize: 11,
+                                    fontSize: 10,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
+                                    height: 1.2,
               ),
             ),
             SizedBox(height: 2),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+                                Consumer<LocationProvider>(
+                builder: (context, locationProvider, child) {
+                  final address = locationProvider.detailAddress.isNotEmpty
+                      ? locationProvider.detailAddress
+                      : 'Chọn địa chỉ giao hàng';
+                  return Row(
               children: [
-                Text(
-                  'Halal Lab office',
+                      Flexible(
+                        child: Text(
+                          address,
                   style: TextStyle(
-                    color: Colors.grey[700],
-                    fontSize: 15,
-                    fontWeight: FontWeight.w400,
+                                              color: Colors.grey[800],
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.w500,
+                                              height: 1.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 SizedBox(width: 4),
                 Icon(
-                  Icons.keyboard_arrow_down,
-                  color: Colors.grey[700],
-                  size: 18,
+                                          Icons.keyboard_arrow_down_rounded,
+                                          color: Colors.grey[600],
+                                          size: 16,
                 ),
               ],
+                  );
+                },
+                                ),
+                              ],
+              ),
             ),
           ],
         ),
-        centerTitle: true,
-        actions: [
+                    ),
+                  ),
+                          ),
+                  ),
+                  AnimatedContainer(
+                    duration: Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    width: _isSearchExpanded ? null : 0,
+                    child: _isSearchExpanded
+                        ? Expanded(
+                            child: Container(
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.grey[200]!,
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.02),
+                                    blurRadius: 4,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: TextField(
+                                controller: _searchController,
+                                autofocus: true,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _searchQuery = value.toLowerCase().trim();
+                                  });
+                                },
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[800],
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Tìm món ăn, nhà hàng',
+                                  hintStyle: TextStyle(
+                                    color: Colors.grey[400],
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                  prefixIcon: Padding(
+                                    padding: EdgeInsets.only(left: 12, right: 8),
+                                    child: Icon(
+                                      Icons.search_rounded,
+                                      color: Color(0xFFFF8A00),
+                                      size: 20,
+                                    ),
+                                  ),
+                                  suffixIcon: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (_searchQuery.isNotEmpty)
+                                        IconButton(
+                                          icon: Icon(Icons.clear_rounded, color: Colors.grey[500], size: 18),
+                                          onPressed: () {
+                                            _searchController.clear();
+                                            setState(() {
+                                              _searchQuery = '';
+                                            });
+                                          },
+                                          padding: EdgeInsets.zero,
+                                          constraints: BoxConstraints(
+                                            minWidth: 32,
+                                            minHeight: 32,
+                                          ),
+                                        ),
+                                      IconButton(
+                                        icon: Icon(Icons.close_rounded, color: Colors.grey[600], size: 18),
+                                        onPressed: () {
+                                          setState(() {
+                                            _isSearchExpanded = false;
+                                            _searchController.clear();
+                                            _searchQuery = '';
+                                          });
+                                        },
+                                        padding: EdgeInsets.zero,
+                                        constraints: BoxConstraints(
+                                          minWidth: 32,
+                                          minHeight: 32,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 12,
+                                  ),
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                          )
+                        : SizedBox.shrink(),
+                  ),
+                  SizedBox(width: 12),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _isSearchExpanded = !_isSearchExpanded;
+                          if (!_isSearchExpanded) {
+                            _searchController.clear();
+                            _searchQuery = '';
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.grey[200]!,
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          _isSearchExpanded ? Icons.close_rounded : Icons.search_rounded,
+                          color: Colors.grey[800],
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
           Consumer<CartProvider>(
             builder: (context, cartProvider, child) {
-              return Padding(
-                padding: EdgeInsets.only(right: 16, top: 8, bottom: 8),
-                child: Stack(
+                      return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    GestureDetector(
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
                       onTap: () {
                         _showCartBottomSheet();
                       },
+                              borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        width: 48,
-                        height: 48,
+                                width: 40,
+                                height: 40,
                         decoration: BoxDecoration(
-                          color: Color(0xFF2C2C2C),
-                          shape: BoxShape.circle,
+                                  color: Colors.grey[50],
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey[200]!,
+                                    width: 1,
+                                  ),
                         ),
-                        child: Icon(Icons.shopping_bag_outlined, color: Colors.white, size: 24),
+                                child: Icon(
+                                  Icons.shopping_cart_outlined,
+                                  color: Colors.grey[800],
+                                  size: 20,
+                                ),
+                              ),
                       ),
                     ),
                     if (cartProvider.itemCount > 0)
                       Positioned(
-                        right: 0,
-                        top: 0,
+                              right: -2,
+                              top: -2,
                         child: Container(
-                          width: 22,
-                          height: 22,
+                                width: 20,
+                                height: 20,
                           decoration: BoxDecoration(
-                            color: Color(0xFFFF6B00),
+                                  color: Color(0xFFFF8A00),
                             shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Color(0xFFFF8A00).withOpacity(0.4),
+                                      blurRadius: 6,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
                           ),
                           child: Center(
                             child: Text(
-                              '${cartProvider.itemCount}',
+                                    '${cartProvider.itemCount > 99 ? '99+' : cartProvider.itemCount}',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1,
                               ),
                             ),
                           ),
                         ),
                       ),
                   ],
-                ),
               );
             },
           ),
         ],
+              ),
+            ),
+          ),
+        ),
       ),
-      body: Consumer<BranchProvider>(
-        builder: (context, branchProvider, child) {
+      body: Consumer2<BranchProvider, LocationProvider>(
+        builder: (context, branchProvider, locationProvider, child) {
           if (branchProvider.isLoading) {
             return Center(
               child: Column(
@@ -228,7 +772,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             );
           }
 
-          if (branchProvider.branches.isEmpty) {
+          final hasBranches = (locationProvider.latitude != null && locationProvider.longitude != null)
+              ? branchProvider.nearbyBranches.isNotEmpty
+              : branchProvider.branches.isNotEmpty;
+
+          if (!hasBranches) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -252,8 +800,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                   SizedBox(height: 24),
                   ElevatedButton.icon(
-                    onPressed: () {
-                      branchProvider.loadBranches();
+                    onPressed: () async {
+                      if (locationProvider.latitude != null && locationProvider.longitude != null) {
+                        await branchProvider.loadNearbyBranches(
+                          latitude: locationProvider.latitude!,
+                          longitude: locationProvider.longitude!,
+                        );
+                      } else {
+                        await branchProvider.loadBranches();
+                      }
                     },
                     icon: Icon(Icons.refresh),
                     label: Text('Thử lại'),
@@ -271,62 +826,56 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
+                Container(
+                  margin: EdgeInsets.fromLTRB(20, 12, 20, 0),
                   child: Consumer<AuthProvider>(
                     builder: (context, authProvider, child) {
-                      final userName = authProvider.currentUser?.name ?? 'Guest';
+                      final userName = authProvider.currentUser?.name ?? 'Khách';
                       final greeting = _getGreeting();
                       
-                      return RichText(
-                        text: TextSpan(
-                          text: 'Hello $userName, ',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w400,
-                            color: Colors.grey[700],
-                            fontFamily: 'Lato',
+                      return Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Color(0xFFFF8A00).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Icon(
+                              Icons.waving_hand_rounded,
+                              color: Color(0xFFFF8A00),
+                              size: 24,
+                            ),
                           ),
-                          children: [
-                            TextSpan(
-                              text: '$greeting!',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.grey[900],
-                                fontFamily: 'Lato',
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(
+                                text: 'Xin chào $userName,\n',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey[800],
+                                  height: 1.4,
+                                  letterSpacing: -0.3,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: '$greeting!',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.grey[900],
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       );
                     },
-                  ),
-                ),
-                
-                SizedBox(height: 16),
-
-
-                _buildQuickOrderSection(),
-
-                SizedBox(height: 8),
-                
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Color(0xFFF5F5F5),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search dishes, restaurants',
-                        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                        prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                    ),
                   ),
                 ),
                 
@@ -334,120 +883,97 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'All Categories',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[900],
-                        ),
-                      ),
                       Row(
                         children: [
-                          Text(
-                            'See All',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(width: 4),
-                          Icon(
-                            Icons.arrow_forward_ios,
-                            size: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                
-                SizedBox(height: 16),
-                
-                SizedBox(
-                  height: 50,
-                  child: Consumer<CategoryProvider>(
-                    builder: (context, categoryProvider, child) {
-                      if (categoryProvider.isLoading) {
-                        return Center(
-                          child: SizedBox(
-                            width: 20,
+                          Container(
+                            width: 4,
                             height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                    decoration: BoxDecoration(
+                            color: Color(0xFFFF8A00),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
-                        );
-                      }
-
-                      if (categoryProvider.error != null) {
-                        return Center(
-                          child: Text(
-                            'Không thể tải danh mục',
-                            style: TextStyle(color: Colors.red, fontSize: 12),
-                          ),
-                        );
-                      }
-
-                      return ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        children: [
-                          _buildCategoryChip('All', '🔥', categoryProvider.selectedCategory == null, null),
-                          SizedBox(width: 12),
-                          ...categoryProvider.categories.map<Widget>((CategoryModel.Category category) {
-                            return Row(
-                              children: [
-                                _buildCategoryChip(
-                                  category.name, 
-                                  _getCategoryEmoji(category.name), 
-                                  categoryProvider.selectedCategory?.id == category.id,
-                                  category,
-                                ),
-                                SizedBox(width: 12),
-                              ],
-                            );
-                          }).toList(),
+                          SizedBox(width: 10),
+                          Text(
+                            'Đặt nhanh tại đây',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.grey[900],
+                              letterSpacing: -0.3,
+                        ),
+                      ),
                         ],
-                      );
-                    },
+                      ),
+                      SizedBox(height: 16),
+                    ],
+                    ),
                   ),
-                ),
+                _buildQuickOrderSection(),
+
+                SizedBox(height: 24),
                 
-                SizedBox(height: 8),
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Open Restaurants',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[900],
-                        ),
-                      ),
                       Row(
                         children: [
-                          Text(
-                            'See All',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
+                          Container(
+                            width: 4,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Color(0xFFFF8A00),
+                              borderRadius: BorderRadius.circular(2),
                             ),
                           ),
-                          SizedBox(width: 4),
-                          Icon(
-                            Icons.arrow_forward_ios,
-                            size: 14,
-                            color: Colors.grey[600],
+                          SizedBox(width: 12),
+                          Text(
+                            'Nhà hàng đang mở',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.grey[900],
+                              letterSpacing: -0.4,
+                              height: 1.2,
+                            ),
                           ),
                         ],
+                      ),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Xem tất cả',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFFFF8A00),
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                                SizedBox(width: 4),
+                                Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  size: 12,
+                                  color: Color(0xFFFF8A00),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -457,9 +983,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 
                 _buildLocationFilter(),
                 
-                SizedBox(height: 16),
-                Consumer<BranchProvider>(
-                  builder: (context, branchProvider, child) {
+                SizedBox(height: 12),
+                Consumer2<BranchProvider, LocationProvider>(
+                  builder: (context, branchProvider, locationProvider, child) {
                     if (branchProvider.isLoading) {
                       return Container(
                         height: 200,
@@ -481,20 +1007,86 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       );
                     }
 
+                    List<Branch> branchesToShow;
+                    if (locationProvider.latitude != null && locationProvider.longitude != null) {
+                      if (branchProvider.nearbyBranches.isNotEmpty) {
+                        branchesToShow = branchProvider.nearbyBranches;
+                        print('HomeScreen: Sử dụng ${branchesToShow.length} branches từ API nearby (đã sắp xếp theo khoảng cách)');
+                        print('HomeScreen: Chi nhánh gần nhất: ${branchesToShow.first.name} - ${branchesToShow.first.distanceKm?.toStringAsFixed(2) ?? "N/A"} km');
+                        print('HomeScreen: Chi nhánh xa nhất: ${branchesToShow.last.name} - ${branchesToShow.last.distanceKm?.toStringAsFixed(2) ?? "N/A"} km');
+                      } else {
+                        print('HomeScreen: nearbyBranches rỗng, fallback về branches và sắp xếp client-side');
+                        branchesToShow = branchProvider.sortBranchesByDistance(
+                          branches: branchProvider.filteredBranches,
+                          userLatitude: locationProvider.latitude,
+                          userLongitude: locationProvider.longitude,
+                        );
+                        print('HomeScreen: Đã sắp xếp ${branchesToShow.length} branches bằng client-side');
+                      }
+                    } else {
+                      branchesToShow = branchProvider.filteredBranches;
+                    }
+
+                    if (_searchQuery.isNotEmpty) {
+                      branchesToShow = branchesToShow.where((branch) {
+                        final name = (branch.name ?? '').toLowerCase();
+                        final address = (branch.addressDetail ?? '').toLowerCase();
+                        final description = (branch.description ?? '').toLowerCase();
+                        return name.contains(_searchQuery) || 
+                               address.contains(_searchQuery) || 
+                               description.contains(_searchQuery);
+                      }).toList();
+                    }
+
+                    if (_searchQuery.isNotEmpty && branchesToShow.isEmpty) {
+                      return Container(
+                        padding: EdgeInsets.all(40),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.search_off_rounded,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'Không tìm thấy kết quả',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Thử tìm kiếm với từ khóa khác',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
                     return ListView.builder(
                       shrinkWrap: true,
                       physics: NeverScrollableScrollPhysics(),
-                      padding: EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: branchProvider.filteredBranches.length,
+                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                      itemCount: branchesToShow.length,
                       itemBuilder: (context, index) {
-                        final branch = branchProvider.filteredBranches[index];
-                        return _buildRestaurantCard(branch, context);
+                        final branch = branchesToShow[index];
+                        return _buildRestaurantCard(branch, context, locationProvider);
                       },
                     );
                   },
                 ),
                 
-                SizedBox(height: 100),
+                SizedBox(height: 24),
               ],
             ),
           );
@@ -502,6 +1094,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
       bottomNavigationBar: AppBottomNav(
         currentIndex: 0,
+      ),
       ),
     );
   }
@@ -511,13 +1104,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final hour = now.hour;
     
     if (hour >= 5 && hour < 12) {
-      return 'Good Morning';
+      return 'Chào buổi sáng';
     } else if (hour >= 12 && hour < 17) {
-      return 'Good Afternoon';
+      return 'Chào buổi chiều';
     } else if (hour >= 17 && hour < 22) {
-      return 'Good Evening';
+      return 'Chào buổi tối';
     } else {
-      return 'Good Night';
+      return 'Chúc ngủ ngon';
     }
   }
 
@@ -526,130 +1119,144 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildQuickOrderSection() {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.orange.shade400, Colors.deepOrange],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.orange.withOpacity(0.2),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(Icons.flash_on, color: Colors.white, size: 22),
-              SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Quick Order',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Đặt bàn trước hoặc đặt món mang về',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          Expanded(
+            child: _buildQuickOrderCard(
+              icon: Icons.restaurant_rounded,
+              label: 'Dine-in',
+              subtitle: 'Đặt bàn trước',
+              color: Color(0xFFFF8A00),
+              isSelected: _selectedOrderType == 'dine-in',
+              onTap: () {
+                setState(() {
+                  _selectedOrderType = 'dine-in';
+                });
+                _showReservationDialog();
+              },
+            ),
           ),
-          SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildQuickOrderButton(
-                  title: 'Dine-in',
-                  icon: Icons.table_restaurant,
-                  onTap: _showReservationDialog,
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: _buildQuickOrderButton(
-                  title: 'Takeaway',
-                  icon: Icons.takeout_dining,
-                  onTap: _showQuickTakeawayDialog,
-                ),
-              ),
-            ],
-          )
+          SizedBox(width: 10),
+          Expanded(
+            child: _buildQuickOrderCard(
+              icon: Icons.shopping_bag_rounded,
+              label: 'Takeaway',
+              subtitle: 'Mang đi',
+              color: Color(0xFFFFB74D),
+              isSelected: _selectedOrderType == 'takeaway',
+              onTap: () {
+                setState(() {
+                  _selectedOrderType = 'takeaway';
+                });
+                _showQuickTakeawayDialog();
+              },
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: _buildQuickOrderCard(
+              icon: Icons.delivery_dining_rounded,
+              label: 'Delivery',
+              subtitle: 'Giao hàng',
+              color: Color(0xFFFF7043),
+              isSelected: _selectedOrderType == 'delivery',
+              onTap: () {
+                setState(() {
+                  _selectedOrderType = 'delivery';
+                });
+                _showQuickTakeawayDialog();
+              },
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildQuickOrderButton({
-    required String title,
-    String? subtitle,
+  Widget _buildQuickOrderCard({
     required IconData icon,
+    required String label,
+    required String subtitle,
+    required Color color,
+    required bool isSelected,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.18),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.25)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.white, size: 28),
-            SizedBox(height: 8),
-            Text(
-              title,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+              color: color.withOpacity(isSelected ? 0.2 : 0.15),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withOpacity(0.25),
+                      blurRadius: 10,
+                      offset: Offset(0, 3),
+                      spreadRadius: 0,
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: color.withOpacity(0.1),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                      spreadRadius: 0,
+                    ),
+                  ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                      icon,
+                color: color,
+                size: 26,
               ),
-              textAlign: TextAlign.center,
-            ),
-            if (subtitle != null) ...[
-              SizedBox(height: 2),
+              SizedBox(height: 10),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.grey[900],
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  height: 1.2,
+                ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              SizedBox(height: 3),
               Text(
                 subtitle,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.85),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w400,
+                  color: Colors.grey[700],
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
+                  height: 1.2,
                 ),
-                textAlign: TextAlign.center,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
   void _showReservationDialog() {
-    // Navigate directly to reservation screen (QuickOrderScreen)
     Navigator.pushNamed(context, QuickOrderScreen.routeName);
   }
 
@@ -685,11 +1292,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _showTakeawayBranchPicker() {
     final branchProvider = Provider.of<BranchProvider>(context, listen: false);
     final locationProvider = Provider.of<LocationProvider>(context, listen: false);
-    final branches = _getSuggestedBranches(
-      branchProvider,
-      provinceId: branchProvider.selectedProvinceId ?? locationProvider.selectedProvince?.id,
-      districtId: branchProvider.selectedDistrictId ?? locationProvider.selectedDistrict?.id,
-    );
+    final branches = _getSuggestedBranches(branchProvider);
 
     showModalBottomSheet(
       context: context,
@@ -784,116 +1387,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  List<dynamic> _getSuggestedBranches(BranchProvider branchProvider, {int? provinceId, int? districtId}) {
-    final list = List.from(branchProvider.branches);
-    list.sort((a, b) {
-      int scoreA = 0;
-      int scoreB = 0;
-      if (provinceId != null) {
-        if (a.provinceId == provinceId) scoreA += 2;
-        if (b.provinceId == provinceId) scoreB += 2;
-      }
-      if (districtId != null) {
-        if (a.districtId == districtId) scoreA += 3;
-        if (b.districtId == districtId) scoreB += 3;
-      }
-      return scoreB.compareTo(scoreA);
-    });
-    return list;
+  List<dynamic> _getSuggestedBranches(BranchProvider branchProvider) {
+    return List.from(branchProvider.branches);
   }
 
-  Widget _buildCategoryChip(String title, String emoji, bool isSelected, CategoryModel.Category? category) {
-    return GestureDetector(
-      onTap: () {
-        Provider.of<CategoryProvider>(context, listen: false).selectCategory(category);
-        Provider.of<BranchProvider>(context, listen: false).filterBranchesByCategory(category?.id);
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? Color(0xFFFFF3E0) : Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(
-            color: isSelected ? Color(0xFFFFB74D) : Colors.grey[200]!,
-            width: isSelected ? 1.5 : 1,
-          ),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: Color(0xFFFFB74D).withOpacity(0.3),
-              spreadRadius: 0,
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            ),
-          ] : [],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              emoji,
-              style: TextStyle(fontSize: 20),
-            ),
-            SizedBox(width: 8),
-            Text(
-              title,
-              style: TextStyle(
-                color: isSelected ? Color(0xFFFF8A00) : Colors.grey[700],
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _getCategoryEmoji(String categoryName) {
-    switch (categoryName.toLowerCase()) {
-      case 'burger':
-        return '🍔';
-      case 'pizza':
-        return '🍕';
-      case 'hot dog':
-        return '🌭';
-      case 'chicken':
-        return '🍗';
-      case 'sandwich':
-        return '🥪';
-      case 'salad':
-        return '🥗';
-      case 'drink':
-      case 'beverage':
-      case 'refreshment':
-        return '☕';
-      case 'light bites':
-        return '🥙';
-      case 'dessert':
-        return '🍰';
-      case 'coffee':
-        return '☕';
-      case 'tea':
-        return '🍵';
-      default:
-        return '🍽️';
-    }
-  }
-
-  Widget _buildRestaurantCard(dynamic branch, BuildContext context) {
+  Widget _buildRestaurantCard(dynamic branch, BuildContext context, LocationProvider? locationProvider) {
     return Container(
       margin: EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.black.withOpacity(0.06),
             spreadRadius: 0,
-            blurRadius: 10,
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            spreadRadius: 0,
+            blurRadius: 8,
             offset: Offset(0, 2),
           ),
         ],
       ),
+      child: Material(
+        color: Colors.transparent,
       child: InkWell(
         onTap: () {
           Navigator.pushNamed(
@@ -902,278 +1422,254 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             arguments: branch,
           );
         },
-        borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
               borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
               ),
-              child: Container(
-                height: 180,
+                child: Stack(
+                  children: [
+                    Container(
+                      height: 200,
                 width: double.infinity,
                 child: branch.image != null && branch.image!.isNotEmpty
                     ? Image.network(
                         _getImageUrl(branch.image!),
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          return Image.network(AppConstants.defaultProductImage, fit: BoxFit.cover);
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.restaurant_rounded,
+                                      color: Colors.grey[400],
+                                      size: 50,
+                                    ),
+                                  ),
+                          );
                         },
                       )
-                    : Image.network(AppConstants.defaultProductImage, fit: BoxFit.cover),
+                          : Container(
+                              color: Colors.grey[200],
+                              child: Center(
+                                child: Icon(
+                                  Icons.restaurant_rounded,
+                                  color: Colors.grey[400],
+                                  size: 50,
+                                ),
+                      ),
               ),
             ),
-            
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.star_rounded,
+                              color: Color(0xFFFFB800),
+                              size: 18,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              '4.7',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.grey[900],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (branch.status == 'active')
+                      Positioned(
+                        top: 16,
+                        right: 16,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'Mở',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.green[700],
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              
             Padding(
-              padding: EdgeInsets.all(14),
+                padding: EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     branch.name ?? 'Rose Garden Restaurant',
                     style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
                       color: Colors.grey[900],
+                        letterSpacing: -0.4,
+                        height: 1.3,
                     ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 4),
+                    SizedBox(height: 8),
                   Text(
-                    branch.description ?? 'Burger • Chicken • Riche • Wings',
+                      branch.description ?? 'Situated in Vietnam\'s tallest skyscraper, this elite branch...',
                     style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[500],
+                        fontSize: 13.5,
+                        color: Colors.grey[600],
+                        height: 1.5,
+                        letterSpacing: -0.1,
                     ),
-                    maxLines: 1,
+                      maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 10),
+                    SizedBox(height: 16),
                   
-                  Row(
-                    children: [
-                      Icon(Icons.star_rounded, color: Colors.orange, size: 20),
-                      SizedBox(width: 4),
-                      Text(
-                        '4.7',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[800],
-                          fontWeight: FontWeight.w600,
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 10,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Color(0xFFFF8A00).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.local_shipping_rounded,
+                                color: Color(0xFFFF8A00),
+                                size: 16,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Free',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[800],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 16),
-                      Icon(Icons.delivery_dining_rounded, color: Colors.orange, size: 20),
-                      SizedBox(width: 4),
-                      Text(
-                        'Free',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[800],
-                          fontWeight: FontWeight.w600,
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Color(0xFFFF8A00).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.access_time_rounded,
+                                color: Color(0xFFFF8A00),
+                                size: 16,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                '20 min',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[800],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 16),
-                      Icon(Icons.access_time_rounded, color: Colors.orange, size: 20),
-                      SizedBox(width: 4),
-                      Text(
-                        '20 min',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[800],
-                          fontWeight: FontWeight.w600,
+                        if (locationProvider != null && 
+                            locationProvider.latitude != null && 
+                            locationProvider.longitude != null)
+                        Builder(
+                          builder: (context) {
+                            final branchProvider = Provider.of<BranchProvider>(context, listen: false);
+                            
+                            double? distance = branchProvider.calculateDistance(
+                              userLatitude: locationProvider.latitude,
+                              userLongitude: locationProvider.longitude,
+                              branch: branch,
+                            );
+                            
+                            if (distance == null) return SizedBox.shrink();
+                              return Container(
+                                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Color(0xFFFF8A00).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_rounded,
+                                      color: Color(0xFFFF8A00),
+                                      size: 16,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                              distance < 1 
+                                  ? '${(distance * 1000).toStringAsFixed(0)}m'
+                                  : '${distance.toStringAsFixed(1)}km',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[800],
+                                fontWeight: FontWeight.w600,
+                              ),
+                                    ),
+                                  ],
+                            ),
+                              );
+                          },
                         ),
-                      ),
                     ],
                   ),
                 ],
               ),
             ),
           ],
+          ),
         ),
       ),
     );
   }
 
+
   Widget _buildLocationFilter() {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      child: Consumer2<LocationProvider, BranchProvider>(
-        builder: (context, locationProvider, branchProvider, child) {
-          return Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 0,
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.location_on, color: Colors.orange, size: 18),
-                    SizedBox(width: 6),
-                    Text(
-                      'Filter by Location',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 36,
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey[300]!),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<int?>(
-                            value: branchProvider.selectedProvinceId,
-                            hint: Text(
-                              'Province/City',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
-                            isExpanded: true,
-                            menuMaxHeight: 300,
-                            isDense: true,
-                            items: [
-                              DropdownMenuItem<int?>(
-                                value: null,
-                                child: Text('Provinces/Cities', style: TextStyle(fontSize: 12)),
-                              ),
-                              ...locationProvider.provinces.map((province) {
-                                return DropdownMenuItem<int?>(
-                                  value: province.id,
-                                  child: Text(province.name, style: TextStyle(fontSize: 12)),
-                                );
-                              }),
-                            ],
-                            onChanged: (int? provinceId) {
-                              if (provinceId != null) {
-                                locationProvider.selectProvince(
-                                  locationProvider.provinces.firstWhere(
-                                    (p) => p.id == provinceId,
-                                  ),
-                                );
-                              } else {
-                                locationProvider.clearSelection();
-                              }
-                              branchProvider.filterBranchesByLocation(
-                                provinceId,
-                                null,
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        height: 36,
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey[300]!),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<int?>(
-                            value: branchProvider.selectedDistrictId,
-                            hint: Text(
-                              'Select District',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
-                            isExpanded: true,
-                            menuMaxHeight: 300,
-                            isDense: true,
-                            items: [
-                              DropdownMenuItem<int?>(
-                                value: null,
-                                child: Text('All Districts', style: TextStyle(fontSize: 12)),
-                              ),
-                              ...locationProvider.filteredDistricts.map((district) {
-                                return DropdownMenuItem<int?>(
-                                  value: district.id,
-                                  child: Text(district.name, style: TextStyle(fontSize: 12)),
-                                );
-                              }),
-                            ],
-                            onChanged: branchProvider.selectedProvinceId == null
-                                ? null
-                                : (int? districtId) {
-                                    branchProvider.filterBranchesByLocation(
-                                      branchProvider.selectedProvinceId,
-                                      districtId,
-                                    );
-                                  },
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (branchProvider.selectedProvinceId != null || 
-                    branchProvider.selectedDistrictId != null)
-                  Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        InkWell(
-                          onTap: () {
-                            branchProvider.clearFilters();
-                            locationProvider.clearSelection();
-                          },
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.clear, size: 14, color: Colors.orange),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Clear Filter',
-                                  style: TextStyle(
-                                    color: Colors.orange,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+    return SizedBox.shrink();
   }
 }

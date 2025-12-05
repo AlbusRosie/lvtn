@@ -1,49 +1,28 @@
 const knex = require('../database/knex');
 const crypto = require('crypto');
-
 class CartService {
-    constructor() {
-        this.CART_TIMEOUT_MINUTES = 30;
-    }
-
     async findPendingCart(userId, branchId, sessionId = null) {
         let query = knex('carts')
             .where('user_id', userId)
-            .where('branch_id', branchId)
-            .where('status', 'pending')
-            .where('expires_at', '>', new Date());
-
+            .where('branch_id', branchId);
         if (sessionId) {
             query = query.where('session_id', sessionId);
         }
-
         const cart = await query.first();
-        
-        
         return cart;
     }
-
     async createCart(userId, branchId, orderType = 'dine_in', sessionId = null) {
-        const expiresAt = new Date(Date.now() + this.CART_TIMEOUT_MINUTES * 60 * 1000);
-        
         const cartData = {
             user_id: userId,
             branch_id: branchId,
             session_id: sessionId || crypto.randomUUID(),
-            order_type: orderType,
-            status: 'pending',
-            expires_at: expiresAt
+            order_type: orderType
         };
-
-
         const [cartId] = await knex('carts').insert(cartData);
         const cart = await knex('carts').where('id', cartId).first();
-        
         return cart;
     }
-
     async addToCart(userId, branchId, productId, quantity = 1, orderType = 'delivery', sessionId = null, selectedOptions = [], specialInstructions = null) {
-        
         const product = await knex('products')
             .join('branch_products', 'products.id', 'branch_products.product_id')
             .where('products.id', productId)
@@ -51,12 +30,9 @@ class CartService {
             .where('branch_products.is_available', 1)
             .select('products.*', 'branch_products.price as branch_price')
             .first();
-
-
         if (!product) {
             throw new Error('Product not available in this branch');
         }
-
         let finalPrice = parseFloat(product.branch_price);
         if (selectedOptions && selectedOptions.length > 0) {
             for (const option of selectedOptions) {
@@ -70,16 +46,13 @@ class CartService {
                 }
             }
         }
-
         let cart = await this.findPendingCart(userId, branchId, sessionId);
-        
         if (!cart) {
             try {
                 cart = await this.createCart(userId, branchId, orderType, sessionId);
             } catch (error) {
                 if (error.message.includes('Duplicate entry')) {
                     cart = await this.findPendingCart(userId, branchId, sessionId);
-                    
                     if (!cart) {
                         cart = await this.createCart(userId, branchId, orderType, null);
                     }
@@ -88,12 +61,10 @@ class CartService {
                 }
             }
         }
-
         const existingItem = await knex('cart_items')
             .where('cart_id', cart.id)
             .where('product_id', productId)
             .first();
-
         if (existingItem) {
             await knex('cart_items')
                 .where('id', existingItem.id)
@@ -114,28 +85,22 @@ class CartService {
                 updated_at: new Date()
             });
         }
-
         return await this.getCartById(cart.id);
     }
-
     async removeFromCart(cartId, productId) {
         const deleted = await knex('cart_items')
             .where('cart_id', cartId)
             .where('product_id', productId)
             .del();
-
         if (deleted === 0) {
             throw new Error('Item not found in cart');
         }
-
         return await this.getCartById(cartId);
     }
-
     async updateCartItemQuantity(cartId, productId, quantity) {
         if (quantity <= 0) {
             return await this.removeFromCart(cartId, productId);
         }
-
         await knex('cart_items')
             .where('cart_id', cartId)
             .where('product_id', productId)
@@ -143,10 +108,8 @@ class CartService {
                 quantity: quantity,
                 updated_at: new Date()
             });
-
         return await this.getCartById(cartId);
     }
-
     async getCartById(cartId) {
         const cart = await knex('carts')
             .leftJoin('tables', 'carts.table_id', 'tables.id')
@@ -154,16 +117,13 @@ class CartService {
             .where('carts.id', cartId)
             .select(
                 'carts.*',
-                'tables.table_number',
                 'tables.capacity',
                 'branches.name as branch_name'
             )
             .first();
-
         if (!cart) {
             throw new Error('Cart not found');
         }
-
         const items = await knex('cart_items')
             .join('products', 'cart_items.product_id', 'products.id')
             .where('cart_items.cart_id', cartId)
@@ -173,62 +133,53 @@ class CartService {
                 'products.image as product_image',
                 'products.description as product_description'
             );
-
         items.forEach(item => {
             if (item.special_instructions) {
                 try {
                     item.selected_options = JSON.parse(item.special_instructions);
-                } catch (e) {
+                } catch {
                     item.selected_options = null;
                 }
             } else {
                 item.selected_options = null;
             }
         });
-
         cart.items = items;
         cart.total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
         return cart;
     }
-
     async reserveTable(cartId, tableId, reservationDate, reservationTime, guestCount) {
-        const cart = await knex('carts').where('id', cartId).first();
+        const cart = await knex('carts')
+            .where('id', cartId)
+            .first();
         if (!cart) {
             throw new Error('Cart not found');
         }
-
-        if (cart.status !== 'pending') {
-            throw new Error('Cart is not in pending status');
-        }
-
         const table = await knex('tables')
             .where('id', tableId)
             .where('branch_id', cart.branch_id)
-            .where('status', 'available')
             .first();
-
         if (!table) {
-            throw new Error('Table is not available');
+            throw new Error('Table not found');
         }
-
         if (guestCount > table.capacity) {
             throw new Error(`Table capacity is ${table.capacity}, but ${guestCount} guests requested`);
         }
-
-        const reserved = await knex('tables')
+        const TableService = require('./TableService');
+        const available = await TableService.isTableAvailable(
+            tableId,
+            reservationDate,
+            reservationTime,
+            120 
+        );
+        if (!available) {
+            throw new Error('Table is not available at the requested date and time');
+        }
+        await knex('tables')
             .where('id', tableId)
-            .where('status', 'available')
             .update({
-                status: 'reserved',
-                reserved_until: cart.expires_at,
                 cart_id: cartId
             });
-
-        if (reserved === 0) {
-            throw new Error('Table reservation failed - table may have been taken');
-        }
-
         await knex('carts')
             .where('id', cartId)
             .update({
@@ -237,17 +188,19 @@ class CartService {
                 reservation_time: reservationTime,
                 guest_count: guestCount
             });
-
         return await this.getCartById(cartId);
     }
-
     async cancelTableReservation(cartId) {
         const cart = await knex('carts').where('id', cartId).first();
         if (!cart || !cart.table_id) {
             return cart;
         }
-
-
+        await knex('tables')
+            .where('id', cart.table_id)
+            .where('cart_id', cartId)
+            .update({
+                cart_id: null
+            });
         await knex('carts')
             .where('id', cartId)
             .update({
@@ -256,21 +209,16 @@ class CartService {
                 reservation_time: null,
                 guest_count: null
             });
-
         return await this.getCartById(cartId);
     }
-
-    async checkout(cartId) {
+    async checkout(cartId, reservationId = null) {
         const cart = await this.getCartById(cartId);
-        
-        if (!cart || cart.status !== 'pending') {
-            throw new Error('Cart not found or not in pending status');
+        if (!cart) {
+            throw new Error('Cart not found');
         }
-
         if (cart.items.length === 0) {
             throw new Error('Cart is empty');
         }
-
         const orderData = {
             user_id: cart.user_id,
             branch_id: cart.branch_id,
@@ -281,21 +229,63 @@ class CartService {
             payment_status: 'pending',
             notes: cart.special_requests
         };
-
-        const [orderId] = await knex('orders').insert(orderData);
-
-        const orderDetails = cart.items.map(item => ({
-            order_id: orderId,
-            product_id: item.product_id,
-            quantity: item.quantity,
-            price: item.price,
-            special_instructions: item.special_instructions
-        }));
-
-        await knex('order_details').insert(orderDetails);
-
-        let reservationId = null;
+        if (reservationId) {
+            const emptyOrder = await knex('orders')
+                .where('reservation_id', reservationId)
+                .where('total', 0)
+                .orderBy('created_at', 'asc')
+                .first();
+            if (emptyOrder) {
+                await knex('orders')
+                    .where('id', emptyOrder.id)
+                    .update({
+                        total: cart.total,
+                        payment_method: 'cash',
+                        payment_status: 'pending',
+                        status: 'pending'
+                    });
+                await knex('order_details').where('order_id', emptyOrder.id).del();
+                const orderDetails = cart.items.map(item => ({
+                    order_id: emptyOrder.id,
+                    product_id: item.product_id,
+                    quantity: item.quantity,
+                    price: item.price,
+                    special_instructions: item.special_instructions
+                }));
+                await knex('order_details').insert(orderDetails);
+                await knex('cart_items').where('cart_id', cartId).del();
+                await knex('carts').where('id', cartId).del();
+                return {
+                    order_id: emptyOrder.id,
+                    reservation_id: reservationId,
+                    total: cart.total
+                };
+            } else {
+                return await knex.transaction(async (trx) => {
+                    const [orderId] = await trx('orders').insert({
+                        ...orderData,
+                        reservation_id: reservationId
+                    });
+                    const orderDetails = cart.items.map(item => ({
+                        order_id: orderId,
+                        product_id: item.product_id,
+                        quantity: item.quantity,
+                        price: item.price,
+                        special_instructions: item.special_instructions
+                    }));
+                    await trx('order_details').insert(orderDetails);
+                    await trx('cart_items').where('cart_id', cartId).del();
+                    await trx('carts').where('id', cartId).del();
+                    return {
+                        order_id: orderId,
+                        reservation_id: reservationId,
+                        total: cart.total
+                    };
+                });
+            }
+        }
         if (cart.order_type === 'dine_in' && cart.table_id) {
+            const ReservationService = require('./ReservationService');
             const reservationData = {
                 user_id: cart.user_id,
                 branch_id: cart.branch_id,
@@ -306,77 +296,89 @@ class CartService {
                 status: 'confirmed',
                 special_requests: cart.special_requests
             };
-
-            const [resId] = await knex('reservations').insert(reservationData);
-            reservationId = resId;
-
-            await knex('tables')
-                .where('id', cart.table_id)
-                .update({
-                    status: 'reserved',
-                    reservation_id: reservationId
-                });
-        }
-
-        await knex('carts')
-            .where('id', cartId)
-            .update({ status: 'completed' });
-
-        return {
-            order_id: orderId,
-            reservation_id: reservationId,
-            total: cart.total
-        };
-    }
-
-    async cleanupExpiredCarts() {
-        const expiredCarts = await knex('carts')
-            .where('expires_at', '<', new Date())
-            .where('status', 'pending');
-
-        for (const cart of expiredCarts) {
-            if (cart.table_id) {
+            const reservation = await ReservationService.createReservation(reservationData);
+            reservationId = reservation.id;
+            if (reservation.order_id) {
+                await knex('orders')
+                    .where('id', reservation.order_id)
+                    .update({
+                        total: cart.total,
+                        payment_method: 'cash',
+                        payment_status: 'pending',
+                        status: 'pending'
+                    });
+                const orderDetails = cart.items.map(item => ({
+                    order_id: reservation.order_id,
+                    product_id: item.product_id,
+                    quantity: item.quantity,
+                    price: item.price,
+                    special_instructions: item.special_instructions
+                }));
+                await knex('order_details').insert(orderDetails);
                 await knex('tables')
                     .where('id', cart.table_id)
                     .update({
-                        status: 'available',
-                        reserved_until: null,
+                        cart_id: null
+                    });
+                await knex('cart_items').where('cart_id', cartId).del();
+                await knex('carts').where('id', cartId).del();
+                return {
+                    order_id: reservation.order_id,
+                    reservation_id: reservationId,
+                    total: cart.total
+                };
+            }
+        }
+        return await knex.transaction(async (trx) => {
+            const [orderId] = await trx('orders').insert({
+                ...orderData,
+                reservation_id: reservationId
+            });
+            const orderDetails = cart.items.map(item => ({
+                order_id: orderId,
+                product_id: item.product_id,
+                quantity: item.quantity,
+                price: item.price,
+                special_instructions: item.special_instructions
+            }));
+            await trx('order_details').insert(orderDetails);
+            if (cart.order_type === 'dine_in' && cart.table_id) {
+                await trx('tables')
+                    .where('id', cart.table_id)
+                    .update({
                         cart_id: null
                     });
             }
-
-            await knex('carts')
-                .where('id', cart.id)
-                .update({ status: 'expired' });
-        }
-
-        return expiredCarts.length;
+            await trx('cart_items').where('cart_id', cartId).del();
+            await trx('carts').where('id', cartId).del();
+            return {
+                order_id: orderId,
+                reservation_id: reservationId,
+                total: cart.total
+            };
+        });
     }
-
     async updateCartItemOptions(cartId, productId, selectedOptions) {
-        const cart = await knex('carts').where('id', cartId).first();
-        if (!cart || cart.status !== 'pending') {
+        const cart = await knex('carts')
+            .where('id', cartId)
+            .first();
+        if (!cart) {
             throw new Error('Cart not found');
         }
-
         const cartItem = await knex('cart_items')
             .where('cart_id', cartId)
             .where('product_id', productId)
             .first();
-        
         if (!cartItem) {
             throw new Error('Cart item not found');
         }
-
         const branchProduct = await knex('branch_products')
             .where('branch_id', cart.branch_id)
             .where('product_id', productId)
             .first();
-
         if (!branchProduct) {
             throw new Error('Product not available in this branch');
         }
-
         let totalPriceModifier = 0;
         for (const option of selectedOptions) {
             for (const valueId of option.selected_value_ids) {
@@ -388,7 +390,6 @@ class CartService {
                 }
             }
         }
-
         const newPrice = parseFloat(branchProduct.price) + totalPriceModifier;
         await knex('cart_items')
             .where('cart_id', cartId)
@@ -398,21 +399,14 @@ class CartService {
                 special_instructions: JSON.stringify(selectedOptions),
                 updated_at: new Date()
             });
-
         return await this.getCartById(cartId);
     }
-
     async getUserCart(userId, branchId, sessionId = null) {
-        
         const cart = await this.findPendingCart(userId, branchId, sessionId);
-        
-        
         if (!cart) {
             return null;
         }
-
         return await this.getCartById(cart.id);
     }
 }
-
 module.exports = new CartService();

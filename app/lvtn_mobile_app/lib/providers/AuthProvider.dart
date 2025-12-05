@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/user.dart';
 import '../services/AuthService.dart';
+import '../services/UserService.dart';
 import '../ui/cart/CartProvider.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -56,6 +57,35 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> tryAutoLogin() async {
-    return await _authService.tryAutoLogin();
+    final result = await _authService.tryAutoLogin();
+    if (result) {
+      notifyListeners();
+    }
+    return result;
+  }
+
+  Future<User> updateUserAddress(String address) async {
+    try {
+      if (currentUser == null) {
+        throw Exception('Chưa đăng nhập');
+      }
+      
+      print('AuthProvider: Đang cập nhật địa chỉ cho user ID: ${currentUser!.id}');
+      final userService = UserService();
+      final updatedUser = await userService.updateUserAddress(currentUser!.id, address);
+      
+      if (updatedUser.id <= 0 || (updatedUser.username.isEmpty && updatedUser.email.isEmpty)) {
+        print('AuthProvider: Updated user không hợp lệ, giữ nguyên user hiện tại');
+        throw Exception('Thông tin user không hợp lệ sau khi cập nhật');
+      }
+      
+      await _authService.updateCurrentUser(updatedUser);
+      print('AuthProvider: Đã cập nhật user thành công - ID: ${updatedUser.id}, Address: ${updatedUser.address}');
+      notifyListeners();
+      return updatedUser;
+    } catch (error) {
+      print('AuthProvider: Lỗi khi cập nhật địa chỉ: $error');
+      rethrow;
+    }
   }
 }
