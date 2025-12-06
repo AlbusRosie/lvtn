@@ -7,17 +7,19 @@ import '../../providers/ChatProvider.dart';
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isTyping;
+  final int? sectionIndex;
 
   const ChatBubble({
     Key? key,
     required this.message,
     this.isTyping = false,
+    this.sectionIndex,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: 16),
       child: Row(
         mainAxisAlignment:
             message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
@@ -25,7 +27,7 @@ class ChatBubble extends StatelessWidget {
         children: [
           if (!message.isUser) ...[
             _buildAvatar(),
-            SizedBox(width: 8),
+            SizedBox(width: 12),
           ],
           Flexible(
             child: Column(
@@ -34,36 +36,36 @@ class ChatBubble extends StatelessWidget {
                   : CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    border: message.isUser
-                        ? Border.all(color: Colors.orange, width: 1.5)
-                        : null,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(message.isUser ? 20 : 4),
-                      topRight: Radius.circular(message.isUser ? 4 : 20),
-                      bottomLeft: Radius.circular(20),
-                      bottomRight: Radius.circular(20),
-                    ),
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 8,
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 12,
                         offset: Offset(0, 2),
+                        spreadRadius: 0,
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 4,
+                        offset: Offset(0, 1),
+                        spreadRadius: 0,
                       ),
                     ],
                   ),
                   child: isTyping ? _buildTypingIndicator() : _buildContent(),
                 ),
-                SizedBox(height: 4),
+                SizedBox(height: 6),
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  padding: EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
                     _formatTime(message.timestamp),
                     style: TextStyle(
                       color: Colors.grey[500],
                       fontSize: 11,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -73,7 +75,7 @@ class ChatBubble extends StatelessWidget {
             ),
           ),
           if (message.isUser) ...[
-            SizedBox(width: 8),
+            SizedBox(width: 12),
             _buildAvatar(),
           ],
         ],
@@ -83,47 +85,201 @@ class ChatBubble extends StatelessWidget {
 
   Widget _buildAvatar() {
     return Container(
-      width: 36,
-      height: 36,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
-        color: message.isUser ? Colors.blue : Colors.orange,
+        color: message.isUser 
+            ? Color(0xFFFF8A00)
+            : Color(0xFFFF8A00),
         shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFFFF8A00).withOpacity(0.3),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Icon(
-        message.isUser ? Icons.person : Icons.smart_toy,
+        message.isUser ? Icons.person_rounded : Icons.smart_toy_rounded,
         color: Colors.white,
-        size: 20,
+        size: 22,
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader() {
+    if (message.metadata == null || message.metadata!.isEmpty) {
+      return SizedBox.shrink();
+    }
+
+    final rank = message.metadata!['rank'] ?? sectionIndex ?? 1;
+    final confidence = message.metadata!['confidence'] ?? message.metadata!['score'];
+    
+    return Container(
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Color(0xFFFF8A00).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Color(0xFFFF8A00),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'S${rank}',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          SizedBox(width: 8),
+          Text(
+            'Body',
+            style: TextStyle(
+              color: Colors.grey[800],
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (confidence != null) ...[
+            Spacer(),
+            _buildMetricPill(
+              icon: Icons.trending_up_rounded,
+              label: 'Confidence',
+              value: (confidence is num) ? confidence.toStringAsFixed(2) : confidence.toString(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricPill({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      margin: EdgeInsets.only(left: 6),
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: Color(0xFFFF8A00),
+          ),
+          SizedBox(width: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.grey[800],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildContent() {
     if (message.type == ChatMessageType.error) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.error_outline, color: Colors.red, size: 18),
-          SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              message.content,
-              style: TextStyle(
-                color: Colors.red[700],
-                fontSize: 14,
+      return Container(
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.red[50],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline_rounded, color: Colors.red[700], size: 20),
+            SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                message.content,
+                style: TextStyle(
+                  color: Colors.red[800],
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  height: 1.4,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+      );
+    }
+
+    // Check if content has structured format (like the reference image)
+    final hasStructuredContent = message.content.contains('**') || 
+                                  message.content.contains('\n\n') ||
+                                  message.metadata != null;
+
+    if (hasStructuredContent && !message.isUser) {
+      return Container(
+        padding: EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Color(0xFFFF8A00).withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: _buildStructuredContent(),
       );
     }
 
     return Text(
       message.content,
       style: TextStyle(
-        color: Colors.grey[800],
+        color: message.isUser ? Colors.grey[900] : Colors.grey[800],
         fontSize: 15,
-        height: 1.4,
+        fontWeight: FontWeight.w400,
+        height: 1.5,
+        letterSpacing: -0.2,
       ),
+    );
+  }
+
+  Widget _buildStructuredContent() {
+    final lines = message.content.split('\n');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: lines.map((line) {
+        if (line.trim().isEmpty) {
+          return SizedBox(height: 8);
+        }
+        
+        final isBold = line.contains('**');
+        final cleanLine = line.replaceAll('**', '');
+        
+        return Padding(
+          padding: EdgeInsets.only(bottom: 4),
+          child: Text(
+            cleanLine,
+            style: TextStyle(
+              color: Colors.grey[800],
+              fontSize: isBold ? 15 : 14,
+              fontWeight: FontWeight.w400,
+              height: 1.5,
+              letterSpacing: -0.2,
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -132,9 +288,9 @@ class ChatBubble extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildDot(delay: 0),
-        SizedBox(width: 4),
+        SizedBox(width: 6),
         _buildDot(delay: 200),
-        SizedBox(width: 4),
+        SizedBox(width: 6),
         _buildDot(delay: 400),
       ],
     );
@@ -149,10 +305,10 @@ class ChatBubble extends StatelessWidget {
         return Opacity(
           opacity: value,
           child: Container(
-            width: 8,
-            height: 8,
+            width: 10,
+            height: 10,
             decoration: BoxDecoration(
-              color: Colors.grey[400],
+              color: Color(0xFFFF8A00),
               shape: BoxShape.circle,
             ),
           ),
@@ -163,14 +319,14 @@ class ChatBubble extends StatelessWidget {
 
   Widget _buildSuggestions() {
     return Padding(
-      padding: EdgeInsets.only(top: 8, left: 8, right: 8),
+      padding: EdgeInsets.only(top: 12, left: 4, right: 4),
       child: Consumer<ChatProvider>(
         builder: (context, chatProvider, child) {
           final multiLineSuggestions = message.suggestions!.where((s) => s.text.contains('\n')).toList();
           final singleLineSuggestions = message.suggestions!.where((s) => !s.text.contains('\n')).toList();
           
           return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (singleLineSuggestions.isNotEmpty)
                 SingleChildScrollView(
@@ -178,26 +334,39 @@ class ChatBubble extends StatelessWidget {
                   child: Row(
                     children: singleLineSuggestions.map((suggestion) {
                       return Padding(
-                        padding: EdgeInsets.only(right: 8, bottom: 8),
-                        child: ActionChip(
-                          label: Text(
-                            suggestion.text,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                        padding: EdgeInsets.only(right: 10, bottom: 10),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              chatProvider.handleSuggestionTap(suggestion);
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Color(0xFFFF8A00).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Color(0xFFFF8A00).withOpacity(0.15),
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
+                                    spreadRadius: 0,
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                suggestion.text,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFFFF8A00),
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
                             ),
                           ),
-                          onPressed: () {
-                            chatProvider.handleSuggestionTap(suggestion);
-                          },
-                          backgroundColor: Colors.orange[50],
-                          labelStyle: TextStyle(
-                            color: Colors.orange[800],
-                          ),
-                          side: BorderSide(color: Colors.orange[200]!),
-                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
                         ),
                       );
                     }).toList(),
@@ -206,56 +375,56 @@ class ChatBubble extends StatelessWidget {
               
               ...multiLineSuggestions.map((suggestion) {
                 return Padding(
-                  padding: EdgeInsets.only(bottom: 8),
-                  child: InkWell(
-                    onTap: () {
-                      chatProvider.handleSuggestionTap(suggestion);
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.orange[200]!,
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.orange.withOpacity(0.1),
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: suggestion.text.split('\n').map((line) {
-                          if (line.trim().isEmpty) return SizedBox.shrink();
-                          return Padding(
-                            padding: EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              line.trim(),
-                              style: TextStyle(
-                                fontSize: line.startsWith('📍') ? 15 : 13,
-                                fontWeight: line.startsWith('📍') 
-                                    ? FontWeight.bold 
-                                    : FontWeight.w500,
-                                color: Colors.orange[900],
-                                height: 1.4,
-                              ),
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        chatProvider.handleSuggestionTap(suggestion);
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Color(0xFFFF8A00).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0xFFFF8A00).withOpacity(0.12),
+                              blurRadius: 8,
+                              offset: Offset(0, 3),
+                              spreadRadius: 0,
                             ),
-                          );
-                        }).toList(),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: suggestion.text.split('\n').map((line) {
+                            if (line.trim().isEmpty) return SizedBox(height: 4);
+                            final isHeader = line.startsWith('📍') || line.startsWith('✅') || line.startsWith('📋');
+                            return Padding(
+                              padding: EdgeInsets.only(bottom: 6),
+                              child: Text(
+                                line.trim(),
+                                style: TextStyle(
+                                  fontSize: isHeader ? 15 : 13.5,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.grey[900],
+                                  height: 1.5,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
                   ),
                 );
               }).toList(),
             ],
-              );
+          );
         },
       ),
     );

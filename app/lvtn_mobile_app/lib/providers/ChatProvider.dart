@@ -529,14 +529,25 @@ class ChatProvider with ChangeNotifier {
         }
       } catch (e) {
         String errorMessage;
-        if (e.toString().contains('Network error') || 
-            e.toString().contains('connection')) {
+        final errorString = e.toString();
+        if (errorString.contains('Network error') || 
+            errorString.contains('connection')) {
           errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
-        } else if (e.toString().contains('401') || 
-                   e.toString().contains('authentication')) {
+        } else if (errorString.contains('401') || 
+                   errorString.contains('authentication')) {
           errorMessage = 'Bạn cần đăng nhập để thực hiện hành động này.';
         } else {
-          errorMessage = 'Có lỗi khi thực hiện hành động. Vui lòng thử lại.';
+          // Try to extract the actual error message from the exception
+          if (errorString.contains('Exception:')) {
+            final extractedMsg = errorString.split('Exception:').last.trim();
+            if (extractedMsg.isNotEmpty && extractedMsg.length < 200) {
+              errorMessage = extractedMsg;
+            } else {
+              errorMessage = 'Có lỗi khi thực hiện hành động. Vui lòng thử lại.';
+            }
+          } else {
+            errorMessage = 'Có lỗi khi thực hiện hành động. Vui lòng thử lại.';
+          }
         }
         
         final errorChatMessage = ChatMessage(

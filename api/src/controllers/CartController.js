@@ -133,12 +133,20 @@ async function cancelTableReservation(req, res, next) {
 async function checkout(req, res, next) {
     try {
         const { cart_id } = req.params;
-        const { reservation_id } = req.body; 
-        const result = await CartService.checkout(parseInt(cart_id), reservation_id ? parseInt(reservation_id) : null);
+        const { reservation_id, delivery_address, delivery_phone, customer_name, customer_phone } = req.body; 
+        const result = await CartService.checkout(
+            parseInt(cart_id), 
+            reservation_id ? parseInt(reservation_id) : null,
+            delivery_address || null,
+            delivery_phone || null,
+            customer_name || null,
+            customer_phone || null
+        );
         res.json(success(result, 'Order created successfully'));
     } catch (error) {
         if (error.message === 'Cart not found' ||
-            error.message === 'Cart is empty') {
+            error.message === 'Cart is empty' ||
+            error.message === 'Delivery address is required for delivery orders') {
             return next(new ApiError(400, error.message));
         }
         next(new ApiError(500, error.message));

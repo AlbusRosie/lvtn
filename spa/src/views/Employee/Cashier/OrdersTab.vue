@@ -882,11 +882,9 @@
   }
   function getPaymentMethodLabel(method) {
     const labels = {
-      cash: 'Cash',
-      card: 'Card',
-      online: 'Online'
+      cash: 'Cash'
     };
-    return labels[method] || method;
+    return labels[method] || 'Cash';
   }
   async function handleExportOrders() {
     try {

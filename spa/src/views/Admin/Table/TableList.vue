@@ -902,92 +902,45 @@ export default {
           this.checkingAvailability = false;
           return;
         }
+        // Normalize date format (YYYY-MM-DD)
+        let normalizedDate = this.timeFilterDate;
+        if (normalizedDate.includes('/')) {
+          const parts = normalizedDate.split('/');
+          if (parts.length === 3) {
+            normalizedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+          }
+        }
+        if (normalizedDate instanceof Date) {
+          normalizedDate = normalizedDate.toISOString().split('T')[0];
+        }
+
+        // Normalize time format (HH:MM:SS)
+        let normalizedTime = this.timeFilterTime;
+        if (normalizedTime.length === 5) {
+          normalizedTime = normalizedTime + ':00';
+        }
+
+        // Use backend API for consistent logic
         const checkPromises = this.tables.map(async (table) => {
           try {
-            const scheduleData = await ReservationService.getTableSchedule(
-              table.id,
-              this.timeFilterDate,
-              this.timeFilterDate
-            );
-            let reservationsList = [];
-            if (Array.isArray(scheduleData)) {
-              reservationsList = scheduleData;
-            } else if (scheduleData?.reservations && Array.isArray(scheduleData.reservations)) {
-              reservationsList = scheduleData.reservations;
-            } else if (scheduleData?.data?.reservations && Array.isArray(scheduleData.data.reservations)) {
-              reservationsList = scheduleData.data.reservations;
-            } else if (scheduleData?.data && Array.isArray(scheduleData.data)) {
-              reservationsList = scheduleData.data;
+            // Filter by capacity if guest count is specified
+            if (this.timeFilterGuestCount && table.capacity < this.timeFilterGuestCount) {
+              this.tableAvailabilityMap.set(table.id, false);
+              return;
             }
-            const [startHour, startMinute] = this.timeFilterTime.split(':').map(Number);
-            const startTotalMinutes = startHour * 60 + startMinute;
-            const endTotalMinutes = startTotalMinutes + this.timeFilterDuration;
-            const endHour = Math.floor(endTotalMinutes / 60);
-            const endMinute = endTotalMinutes % 60;
-            const endTimeString = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}:00`;
-            const startTimeString = `${this.timeFilterTime}:00`;
-            const hasConflict = reservationsList.some(schedule => {
-              if (schedule.status === 'cancelled') {
-                return false;
-              }
-              const resTime = schedule.reservation_time || schedule.start_time;
-              if (!resTime) return false;
-              let scheduleDate = schedule.reservation_date || schedule.schedule_date;
-              if (!scheduleDate) return false;
-              if (scheduleDate.includes('/')) {
-                const parts = scheduleDate.split('/');
-                if (parts.length === 3) {
-                  scheduleDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                }
-              }
-              if (scheduleDate instanceof Date) {
-                scheduleDate = scheduleDate.toISOString().split('T')[0];
-              }
-              let normalizedFilterDate = this.timeFilterDate;
-              if (normalizedFilterDate.includes('/')) {
-                const parts = normalizedFilterDate.split('/');
-                if (parts.length === 3) {
-                  normalizedFilterDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                }
-              }
-              if (normalizedFilterDate instanceof Date) {
-                normalizedFilterDate = normalizedFilterDate.toISOString().split('T')[0];
-              }
-              if (scheduleDate !== normalizedFilterDate) {
-                return false; 
-              }
-              let normalizedResTime = resTime;
-              if (normalizedResTime instanceof Date) {
-                normalizedResTime = normalizedResTime.toTimeString().split(' ')[0].substring(0, 8);
-              } else if (normalizedResTime.length === 5) {
-                normalizedResTime = normalizedResTime + ':00';
-              } else if (normalizedResTime.length === 8) {
-              } else {
-                return false;
-              }
-              let resEndTime = schedule.end_time;
-              if (!resEndTime) {
-                const durationMinutes = schedule.duration_minutes || 120;
-                const [rHour, rMinute] = normalizedResTime.split(':').map(Number);
-                const rTotal = rHour * 60 + rMinute + durationMinutes;
-                const rEndHour = Math.floor(rTotal / 60);
-                const rEndMinute = rTotal % 60;
-                resEndTime = `${rEndHour.toString().padStart(2, '0')}:${rEndMinute.toString().padStart(2, '0')}:00`;
-              } else {
-                if (resEndTime instanceof Date) {
-                  resEndTime = resEndTime.toTimeString().split(' ')[0].substring(0, 8);
-                } else if (resEndTime.length === 5) {
-                  resEndTime = resEndTime + ':00';
-                }
-              }
-              const hasOverlap = (startTimeString >= normalizedResTime && startTimeString < resEndTime) ||
-                                 (endTimeString > normalizedResTime && endTimeString <= resEndTime) ||
-                                 (startTimeString <= normalizedResTime && endTimeString >= resEndTime);
-              return hasOverlap;
-            });
-            const isAvailable = !hasConflict;
+
+            // Use backend API to check availability (consistent with other platforms)
+            const availabilityResult = await TableService.checkTableAvailability(
+              table.id,
+              normalizedDate,
+              normalizedTime,
+              this.timeFilterDuration
+            );
+            
+            const isAvailable = availabilityResult?.available === true;
             this.tableAvailabilityMap.set(table.id, isAvailable);
           } catch (error) {
+            console.error(`Error checking availability for table ${table.id}:`, error);
             this.tableAvailabilityMap.set(table.id, false);
           }
         });

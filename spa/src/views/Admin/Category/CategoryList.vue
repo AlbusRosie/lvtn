@@ -251,7 +251,7 @@
   </div>
 </template>
 <script>
-import { inject } from 'vue';
+import { useToast } from 'vue-toastification';
 import CategoryCard from '@/components/Admin/Category/CategoryCard.vue';
 import CategoryForm from '@/components/Admin/Category/CategoryForm.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
@@ -267,7 +267,7 @@ export default {
     LoadingSpinner
   },
   setup() {
-    const toast = inject('toast');
+    const toast = useToast();
     return { toast };
   },
   data() {
@@ -337,23 +337,39 @@ export default {
     handleEdit(category) {
       this.editingCategory = category;
     },
-    async handleFormSubmit(formData) {
+    async handleFormSubmit(payload) {
       this.formLoading = true;
       try {
-        if (formData && formData.target && formData.target.tagName === 'FORM') {
-          this.$toast.error('Error: Invalid form data');
+        // Handle both old format (formData) and new format ({ formData, imageFile })
+        let formData, imageFile;
+        if (payload && payload.formData) {
+          // New format from CategoryForm
+          formData = payload.formData;
+          imageFile = payload.imageFile;
+        } else if (payload && payload.target && payload.target.tagName === 'FORM') {
+          // Invalid format
+          if (this.toast) {
+            this.toast.error('Error: Invalid form data');
+          } else {
+            alert('Error: Invalid form data');
+          }
           return;
+        } else {
+          // Old format (backward compatibility)
+          formData = payload;
+          imageFile = payload?.imageFile;
         }
+        
         const token = AuthService.getToken();
         if (this.editingCategory) {
-          await CategoryService.updateCategory(this.editingCategory.id, formData, formData.imageFile);
+          await CategoryService.updateCategory(this.editingCategory.id, formData, imageFile);
           if (this.toast) {
             this.toast.success('Category updated successfully!');
           } else {
             alert('Category updated successfully!');
           }
         } else {
-          await CategoryService.createCategory(formData, formData.imageFile);
+          await CategoryService.createCategory(formData, imageFile);
           if (this.toast) {
             this.toast.success('Category created successfully!');
           } else {

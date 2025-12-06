@@ -211,12 +211,18 @@ class _NavItemState extends State<_NavItem>
   }
 
   void _onTapDown(TapDownDetails details) {
-    _controller.forward();
+    if (!widget.isActive) {
+      _controller.forward();
+    }
   }
 
   void _onTapUp(TapUpDetails details) {
-    _controller.reverse();
-    widget.onTap();
+    if (!widget.isActive) {
+      _controller.reverse();
+      widget.onTap();
+    } else {
+      _controller.reverse();
+    }
   }
 
   void _onTapCancel() {
@@ -224,9 +230,6 @@ class _NavItemState extends State<_NavItem>
   }
 
   Color _getIconColor() {
-    if (widget.isChatBot && widget.isActive) {
-      return Colors.white;
-    }
     if (widget.isChatBot && !widget.isActive) {
       return _NavConstants.activeColor;
     }
@@ -236,17 +239,20 @@ class _NavItemState extends State<_NavItem>
   }
 
   double _getIconSize() {
-    if (widget.isChatBot) {
+    if (widget.isChatBot && !widget.isActive) {
       return _NavConstants.activeIconSize;
     }
     if (widget.isSpecial && widget.isActive) {
+      return _NavConstants.activeIconSize;
+    }
+    if (widget.isActive) {
       return _NavConstants.activeIconSize;
     }
     return _NavConstants.iconSize;
   }
 
   double _getPadding() {
-    if (widget.isChatBot) {
+    if (widget.isChatBot && !widget.isActive) {
       return _NavConstants.chatIconPadding;
     }
     if (widget.isSpecial && widget.isActive) {
@@ -256,7 +262,7 @@ class _NavItemState extends State<_NavItem>
   }
 
   double _getBorderRadius() {
-    if (widget.isChatBot) {
+    if (widget.isChatBot && !widget.isActive) {
       return _NavConstants.chatBorderRadius;
     }
     if (widget.isSpecial) {
@@ -293,24 +299,13 @@ class _NavItemState extends State<_NavItem>
                     curve: _NavConstants.animationCurve,
                     padding: EdgeInsets.all(padding),
                     decoration: BoxDecoration(
-                      gradient: widget.isChatBot && widget.isActive
-                          ? const LinearGradient(
-                              colors: [
-                                _NavConstants.activeColor,
-                                _NavConstants.activeColorDark,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : null,
                       color: widget.isChatBot && !widget.isActive
                           ? _NavConstants.activeColor.withOpacity(0.1)
                           : widget.isSpecial && widget.isActive
                               ? _NavConstants.activeColor.withOpacity(0.15)
                               : Colors.transparent,
                       borderRadius: BorderRadius.circular(borderRadius),
-                      boxShadow: (widget.isChatBot && widget.isActive) ||
-                              (widget.isSpecial && widget.isActive)
+                      boxShadow: widget.isSpecial && widget.isActive
                           ? _NavConstants.getActiveShadow(
                               _NavConstants.activeColor)
                           : null,

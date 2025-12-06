@@ -1268,15 +1268,20 @@ const loadTopProducts = async () => {
     dateFrom.setDate(dateFrom.getDate() - 30)
     filters.date_from = dateFrom.toISOString().split('T')[0]
     filters.date_to = dateTo.toISOString().split('T')[0]
-    const data = await OrderService.getTopProducts(filters, 5)
+    filters.limit = 5
+    const data = await OrderService.getTopProducts(filters)
     let products = []
+    // Handle different response formats
     if (Array.isArray(data)) {
       products = data
     } else if (data?.data && Array.isArray(data.data)) {
       products = data.data
     } else if (data?.items && Array.isArray(data.items)) {
       products = data.items
+    } else if (data?.products && Array.isArray(data.products)) {
+      products = data.products
     }
+    // Sort by total_quantity descending
     products.sort((a, b) => (b.total_quantity || 0) - (a.total_quantity || 0))
     topProducts.value = products.map(product => ({
       ...product,
@@ -1284,6 +1289,7 @@ const loadTopProducts = async () => {
       name: product.name || product.product_name || 'N/A'
     }))
   } catch (error) {
+    console.error('Error loading top products:', error)
     topProducts.value = []
   } finally {
     loadingTopProducts.value = false

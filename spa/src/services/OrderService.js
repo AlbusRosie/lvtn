@@ -41,8 +41,13 @@ function makeOrderService() {
     async function getTopProducts(params = {}) {
         const queryString = buildQueryString(params);
         const url = queryString ? `${baseUrl}/admin/orders/top-products?${queryString}` : `${baseUrl}/admin/orders/top-products`;
-        const data = await efetch(url);
-        return data;
+        try {
+            const data = await efetch(url);
+            return data;
+        } catch (error) {
+            console.error('Error fetching top products:', error);
+            throw error;
+        }
     }
     async function cancelOrder(id) {
         const data = await efetch(`${baseUrl}/orders/${id}/cancel`, {

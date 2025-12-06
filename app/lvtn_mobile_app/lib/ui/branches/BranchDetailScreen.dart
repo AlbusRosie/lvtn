@@ -9,24 +9,18 @@ import '../../services/ProductService.dart';
 import '../../services/CategoryService.dart';
 import '../../services/ProductOptionService.dart';
 import '../../constants/app_constants.dart';
-import '../tables/TableScreen.dart';
 import '../../constants/api_constants.dart';
 import '../cart/CartProvider.dart';
 import '../cart/CartScreen.dart';
 import '../widgets/AppBottomNav.dart';
 import '../products/ProductDetailScreen.dart';
-import '../../services/AuthService.dart';
-import '../../services/ReservationService.dart';
-import '../../services/TableService.dart';
 
 class BranchDetailScreen extends StatefulWidget {
   final Branch branch;
-  final int initialTabIndex;
   
   const BranchDetailScreen({
     super.key, 
     required this.branch,
-    this.initialTabIndex = 0,
   });
 
   static const String routeName = '/branch-detail';
@@ -39,25 +33,15 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
   final BranchService _branchService = BranchService();
   final ProductService _productService = ProductService();
   final CategoryService _categoryService = CategoryService();
-  final TableService _tableService = TableService();
   final ScrollController _scrollController = ScrollController();
   
   Branch? _branch;
   List<Product> _products = [];
   List<Category> _categories = [];
-  List<Map<String, dynamic>> _tables = [];
-  List<Map<String, dynamic>> _filteredTables = [];
-  Map<int, bool> _tableAvailability = {};
   bool _isLoading = true;
   bool _isLoadingMore = false;
-  bool _isLoadingTables = false;
-  bool _isCheckingAvailability = false;
   String? _error;
-  int _selectedTabIndex = 0;
-  int _selectedReservationTabIndex = 0;
   int? _selectedCategoryId;
-  DateTime? _tableSelectionDate;
-  TimeOfDay? _tableSelectionTime;
   
   int _currentPage = 1;
   int _limit = 20;
@@ -67,7 +51,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedTabIndex = widget.initialTabIndex;
     _scrollController.addListener(_onScroll);
     _loadData();
   }
@@ -82,7 +65,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
   void _onScroll() {
     if (_scrollController.hasClients && 
         _scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      if (!_isLoadingMore && _hasMore && _selectedTabIndex == 0) {
+      if (!_isLoadingMore && _hasMore) {
         _loadMoreProducts();
       }
     }
@@ -425,8 +408,8 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                   ),
                 ),
             Container(
-              margin: EdgeInsets.only(left: 16, right: 16, top: 0),
-              padding: EdgeInsets.all(20),
+              margin: EdgeInsets.only(left: 16, right: 16, top: 0, bottom: 0),
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -513,56 +496,78 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
               ),
             ),
             
+            SizedBox(height: 6),
+            
+            // Divider section với gradient và icon
             Container(
               margin: EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedTabIndex = 0),
                     child: Container(
-                      padding: EdgeInsets.symmetric(vertical: 12),
+                      height: 1,
                       decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                              color: _selectedTabIndex == 0 ? Colors.orange : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                          'Menu',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: _selectedTabIndex == 0 ? Colors.orange : Colors.grey[600],
-                          fontSize: 16,
-                            fontWeight: _selectedTabIndex == 0 ? FontWeight.w600 : FontWeight.w500,
-                          ),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            Colors.grey[300]!,
+                            Colors.grey[300]!,
+                            Colors.transparent,
+                          ],
                         ),
                       ),
                     ),
                   ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedTabIndex = 1),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: _selectedTabIndex == 1 ? Colors.orange : Colors.transparent,
-                              width: 2,
-                            ),
+                  Container(
+                    margin: EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: Colors.orange.withOpacity(0.3),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.orange.withOpacity(0.08),
+                          blurRadius: 4,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.restaurant_menu_rounded,
+                          size: 16,
+                          color: Colors.orange[700],
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Menu',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.orange[700],
+                            letterSpacing: 0.3,
                           ),
                         ),
-                      child: Text(
-                          'Reserve Table',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: _selectedTabIndex == 1 ? Colors.orange : Colors.grey[600],
-                          fontSize: 16,
-                            fontWeight: _selectedTabIndex == 1 ? FontWeight.w600 : FontWeight.w500,
-                          ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            Colors.grey[300]!,
+                            Colors.grey[300]!,
+                            Colors.transparent,
+                          ],
                         ),
                       ),
                     ),
@@ -571,39 +576,35 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
               ),
             ),
             
+            SizedBox(height: 12),
+            
+            SizedBox(
+              height: 48,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  _buildCategoryChip('All', '🔥', _selectedCategoryId == null, null),
+                  SizedBox(width: 12),
+                  ..._getAvailableCategories().map<Widget>((category) {
+                    return Row(
+                      children: [
+                        _buildCategoryChip(
+                          category.name, 
+                          _getCategoryEmoji(category.name), 
+                          _selectedCategoryId == category.id,
+                          category,
+                        ),
+                        SizedBox(width: 12),
+                      ],
+                    );
+                  }).toList(),
+                ],
+              ),
+            ),
             SizedBox(height: 16),
             
-            if (_selectedTabIndex == 0) ...[
-              SizedBox(
-                height: 50,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                    children: [
-                    _buildCategoryChip('All', '🔥', _selectedCategoryId == null, null),
-                    SizedBox(width: 12),
-                    ..._getAvailableCategories().map<Widget>((category) {
-                      return Row(
-                        children: [
-                          _buildCategoryChip(
-                            category.name, 
-                            _getCategoryEmoji(category.name), 
-                            _selectedCategoryId == category.id,
-                            category,
-                          ),
-                          SizedBox(width: 12),
-                        ],
-                      );
-                    }).toList(),
-                  ],
-                ),
-              ),
-              SizedBox(height: 16),
-            ],
-            
-            _selectedTabIndex == 0 
-                ? _buildMenuContent()
-                : _buildTableReservationContent(effectiveBranch),
+            _buildMenuContent(),
           ],
     ),
   ),
@@ -756,1385 +757,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
     );
   }
 
-  Widget _buildTableReservationContent(Branch branch) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          margin: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 8,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                  onTap: () => setState(() => _selectedReservationTabIndex = 0),
-                    borderRadius: BorderRadius.circular(16),
-                    child: AnimatedContainer(
-                      duration: Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
-                      padding: EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                        color: _selectedReservationTabIndex == 0 ? Color(0xFFFF8A00) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                            Icons.edit_calendar_rounded,
-                            size: 20,
-                          color: _selectedReservationTabIndex == 0 ? Colors.white : Colors.grey[700],
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                            'Đặt nhanh',
-                          style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            color: _selectedReservationTabIndex == 0 ? Colors.white : Colors.grey[700],
-                              letterSpacing: -0.3,
-                          ),
-                        ),
-                      ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                  onTap: () => setState(() => _selectedReservationTabIndex = 1),
-                    borderRadius: BorderRadius.circular(16),
-                    child: AnimatedContainer(
-                      duration: Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
-                      padding: EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                        color: _selectedReservationTabIndex == 1 ? Color(0xFFFF8A00) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                            Icons.table_restaurant_rounded,
-                            size: 20,
-                          color: _selectedReservationTabIndex == 1 ? Colors.white : Colors.grey[700],
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                            'Chọn bàn',
-                          style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            color: _selectedReservationTabIndex == 1 ? Colors.white : Colors.grey[700],
-                              letterSpacing: -0.3,
-                          ),
-                        ),
-                      ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        
-        _selectedReservationTabIndex == 0
-            ? _buildQuickReserveForm(branch)
-            : _buildSelectTableView(branch),
-      ],
-    );
-  }
-
-  Widget _buildQuickReserveForm(Branch branch) {
-    final _formKey = GlobalKey<FormState>();
-    DateTime? selectedDate;
-    TimeOfDay? selectedTime;
-    int guestCount = 2;
-    String? specialRequests;
-
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Ngày đặt bàn',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey[800],
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: DateTime.now(),
-                                  firstDate: DateTime.now(),
-                                  lastDate: DateTime.now().add(Duration(days: 90)),
-                                );
-                                if (date != null) {
-                                  setState(() => selectedDate = date);
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border.all(color: Colors.grey[200]!, width: 1),
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.03),
-                                      blurRadius: 8,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Color(0xFFFF8A00).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Icon(Icons.calendar_today_rounded, color: Color(0xFFFF8A00), size: 18),
-                                    ),
-                                    SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        selectedDate != null
-                                            ? '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'
-                                            : 'Chọn ngày',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: selectedDate != null ? Colors.grey[900] : Colors.grey[500],
-                                          letterSpacing: -0.2,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey[400], size: 18),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Giờ đặt bàn',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey[800],
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () async {
-                                final time = await showTimePicker(
-                                  context: context,
-                                  initialTime: TimeOfDay.now(),
-                                );
-                                if (time != null) {
-                                  setState(() => selectedTime = time);
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border.all(color: Colors.grey[200]!, width: 1),
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.03),
-                                      blurRadius: 8,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Color(0xFFFF8A00).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Icon(Icons.access_time_rounded, color: Color(0xFFFF8A00), size: 18),
-                                    ),
-                                    SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        selectedTime != null
-                                            ? '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}'
-                                            : 'Chọn giờ',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: selectedTime != null ? Colors.grey[900] : Colors.grey[500],
-                                          letterSpacing: -0.2,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey[400], size: 18),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 16),
-
-                Text(
-                  'Số lượng khách',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: Colors.grey[200]!, width: 1),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Color(0xFFFF8A00).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(Icons.people_rounded, color: Color(0xFFFF8A00), size: 20),
-                      ),
-                      SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          '$guestCount người',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey[900],
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.remove_circle_outline_rounded),
-                        color: guestCount > 1 ? Color(0xFFFF8A00) : Colors.grey[300],
-                        onPressed: guestCount > 1 ? () => setState(() => guestCount--) : null,
-                      ),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Color(0xFFFF8A00).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                        '$guestCount',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFFFF8A00),
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.add_circle_outline_rounded),
-                        color: guestCount < 20 ? Color(0xFFFF8A00) : Colors.grey[300],
-                        onPressed: guestCount < 20 ? () => setState(() => guestCount++) : null,
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 16),
-
-                Text(
-                  'Yêu cầu đặc biệt (Tùy chọn)',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                SizedBox(height: 8),
-                TextFormField(
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: 'Ví dụ: Không hành, cay vừa, chín kỹ...',
-                    hintStyle: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 14,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: Colors.grey[200]!, width: 1),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: Colors.grey[200]!, width: 1),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: Color(0xFFFF8A00), width: 2),
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: EdgeInsets.all(18),
-                  ),
-                  style: TextStyle(
-                    fontSize: 14,
-                    letterSpacing: -0.1,
-                  ),
-                  onChanged: (value) => specialRequests = value,
-                ),
-                SizedBox(height: 24),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0xFFFF8A00).withOpacity(0.3),
-                          blurRadius: 12,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      if (selectedDate == null || selectedTime == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text('Vui lòng chọn ngày và giờ'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                        return;
-                      }
-
-                      try {
-                        final formattedDate = '${selectedDate!.year}-${selectedDate!.month.toString().padLeft(2, '0')}-${selectedDate!.day.toString().padLeft(2, '0')}';
-                        final formattedTime = '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}:00';
-
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (context) => Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-
-                        final token = AuthService().token;
-                        if (token == null) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Please login first'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-
-                        final response = await ReservationService().createQuickReservation(
-                          token: token,
-                          branchId: branch.id,
-                          reservationDate: formattedDate,
-                          reservationTime: formattedTime,
-                          guestCount: guestCount,
-                          specialRequests: specialRequests,
-                        );
-
-                        Navigator.pop(context);
-
-                        if (response != null) {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              title: Row(
-                                children: [
-                                  Icon(Icons.check_circle, color: Colors.green, size: 28),
-                                  SizedBox(width: 12),
-                                  Text('Reservation Confirmed!'),
-                                ],
-                              ),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Your table has been reserved successfully.',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                  SizedBox(height: 16),
-                                  Container(
-                                    padding: EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange[50],
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        _buildInfoRow(Icons.calendar_today, 'Date', formattedDate),
-                                        SizedBox(height: 8),
-                                        _buildInfoRow(Icons.access_time, 'Time', formattedTime.substring(0, 5)),
-                                        SizedBox(height: 8),
-                                        _buildInfoRow(Icons.people, 'Guests', '$guestCount people'),
-                                      ],
-                                    ),
-                                  ),
-                                  SizedBox(height: 12),
-                                  Text(
-                                    'You can now browse our menu and add items to your order.',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                  },
-                                  child: Text(
-                                    'View Menu',
-                                    style: TextStyle(
-                                      color: Colors.orange,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ).then((_) {
-                            setState(() {
-                              _selectedTabIndex = 0;
-                            });
-                          });
-                        }
-                      } catch (e) {
-                        if (Navigator.canPop(context)) {
-                          Navigator.pop(context);
-                        }
-                        
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
-                            backgroundColor: Colors.red,
-                            duration: Duration(seconds: 4),
-                          ),
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFFFF8A00),
-                      foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 0,
-                    ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_outline_rounded, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Xác nhận đặt bàn',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSelectTableView(Branch branch) {
-    if (_tables.isEmpty && !_isLoadingTables) {
-      _loadTables(branch.id);
-    }
-
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Ngày',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[800],
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () async {
-                              final date = await showDatePicker(
-                                context: context,
-                                initialDate: _tableSelectionDate ?? DateTime.now(),
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(Duration(days: 90)),
-                              );
-                              if (date != null) {
-                                setState(() {
-                                  _tableSelectionDate = date;
-                                  if (_tableSelectionTime == null) {
-                                    _filteredTables = [];
-                                  }
-                                });
-                                if (_tableSelectionTime != null) {
-                                  _checkTableAvailability(branch.id);
-                                }
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(color: Colors.grey[200]!, width: 1),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.03),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFFFF8A00).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Icon(Icons.calendar_today_rounded, color: Color(0xFFFF8A00), size: 18),
-                                  ),
-                                  SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      _tableSelectionDate != null
-                                          ? '${_tableSelectionDate!.day}/${_tableSelectionDate!.month}/${_tableSelectionDate!.year}'
-                                          : 'Chọn ngày',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: _tableSelectionDate != null ? Colors.grey[900] : Colors.grey[500],
-                                        letterSpacing: -0.2,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey[400], size: 18),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Giờ',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[800],
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () async {
-                              final time = await showTimePicker(
-                                context: context,
-                                initialTime: _tableSelectionTime ?? TimeOfDay.now(),
-                              );
-                              if (time != null) {
-                                setState(() {
-                                  _tableSelectionTime = time;
-                                  if (_tableSelectionDate == null) {
-                                    _filteredTables = [];
-                                  }
-                                });
-                                if (_tableSelectionDate != null) {
-                                  _checkTableAvailability(branch.id);
-                                }
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(color: Colors.grey[200]!, width: 1),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.03),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFFFF8A00).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Icon(Icons.access_time_rounded, color: Color(0xFFFF8A00), size: 18),
-                                  ),
-                                  SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      _tableSelectionTime != null
-                                          ? '${_tableSelectionTime!.hour.toString().padLeft(2, '0')}:${_tableSelectionTime!.minute.toString().padLeft(2, '0')}'
-                                          : 'Chọn giờ',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: _tableSelectionTime != null ? Colors.grey[900] : Colors.grey[500],
-                                        letterSpacing: -0.2,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey[400], size: 18),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 16),
-              
-              if (_isLoadingTables)
-                Container(
-                  padding: EdgeInsets.all(40),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFFFF8A00),
-                    ),
-                  ),
-                )
-              else if (_tables.isEmpty)
-                Container(
-                  padding: EdgeInsets.all(40),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.table_restaurant_outlined,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'Không có bàn nào',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else if (_tableSelectionDate != null && _tableSelectionTime != null && _isCheckingAvailability)
-                Container(
-                  padding: EdgeInsets.all(40),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        CircularProgressIndicator(
-                          color: Color(0xFFFF8A00),
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'Đang kiểm tra bàn trống...',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else if (_tableSelectionDate != null && _tableSelectionTime != null)
-                _filteredTables.isEmpty
-                    ? Container(
-                        padding: EdgeInsets.all(40),
-                        child: Center(
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.table_restaurant_outlined,
-                                size: 64,
-                                color: Colors.grey[400],
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                'Không có bàn trống',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Vui lòng chọn thời gian khác',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[500],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : GridView.builder(
-                        shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.85,
-                        ),
-                        itemCount: _filteredTables.length,
-                        itemBuilder: (context, index) {
-                          final table = _filteredTables[index];
-                          return _buildTableCard(table, branch);
-                        },
-                      )
-              else
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 0.85,
-                  ),
-                  itemCount: _tables.length,
-                  itemBuilder: (context, index) {
-                    final table = _tables[index];
-                    return _buildTableCard(table, branch);
-                  },
-                ),
-              
-              SizedBox(height: 24),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _loadTables(int branchId) async {
-    setState(() {
-      _isLoadingTables = true;
-    });
-
-    try {
-      final tables = await _tableService.getTablesByBranch(branchId);
-      final normalized = tables.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      
-      setState(() {
-        _tables = normalized;
-        if (_tableSelectionDate != null && _tableSelectionTime != null) {
-          _filteredTables = [];
-        } else {
-          _filteredTables = normalized;
-        }
-        _isLoadingTables = false;
-      });
-      
-      if (_tableSelectionDate != null && _tableSelectionTime != null) {
-        _checkTableAvailability(branchId);
-      }
-    } catch (e) {
-      setState(() {
-        _isLoadingTables = false;
-      });
-    }
-  }
-
-  Future<void> _checkTableAvailability(int branchId) async {
-    if (_tableSelectionDate == null || _tableSelectionTime == null) {
-      setState(() {
-        _filteredTables = _tables;
-      });
-      return;
-    }
-
-    if (_tables.isEmpty) {
-      await _loadTables(branchId);
-      return;
-    }
-
-    setState(() {
-      _isCheckingAvailability = true;
-      _tableAvailability.clear();
-    });
-
-    try {
-      final formattedDate = '${_tableSelectionDate!.year}-${_tableSelectionDate!.month.toString().padLeft(2, '0')}-${_tableSelectionDate!.day.toString().padLeft(2, '0')}';
-      final formattedTime = '${_tableSelectionTime!.hour.toString().padLeft(2, '0')}:${_tableSelectionTime!.minute.toString().padLeft(2, '0')}:00';
-
-      print('_checkTableAvailability: date=$formattedDate, time=$formattedTime');
-
-      final List<Map<String, dynamic>> availableTables = [];
-      
-      for (final table in _tables) {
-        final tableId = table['id'] ?? table['table_id'];
-        if (tableId == null) continue;
-
-        try {
-          final schedule = await ReservationService.getTableSchedule(
-            tableId: tableId,
-            startDate: formattedDate,
-            endDate: formattedDate,
-          );
-
-          print('_checkTableAvailability: tableId=$tableId, schedule count=${schedule.length}');
-          if (schedule.isNotEmpty) {
-            print('_checkTableAvailability: schedule items for tableId=$tableId:');
-            for (int i = 0; i < schedule.length; i++) {
-              print('  Item $i: ${schedule[i]}');
-            }
-          }
-
-          bool isAvailable = true;
-          
-          final startDateTime = DateTime.parse('$formattedDate ${formattedTime}');
-          final endDateTime = startDateTime.add(Duration(hours: 2));
-          final endTime = '${endDateTime.hour.toString().padLeft(2, '0')}:${endDateTime.minute.toString().padLeft(2, '0')}:00';
-
-          print('_checkTableAvailability: tableId=$tableId, request time=$formattedTime to $endTime');
-
-          if (schedule.isEmpty) {
-            print('_checkTableAvailability: tableId=$tableId has no schedule items, marking as available');
-          }
-          
-          for (final item in schedule) {
-            final reservationDate = item['reservation_date']?.toString() ?? 
-                                    item['schedule_date']?.toString() ??
-                                    item['date']?.toString();
-            final reservationTime = item['reservation_time']?.toString() ?? 
-                                    item['start_time']?.toString() ??
-                                    item['time']?.toString();
-            final reservationEndTime = item['end_time']?.toString();
-            final status = item['status']?.toString()?.toLowerCase();
-            final durationMinutes = item['duration_minutes'] as int?;
-
-            print('_checkTableAvailability: checking item - date=$reservationDate, time=$reservationTime, endTime=$reservationEndTime, status=$status, duration=$durationMinutes');
-
-            if (status == 'cancelled') {
-              print('_checkTableAvailability: skipping cancelled item');
-              continue;
-            }
-
-            String reservationDateOnly = '';
-            if (reservationDate != null && reservationDate.isNotEmpty) {
-              if (reservationDate.contains('T')) {
-                reservationDateOnly = reservationDate.split('T')[0];
-              } 
-              else if (reservationDate.contains(' ')) {
-                reservationDateOnly = reservationDate.split(' ')[0];
-              } 
-              else {
-                reservationDateOnly = reservationDate;
-              }
-            }
-
-            print('_checkTableAvailability: reservationDateOnly=$reservationDateOnly, formattedDate=$formattedDate');
-
-            if (reservationDateOnly != formattedDate) {
-              print('_checkTableAvailability: date mismatch, skipping');
-              continue;
-            }
-
-            if (reservationTime != null && reservationTime.isNotEmpty) {
-              String resStart = reservationTime.trim();
-              
-              if (resStart.contains(' ')) {
-                resStart = resStart.split(' ')[1];
-              }
-              
-              if (resStart.length >= 5) {
-                resStart = resStart.substring(0, 5);
-              }
-              
-              String? resEnd;
-              if (reservationEndTime != null && reservationEndTime.isNotEmpty) {
-                resEnd = reservationEndTime.trim();
-                if (resEnd.contains(' ')) {
-                  resEnd = resEnd.split(' ')[1];
-                }
-                if (resEnd.length >= 5) {
-                  resEnd = resEnd.substring(0, 5);
-                }
-              } else if (durationMinutes != null && durationMinutes > 0) {
-                int resStartMinutes = _timeToMinutes(resStart);
-                int resEndCalculatedMinutes = resStartMinutes + durationMinutes;
-                resEnd = _minutesToTime(resEndCalculatedMinutes);
-              } else {
-                int resStartMinutes = _timeToMinutes(resStart);
-                int resEndCalculatedMinutes = resStartMinutes + 120;
-                resEnd = _minutesToTime(resEndCalculatedMinutes);
-              }
-              
-              final reqStart = formattedTime.substring(0, 5);
-              final reqEnd = endTime.substring(0, 5);
-
-              print('_checkTableAvailability: comparing - reqStart=$reqStart, reqEnd=$reqEnd, resStart=$resStart, resEnd=$resEnd');
-
-              int reqStartMinutes = _timeToMinutes(reqStart);
-              int reqEndMinutes = _timeToMinutes(reqEnd);
-              int resStartMinutes = _timeToMinutes(resStart);
-              int resEndMinutes = _timeToMinutes(resEnd ?? resStart);
-              
-              bool hasOverlap = (reqStartMinutes < resEndMinutes) && (reqEndMinutes > resStartMinutes);
-              
-              print('_checkTableAvailability: overlap check - reqStart=$reqStartMinutes, reqEnd=$reqEndMinutes, resStart=$resStartMinutes, resEnd=$resEndMinutes, hasOverlap=$hasOverlap');
-
-              if (hasOverlap) {
-                print('_checkTableAvailability: tableId=$tableId is NOT available due to overlap with status=$status');
-                isAvailable = false;
-                break;
-              }
-            }
-          }
-
-          if (isAvailable) {
-            print('_checkTableAvailability: tableId=$tableId is available');
-            availableTables.add(table);
-            _tableAvailability[tableId] = true;
-          } else {
-            print('_checkTableAvailability: tableId=$tableId is NOT available');
-            _tableAvailability[tableId] = false;
-          }
-        } catch (e, stackTrace) {
-          print('_checkTableAvailability: Error checking tableId=$tableId: $e');
-          print('_checkTableAvailability: Stack trace: $stackTrace');
-          _tableAvailability[tableId] = false;
-        }
-      }
-
-      print('_checkTableAvailability: Found ${availableTables.length} available tables out of ${_tables.length}');
-
-      setState(() {
-        _filteredTables = availableTables;
-        _isCheckingAvailability = false;
-      });
-    } catch (e, stackTrace) {
-      print('_checkTableAvailability: Error: $e');
-      print('_checkTableAvailability: Stack trace: $stackTrace');
-      setState(() {
-        _filteredTables = [];
-        _isCheckingAvailability = false;
-      });
-    }
-  }
-
-  int _timeToMinutes(String time) {
-    final parts = time.split(':');
-    if (parts.length < 2) return 0;
-    final hours = int.tryParse(parts[0]) ?? 0;
-    final minutes = int.tryParse(parts[1]) ?? 0;
-    return hours * 60 + minutes;
-  }
-
-  String _minutesToTime(int minutes) {
-    final hours = minutes ~/ 60;
-    final mins = minutes % 60;
-    return '${hours.toString().padLeft(2, '0')}:${mins.toString().padLeft(2, '0')}';
-  }
-
-
-  Widget _buildTableCard(Map<String, dynamic> table, Branch branch) {
-    final tableName = table['name'] ?? table['table_name'] ?? 'Bàn ${table['id']}';
-    final capacity = table['capacity'] ?? table['guest_capacity'] ?? 0;
-    final floorName = table['floor_name'] ?? 'Tầng ${table['floor_number'] ?? ''}';
-    final tableId = table['id'] ?? table['table_id'];
-    
-    String status;
-    if (_tableSelectionDate != null && _tableSelectionTime != null && _tableAvailability.containsKey(tableId)) {
-      status = _tableAvailability[tableId] == true ? 'available' : 'reserved';
-    } else {
-      status = table['status'] ?? 'available';
-    }
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey[200]!,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => TableScreen(branch: branch),
-              ),
-            );
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Color(0xFFFF8A00).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.table_restaurant_rounded,
-                        color: Color(0xFFFF8A00),
-                        size: 28,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      tableName,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey[900],
-                        letterSpacing: -0.3,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.people_outline_rounded,
-                          size: 14,
-                          color: Colors.grey[600],
-                        ),
-                        SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            '$capacity người',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.layers_outlined,
-                          size: 14,
-                          color: Colors.grey[600],
-                        ),
-                        SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            floorName,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: status == 'available' 
-                        ? Colors.green[50] 
-                        : status == 'reserved'
-                        ? Colors.orange[50]
-                        : Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    status == 'available' 
-                        ? 'Trống' 
-                        : status == 'reserved'
-                        ? 'Đã đặt'
-                        : 'Không dùng',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: status == 'available' 
-                          ? Colors.green[700] 
-                          : status == 'reserved'
-                          ? Colors.orange[700]
-                          : Colors.grey[700],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReservationCard({
-    required IconData icon,
-    required String label,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: AnimatedContainer(
-          duration: Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.grey[200]!,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                spreadRadius: 0,
-                blurRadius: 20,
-                offset: Offset(0, 4),
-              ),
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                spreadRadius: 0,
-                blurRadius: 8,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 28,
-                ),
-              ),
-              SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: Colors.grey[900],
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
-                        height: 1.3,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: -0.1,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: color,
-                  size: 16,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildProductItem(Product product) {
     return Container(
       margin: EdgeInsets.only(bottom: 12),
@@ -2278,7 +900,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
-                double imageHeight = constraints.maxWidth > 600 ? 160 : 190;
+                double imageHeight = constraints.maxWidth > 600 ? 140 : 150;
                 return Container(
                   height: imageHeight,
                   width: double.infinity,
@@ -2288,7 +910,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
         borderRadius: BorderRadius.circular(12),
                       child: Image.network(
                         _getImageUrl(product.image),
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                         width: double.infinity,
                         height: double.infinity,
                         errorBuilder: (context, error, stackTrace) {
@@ -3617,19 +2239,19 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
         _loadData();
       },
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
           color: isSelected ? Color(0xFFFFF3E0) : Colors.white,
-          borderRadius: BorderRadius.circular(25),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: isSelected ? Color(0xFFFFB74D) : Colors.grey[200]!,
             width: isSelected ? 1.5 : 1,
           ),
           boxShadow: isSelected ? [
             BoxShadow(
-              color: Color(0xFFFFB74D).withOpacity(0.3),
+              color: Color(0xFFFFB74D).withOpacity(0.25),
               spreadRadius: 0,
-              blurRadius: 8,
+              blurRadius: 6,
               offset: Offset(0, 2),
             ),
           ] : [],
@@ -3639,7 +2261,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
           children: [
             Text(
               emoji,
-              style: TextStyle(fontSize: 20),
+              style: TextStyle(fontSize: 19),
             ),
             SizedBox(width: 8),
             Text(

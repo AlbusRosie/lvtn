@@ -39,7 +39,7 @@ class ApiService {
         print('APIService: Returning List');
         return data;
       }
-      if (data is Map && data['status'] == 'success') {
+      if (data is Map && (data['status'] == 'success' || data['success'] == true)) {
         print('APIService: Status success, returning data: ${data['data']}');
         return data['data'];
       }

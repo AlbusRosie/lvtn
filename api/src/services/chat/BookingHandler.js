@@ -334,7 +334,10 @@ class BookingHandler {
         }
     }
     async createActualReservation(userId, entities) {
+        console.log('[BookingHandler] createActualReservation - userId:', userId);
+        console.log('[BookingHandler] createActualReservation - entities:', JSON.stringify(entities, null, 2));
         const normalizedEntities = Utils.normalizeEntityFields(entities);
+        console.log('[BookingHandler] createActualReservation - normalizedEntities:', JSON.stringify(normalizedEntities, null, 2));
         let reservationDate = normalizedEntities.date;
         if (normalizedEntities.date === 'ngày mai' || normalizedEntities.date === 'tomorrow') {
             const tomorrow = new Date();
@@ -358,12 +361,16 @@ class BookingHandler {
             }
         }
         if (!branchId) {
+            console.error('[BookingHandler] createActualReservation - Missing branch_id');
             throw new Error('Vui lòng chọn chi nhánh bạn muốn đặt bàn. Bạn có thể cho tôi biết tên chi nhánh hoặc quận bạn muốn đến.');
         }
+        console.log('[BookingHandler] createActualReservation - branchId:', branchId);
         const branch = await BranchHandler.getBranchById(branchId);
         if (!branch) {
+            console.error('[BookingHandler] createActualReservation - Branch not found:', branchId);
             throw new Error('Không tìm thấy chi nhánh. Vui lòng thử lại.');
         }
+        console.log('[BookingHandler] createActualReservation - branch found:', branch.name);
         if (normalizedEntities.time && branch.opening_hours && branch.close_hours) {
             const isWithinHours = BranchHandler.isTimeWithinOperatingHours(normalizedEntities.time, branch);
             if (!isWithinHours) {
@@ -427,11 +434,20 @@ class BookingHandler {
             };
         }
         const guestCount = normalizedEntities.people || normalizedEntities.guest_count || normalizedEntities.number_of_people;
+        console.log('[BookingHandler] createActualReservation - guestCount:', guestCount);
+        console.log('[BookingHandler] createActualReservation - time:', normalizedEntities.time);
+        console.log('[BookingHandler] createActualReservation - reservationDate:', reservationDate);
         if (!guestCount || guestCount < 1) {
+            console.error('[BookingHandler] createActualReservation - Invalid guestCount:', guestCount);
             throw new Error('Vui lòng cho biết số người (tối thiểu 1 người)');
         }
         if (!normalizedEntities.time) {
+            console.error('[BookingHandler] createActualReservation - Missing time');
             throw new Error('Vui lòng cho biết giờ đặt bàn');
+        }
+        if (!reservationDate) {
+            console.error('[BookingHandler] createActualReservation - Missing reservationDate');
+            throw new Error('Vui lòng cho biết ngày đặt bàn');
         }
         const availabilityCheck = await this.checkTableAvailability(
             branchId,
@@ -480,7 +496,9 @@ class BookingHandler {
             guest_count: guestCount,
             special_requests: null
         };
+        console.log('[BookingHandler] createActualReservation - reservationData:', JSON.stringify(reservationData, null, 2));
         const reservation = await ReservationService.createQuickReservation(reservationData);
+        console.log('[BookingHandler] createActualReservation - reservation created successfully:', reservation?.id);
         return {
             ...reservation,
             branch_name: branch.name,

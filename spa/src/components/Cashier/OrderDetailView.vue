@@ -158,8 +158,6 @@
                   :disabled="updatingPayment"
                 >
                   <option value="cash">Cash</option>
-                  <option value="card">Card</option>
-                  <option value="online">Online</option>
                 </select>
               </div>
             </div>
@@ -225,12 +223,9 @@ async function loadOrderDetails() {
 }
   function getPaymentMethodLabel(method) {
     const labels = {
-      cash: 'Cash',
-      card: 'Card',
-      bank_transfer: 'Bank transfer',
-      e_wallet: 'E-wallet'
+      cash: 'Cash'
     };
-    return labels[method] || method;
+    return labels[method] || 'Cash';
   }
 function getStatusIcon(status) {
   const icons = {

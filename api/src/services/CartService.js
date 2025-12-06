@@ -211,7 +211,7 @@ class CartService {
             });
         return await this.getCartById(cartId);
     }
-    async checkout(cartId, reservationId = null) {
+    async checkout(cartId, reservationId = null, deliveryAddress = null, deliveryPhone = null, customerName = null, customerPhone = null) {
         const cart = await this.getCartById(cartId);
         if (!cart) {
             throw new Error('Cart not found');
@@ -219,27 +219,54 @@ class CartService {
         if (cart.items.length === 0) {
             throw new Error('Cart is empty');
         }
+        // Validate delivery address for delivery orders
+        if (cart.order_type === 'delivery' && !deliveryAddress) {
+            throw new Error('Delivery address is required for delivery orders');
+        }
+        // Format notes with customer name if provided
+        let notes = cart.special_requests || null;
+        if (customerName) {
+            notes = notes ? `${notes}\nKhách hàng: ${customerName}` : `Khách hàng: ${customerName}`;
+        }
+        
+        // Use customer_phone for delivery_phone if provided, otherwise use deliveryPhone
+        const finalDeliveryPhone = customerPhone || (cart.order_type === 'delivery' ? deliveryPhone : null);
+        
         const orderData = {
             user_id: cart.user_id,
             branch_id: cart.branch_id,
             table_id: cart.table_id,
             order_type: cart.order_type,
+            delivery_address: cart.order_type === 'delivery' ? deliveryAddress : null,
+            delivery_phone: finalDeliveryPhone,
             total: cart.total,
             status: 'pending',
             payment_status: 'pending',
-            notes: cart.special_requests
+            notes: notes
         };
         if (reservationId) {
+            // Tìm empty order mới nhất (created_at DESC) để đảm bảo dùng reservation mới nhất
+            // Nếu có nhiều empty orders cho cùng reservation (không nên xảy ra), dùng order mới nhất
             const emptyOrder = await knex('orders')
                 .where('reservation_id', reservationId)
                 .where('total', 0)
-                .orderBy('created_at', 'asc')
+                .orderBy('created_at', 'desc')
                 .first();
             if (emptyOrder) {
+                // Format notes with customer name if provided
+                let notes = cart.special_requests || null;
+                if (customerName) {
+                    notes = notes ? `${notes}\nKhách hàng: ${customerName}` : `Khách hàng: ${customerName}`;
+                }
+                const finalDeliveryPhone = customerPhone || (cart.order_type === 'delivery' ? deliveryPhone : null);
+                
                 await knex('orders')
                     .where('id', emptyOrder.id)
                     .update({
                         total: cart.total,
+                        delivery_address: cart.order_type === 'delivery' ? deliveryAddress : null,
+                        delivery_phone: finalDeliveryPhone,
+                        notes: notes,
                         payment_method: 'cash',
                         payment_status: 'pending',
                         status: 'pending'
@@ -299,10 +326,20 @@ class CartService {
             const reservation = await ReservationService.createReservation(reservationData);
             reservationId = reservation.id;
             if (reservation.order_id) {
+                // Format notes with customer name if provided
+                let notes = cart.special_requests || null;
+                if (customerName) {
+                    notes = notes ? `${notes}\nKhách hàng: ${customerName}` : `Khách hàng: ${customerName}`;
+                }
+                const finalDeliveryPhone = customerPhone || (cart.order_type === 'delivery' ? deliveryPhone : null);
+                
                 await knex('orders')
                     .where('id', reservation.order_id)
                     .update({
                         total: cart.total,
+                        delivery_address: cart.order_type === 'delivery' ? deliveryAddress : null,
+                        delivery_phone: finalDeliveryPhone,
+                        notes: notes,
                         payment_method: 'cash',
                         payment_status: 'pending',
                         status: 'pending'

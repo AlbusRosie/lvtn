@@ -211,9 +211,7 @@ const paymentStatusOptions = computed(() => {
 const paymentMethodOptions = computed(() => {
     const baseOptions = [
         { value: '', label: props.isManagerView ? 'All Payment Methods' : 'Tất cả phương thức' },
-        { value: 'cash', label: props.isManagerView ? 'Cash' : 'Tiền mặt' },
-        { value: 'card', label: props.isManagerView ? 'Card' : 'Thẻ' },
-        { value: 'online', label: props.isManagerView ? 'Online' : 'Online' }
+        { value: 'cash', label: props.isManagerView ? 'Cash' : 'Tiền mặt' }
     ];
     return baseOptions;
 });
@@ -1344,11 +1342,9 @@ function getPaymentStatusLabel(status) {
 }
 function getPaymentMethodLabel(method) {
     const labels = {
-        cash: 'Cash',
-        card: 'Card',
-        online: 'Online'
+        cash: 'Cash'
     };
-    return labels[method] || method || 'N/A';
+    return labels[method] || 'Cash';
 }
 function getPaymentStatusBadgeClass(status) {
     const classes = {
@@ -1458,7 +1454,7 @@ async function exportOrders(format = 'csv') {
                 ordersToExport = ordersToExport.concat(pageOrders);
             });
         }
-        :', ordersToExport.length, ordersToExport);
+        console.log('Orders to export:', ordersToExport.length, ordersToExport);
         if (exportFilters.dateFrom || exportFilters.dateTo) {
             const fromDate = exportFilters.dateFrom ? new Date(exportFilters.dateFrom) : null;
             if (fromDate) {
@@ -1468,7 +1464,7 @@ async function exportOrders(format = 'csv') {
             if (toDate) {
                 toDate.setHours(23, 59, 59, 999);
             }
-            , 'to', toDate?.toISOString());
+            console.log('Date range from', fromDate ? fromDate.toISOString() : null, 'to', toDate ? toDate.toISOString() : null);
             ordersToExport = ordersToExport.filter(order => {
                 if (!order.created_at) return false;
                 const orderDate = new Date(order.created_at);
@@ -1480,7 +1476,7 @@ async function exportOrders(format = 'csv') {
                     match = false;
                 }
                 if (!match) {
-                    , 'range:', fromDate?.toISOString(), 'to', toDate?.toISOString(), 'order:', order.id);
+                    console.log('Order out of range:', fromDate?.toISOString(), 'to', toDate?.toISOString(), 'order:', order.id);
                 }
                 return match;
             });
@@ -2330,8 +2326,6 @@ watch([chartDateFrom, chartDateTo], () => {
                     <label>{{ isManagerView ? 'Phương thức thanh toán' : 'Payment Method' }}</label>
                     <select v-model="quickViewOrder.payment_method" @change="updatePaymentStatusHandler" class="form-select">
                   <option value="cash">{{ isManagerView ? 'Tiền mặt' : 'Cash' }}</option>
-                  <option value="card">{{ isManagerView ? 'Thẻ' : 'Card' }}</option>
-                  <option value="online">{{ isManagerView ? 'Online' : 'Online' }}</option>
                 </select>
               </div>
             </div>
@@ -2626,8 +2620,6 @@ watch([chartDateFrom, chartDateTo], () => {
                 <label>Payment Method</label>
                 <select v-model="editForm.payment_method" class="form-select">
                   <option value="cash">Cash</option>
-                  <option value="card">Card</option>
-                  <option value="online">Online</option>
                 </select>
               </div>
             </div>

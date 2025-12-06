@@ -25,7 +25,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   
   File? _selectedImage;
   String? _currentAvatarUrl;
-  bool _isLoading = false;
   
   String _initialName = '';
   String _initialEmail = '';
@@ -104,9 +103,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
 
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-    });
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -148,41 +144,79 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         throw Exception('Dữ liệu người dùng không hợp lệ');
       }
       
+      // Merge user mới với user hiện tại - chỉ cập nhật những trường đã thay đổi
+      // Server có thể chỉ trả về những trường đã cập nhật, không phải tất cả
+      final currentUser = authProvider.currentUser;
+      if (currentUser == null) {
+        throw Exception('Không tìm thấy thông tin người dùng hiện tại');
+      }
+      
+      // Tạo user mới bằng cách merge: giữ lại tất cả từ user cũ, chỉ cập nhật những trường đã thay đổi
+      final finalUser = currentUser.copyWith(
+        // Chỉ cập nhật những trường đã thay đổi
+        name: nameChanged ? updatedUser.name : currentUser.name,
+        email: emailChanged ? updatedUser.email : currentUser.email,
+        phone: phoneChanged ? updatedUser.phone : currentUser.phone,
+        avatar: avatarChanged ? updatedUser.avatar : currentUser.avatar,
+        // Giữ nguyên các trường khác từ user hiện tại
+        username: currentUser.username,
+        address: currentUser.address,
+        roleId: currentUser.roleId,
+        status: currentUser.status,
+        createdAt: currentUser.createdAt,
+      );
+      
+      // Update initial values
+      _initialName = _nameController.text.trim();
+      _initialEmail = _emailController.text.trim();
+      _initialPhone = _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim();
+      if (avatarChanged && finalUser.avatar != null) {
+        _currentAvatarUrl = finalUser.avatar;
+        _initialAvatarUrl = finalUser.avatar;
+        _selectedImage = null;
+      }
+      
+      // Cập nhật user trong AuthService (không notify listeners để tránh loading)
       final authService = AuthService();
-      await authService.updateCurrentUser(updatedUser);
+      try {
+        await authService.updateCurrentUser(finalUser).timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            // Continue anyway - user data is already updated in memory
+          },
+        );
+      } catch (e) {
+        // Continue anyway - user data is already updated in memory
+      }
       
-      authProvider.notifyListeners();
-      
+      // Hiển thị thông báo thành công
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cập nhật thông tin thành công'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      
+      // KHÔNG notify listeners để tránh trigger rebuild và loading
+      // User đã được cập nhật trong AuthService, các màn hình khác sẽ tự động
+      // cập nhật khi người dùng navigate đến hoặc khi cần thiết
+      
+    } catch (e) {
+      String errorMessage = 'Lỗi khi cập nhật thông tin';
+      if (e.toString().contains('timeout') || e.toString().contains('thời gian')) {
+        errorMessage = 'Yêu cầu quá thời gian chờ. Vui lòng kiểm tra kết nối và thử lại.';
+      } else if (e.toString().contains('Không nhận được phản hồi')) {
+        errorMessage = 'Không thể kết nối đến server. Vui lòng thử lại.';
+      } else if (e.toString().contains('không hợp lệ') || e.toString().contains('invalid')) {
+        errorMessage = 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.';
+      } else {
+        errorMessage = e.toString().replaceAll('Exception: ', '');
       }
       
       if (mounted) {
-        Navigator.of(context).pop(true);
-      }
-      
-    } catch (e, stackTrace) {
-      print('EditProfileScreen error: $e');
-      print('Stack trace: $stackTrace');
-      
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        
-        String errorMessage = 'Lỗi khi cập nhật thông tin';
-        if (e.toString().contains('timeout') || e.toString().contains('thời gian')) {
-          errorMessage = 'Yêu cầu quá thời gian chờ. Vui lòng kiểm tra kết nối và thử lại.';
-        } else if (e.toString().contains('Không nhận được phản hồi')) {
-          errorMessage = 'Không thể kết nối đến server. Vui lòng thử lại.';
-        } else if (e.toString().contains('không hợp lệ') || e.toString().contains('invalid')) {
-          errorMessage = 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.';
-        } else {
-          errorMessage = e.toString().replaceAll('Exception: ', '');
-        }
-        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
@@ -468,7 +502,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _saveProfile,
+                    onPressed: _saveProfile,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFF8A00),
                       foregroundColor: Colors.white,
@@ -477,30 +511,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                       elevation: 0,
                     ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.check_circle_outline, size: 20),
-                              SizedBox(width: 8),
-                              const Text(
-                                'Lưu thông tin',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                            ],
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle_outline, size: 20),
+                        SizedBox(width: 8),
+                        const Text(
+                          'Lưu thông tin',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
                           ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -579,3 +604,4 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 }
+

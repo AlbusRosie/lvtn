@@ -122,11 +122,9 @@ class LVTNRestaurantApp extends StatelessWidget {
           if (settings.name == BranchDetailScreen.routeName) {
             final args = settings.arguments;
             Branch branch;
-            int initialTabIndex = 0;
             
             if (args is Map) {
               branch = args['branch'] as Branch;
-              initialTabIndex = args['initialTabIndex'] as int? ?? 0;
             } else {
               branch = args as Branch;
             }
@@ -137,7 +135,6 @@ class LVTNRestaurantApp extends StatelessWidget {
                   child: SafeArea(
                     child: BranchDetailScreen(
                       branch: branch,
-                      initialTabIndex: initialTabIndex,
                     ),
                   ),
                 );

@@ -238,10 +238,25 @@ class ChatService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = response.data;
-        if (responseData is Map<String, dynamic> && responseData['status'] == 'success') {
-          return responseData['data'] ?? {};
+        if (responseData is Map<String, dynamic>) {
+          if (responseData['status'] == 'success') {
+            final data = responseData['data'] ?? {};
+            // Check if data itself indicates failure
+            if (data['success'] == false) {
+              throw Exception(data['message'] ?? 'Failed to execute action');
+            }
+            return data;
+          } else if (responseData['status'] == 'fail' || responseData['status'] == 'error') {
+            throw Exception(responseData['message'] ?? 'Failed to execute action');
+          } else {
+            // Handle direct response without status wrapper
+            if (responseData['success'] == false) {
+              throw Exception(responseData['message'] ?? 'Failed to execute action');
+            }
+            return responseData;
+          }
         } else {
-          throw Exception(responseData['message'] ?? 'Failed to execute action');
+          throw Exception('Invalid response format');
         }
       } else {
         throw Exception('Server error: ${response.statusCode}');

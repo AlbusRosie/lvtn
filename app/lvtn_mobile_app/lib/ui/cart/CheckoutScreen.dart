@@ -10,6 +10,7 @@ import '../../utils/image_utils.dart';
 import '../../ui/cart/CartProvider.dart';
 import '../../constants/app_constants.dart';
 import '../../constants/api_constants.dart';
+import '../../providers/LocationProvider.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final int branchId;
@@ -90,10 +91,59 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
         
         if (refreshedCart != null) {
+          // Get delivery address if order type is delivery
+          String? deliveryAddress;
+          String? deliveryPhone;
+          String? customerName;
+          String? customerPhone;
+          
+          final authService = AuthService();
+          final user = authService.currentUser;
+          
+          if (refreshedCart.orderType == 'delivery') {
+            final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+            deliveryAddress = locationProvider.detailAddress;
+            if (user != null && user.phone != null && user.phone!.isNotEmpty) {
+              deliveryPhone = user.phone;
+              customerPhone = user.phone;
+            }
+          }
+          
+          // Get customer name and phone from user account
+          if (user != null) {
+            if (user.name.isNotEmpty) {
+              customerName = user.name;
+            }
+            if (user.phone != null && user.phone!.isNotEmpty && customerPhone == null) {
+              customerPhone = user.phone;
+            }
+          }
+          
+          // Lấy reservation_id từ CartProvider nếu có
+          final cartProvider = Provider.of<CartProvider>(context, listen: false);
+          final reservationId = cartProvider.reservationId;
+          
+          final body = <String, dynamic>{};
+          if (reservationId != null) {
+            body['reservation_id'] = reservationId;
+          }
+          if (deliveryAddress != null && deliveryAddress.isNotEmpty) {
+            body['delivery_address'] = deliveryAddress;
+          }
+          if (deliveryPhone != null && deliveryPhone.isNotEmpty) {
+            body['delivery_phone'] = deliveryPhone;
+          }
+          if (customerName != null && customerName.isNotEmpty) {
+            body['customer_name'] = customerName;
+          }
+          if (customerPhone != null && customerPhone.isNotEmpty) {
+            body['customer_phone'] = customerPhone;
+          }
           
           final response = await http.post(
             Uri.parse('${ApiConstants.baseUrl}${ApiConstants.checkout(refreshedCart.id)}'),
             headers: ApiConstants.authHeaders(token),
+            body: body.isNotEmpty ? jsonEncode(body) : null,
           );
 
 
@@ -109,7 +159,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               );
 
+              // Clear cart và reservation sau khi checkout thành công
               context.read<CartProvider>().clearCart();
+              context.read<CartProvider>().clearReservation();
               Navigator.of(context).popUntil((route) => route.isFirst);
             }
           } else {
@@ -137,9 +189,59 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           }
           
           if (newCart != null) {
+            // Get delivery address if order type is delivery
+            String? deliveryAddress;
+            String? deliveryPhone;
+            String? customerName;
+            String? customerPhone;
+            
+            final authService = AuthService();
+            final user = authService.currentUser;
+            
+            if (newCart.orderType == 'delivery') {
+              final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+              deliveryAddress = locationProvider.detailAddress;
+              if (user != null && user.phone != null && user.phone!.isNotEmpty) {
+                deliveryPhone = user.phone;
+                customerPhone = user.phone;
+              }
+            }
+            
+            // Get customer name and phone from user account
+            if (user != null) {
+              if (user.name.isNotEmpty) {
+                customerName = user.name;
+              }
+              if (user.phone != null && user.phone!.isNotEmpty && customerPhone == null) {
+                customerPhone = user.phone;
+              }
+            }
+            
+            // Lấy reservation_id từ CartProvider nếu có
+            final cartProvider = Provider.of<CartProvider>(context, listen: false);
+            final reservationId = cartProvider.reservationId;
+            
+            final body = <String, dynamic>{};
+            if (reservationId != null) {
+              body['reservation_id'] = reservationId;
+            }
+            if (deliveryAddress != null && deliveryAddress.isNotEmpty) {
+              body['delivery_address'] = deliveryAddress;
+            }
+            if (deliveryPhone != null && deliveryPhone.isNotEmpty) {
+              body['delivery_phone'] = deliveryPhone;
+            }
+            if (customerName != null && customerName.isNotEmpty) {
+              body['customer_name'] = customerName;
+            }
+            if (customerPhone != null && customerPhone.isNotEmpty) {
+              body['customer_phone'] = customerPhone;
+            }
+            
             final response = await http.post(
               Uri.parse('${ApiConstants.baseUrl}${ApiConstants.checkout(newCart.id)}'),
               headers: ApiConstants.authHeaders(token),
+              body: body.isNotEmpty ? jsonEncode(body) : null,
             );
 
 
@@ -155,7 +257,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 );
 
+                // Clear cart và reservation sau khi checkout thành công
                 context.read<CartProvider>().clearCart();
+                context.read<CartProvider>().clearReservation();
                 Navigator.of(context).popUntil((route) => route.isFirst);
               }
             } else {

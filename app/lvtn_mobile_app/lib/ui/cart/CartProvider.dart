@@ -11,6 +11,8 @@ class CartProvider extends ChangeNotifier {
   String? _error;
   int? _currentBranchId;
   String? _currentBranchName;
+  int? _reservationId;
+  Map<String, dynamic>? _reservationInfo;
 
   Cart? get cart => _cart;
   Cart? get currentCart => _cart;
@@ -20,6 +22,8 @@ class CartProvider extends ChangeNotifier {
   double get total => _cart?.total ?? 0.0;
   int? get currentBranchId => _currentBranchId;
   String? get currentBranchName => _currentBranchName;
+  int? get reservationId => _reservationId;
+  Map<String, dynamic>? get reservationInfo => _reservationInfo;
 
   void setCart(Cart? cart) {
     _cart = cart;
@@ -67,6 +71,20 @@ class CartProvider extends ChangeNotifier {
     _cart = null;
     _error = null;
     _isLoading = false;
+    _reservationId = null;
+    _reservationInfo = null;
+    notifyListeners();
+  }
+
+  void setReservation(int reservationId, Map<String, dynamic>? reservationInfo) {
+    _reservationId = reservationId;
+    _reservationInfo = reservationInfo;
+    notifyListeners();
+  }
+
+  void clearReservation() {
+    _reservationId = null;
+    _reservationInfo = null;
     notifyListeners();
   }
 

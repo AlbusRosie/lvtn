@@ -22,7 +22,12 @@ class StorageService {
   }
 
   Future<void> setString(String key, String value) async {
-    await _prefs?.setString(key, value);
+    await ensureInitialized();
+    if (_prefs != null) {
+      await _prefs!.setString(key, value);
+    } else {
+      throw Exception('StorageService chưa được khởi tạo');
+    }
   }
 
   Future<String?> getString(String key) async {

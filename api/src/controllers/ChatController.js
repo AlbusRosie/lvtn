@@ -134,7 +134,8 @@ async function executeAction(req, res, next) {
             'search_food', 'modify_booking', 'select_branch', 'book_table', 'find_branch', 'view_orders', 'select_time',
             'confirm_reservation_only', 'check_order_status', 'use_existing_cart',
             'select_branch_for_takeaway', 'select_branch_for_booking', 'select_branch_for_delivery',
-            'confirm_delivery_address', 'change_delivery_address', 'use_saved_address', 'enter_delivery_address'
+            'confirm_delivery_address', 'change_delivery_address', 'use_saved_address', 'enter_delivery_address',
+            'checkout_cart'
         ];
         if (!allowedActions.includes(action)) {
             throw new ApiError(400, 'Invalid action');
@@ -150,8 +151,14 @@ async function executeAction(req, res, next) {
         switch (action) {
             case 'confirm_booking':
                 try {
+                    if (!user_id) {
+                        throw new Error('Bạn cần đăng nhập để đặt bàn. Vui lòng đăng nhập và thử lại.');
+                    }
+                    console.log('[ChatController] confirm_booking - user_id:', user_id);
+                    console.log('[ChatController] confirm_booking - data:', JSON.stringify(data, null, 2));
                     const BookingHandler = require('../services/chat/BookingHandler');
                     const reservation = await BookingHandler.createActualReservation(user_id, data);
+                    console.log('[ChatController] confirm_booking - reservation created:', reservation?.id);
                     const CartService = require('../services/CartService');
                     let existingCart = null;
                     try {
@@ -249,6 +256,8 @@ async function executeAction(req, res, next) {
                     } catch (analyticsError) {
                         }
                 } catch (error) {
+                    console.error('[ChatController] confirm_booking - Error:', error);
+                    console.error('[ChatController] confirm_booking - Error stack:', error.stack);
                     result.message = `❌ Không thể đặt bàn: ${error.message}`;
                     result.success = false;
                     result.data = { error: error.message };
@@ -400,31 +409,52 @@ async function executeAction(req, res, next) {
                     try {
                         const ConversationService = require('../services/chat/ConversationService');
                         const conversationId = req.body.conversation_id || req.query.conversation_id;
+                        const deliveryAddress = data.delivery_address || null;
                         if (conversationId) {
                             await ConversationService.updateConversationContext(conversationId, {
                                 lastBranchId: data.branch_id,
                                 lastBranch: data.branch_name || data.branch,
                                 lastIntent: 'order_delivery',
-                                lastDeliveryAddress: data.delivery_address || null
+                                lastDeliveryAddress: deliveryAddress
                             }, user_id);
                         }
-                        result.message = '';
+                        const branchName = data.branch_name || data.branch || 'Chi nhánh';
+                        result.message = `✅ Đã chọn chi nhánh: **${branchName}**\n\n📍 **Địa chỉ giao hàng:** ${deliveryAddress || 'Chưa có'}\n\n🍽️ **Bạn muốn làm gì tiếp theo?**\n\nBạn có thể xem menu và chọn món để đặt giao hàng.`;
+                        result.success = true;
                         result.data = {
                             branch_id: data.branch_id,
-                            branch_name: data.branch_name || data.branch,
+                            branch_name: branchName,
                             order_type: 'delivery',
-                            delivery_address: data.delivery_address || null,
-                            action: 'navigate_to_delivery_menu'
+                            delivery_address: deliveryAddress,
+                            action: 'navigate_to_delivery_menu',
+                            suggestions: [
+                                {
+                                    text: '📋 Xem menu',
+                                    action: 'view_menu',
+                                    data: {
+                                        branch_id: data.branch_id,
+                                        branch_name: branchName,
+                                        order_type: 'delivery',
+                                        delivery_address: deliveryAddress
+                                    }
+                                },
+                                {
+                                    text: '🍽️ Đặt món ngay',
+                                    action: 'order_food',
+                                    data: {
+                                        branch_id: data.branch_id,
+                                        branch_name: branchName,
+                                        order_type: 'delivery',
+                                        delivery_address: deliveryAddress
+                                    }
+                                }
+                            ]
                         };
                     } catch (error) {
-                        result.message = '';
-                        result.data = {
-                            branch_id: data.branch_id,
-                            branch_name: data.branch_name || data.branch,
-                            order_type: 'delivery',
-                            delivery_address: data.delivery_address || null,
-                            action: 'navigate_to_delivery_menu'
-                        };
+                        console.error('[ChatController] select_branch_for_delivery error:', error);
+                        result.message = `❌ Không thể xử lý: ${error.message}`;
+                        result.success = false;
+                        result.data = { error: error.message };
                     }
                 } else {
                     result.message = '❌ Không tìm thấy thông tin chi nhánh. Vui lòng thử lại.';
@@ -749,9 +779,146 @@ async function executeAction(req, res, next) {
                     result.data = { error: error.message };
                 }
                 break;
+            case 'checkout_cart':
+                if (!user_id) {
+                    result.message = '❌ Bạn cần đăng nhập để đặt hàng. Vui lòng đăng nhập và thử lại.';
+                    result.success = false;
+                    result.data = { error: 'User not authenticated' };
+                    break;
+                }
+                try {
+                    const CartService = require('../services/CartService');
+                    const ConversationService = require('../services/chat/ConversationService');
+                    const conversationId = req.body.conversation_id || req.query.conversation_id;
+                    
+                    // Get delivery address from context or data
+                    let deliveryAddress = data.delivery_address || null;
+                    let deliveryPhone = data.delivery_phone || null;
+                    let customerName = data.customer_name || null;
+                    let customerPhone = data.customer_phone || null;
+                    
+                    if (!deliveryAddress && conversationId) {
+                        try {
+                            const conversation = await knex('chat_conversations')
+                                .where('session_id', conversationId)
+                                .where('user_id', user_id)
+                                .first();
+                            if (conversation && conversation.context_data) {
+                                const context = typeof conversation.context_data === 'string' 
+                                    ? JSON.parse(conversation.context_data) 
+                                    : conversation.context_data;
+                                deliveryAddress = context?.lastDeliveryAddress || context?.deliveryAddress || null;
+                            }
+                        } catch (error) {
+                            console.error('[ChatController] Error getting conversation context:', error);
+                        }
+                    }
+                    
+                    if (!data.cart_id) {
+                        // Try to find user's cart for the branch
+                        const branchId = data.branch_id;
+                        if (!branchId) {
+                            throw new Error('Branch ID is required');
+                        }
+                        const cart = await CartService.getUserCart(user_id, branchId, null);
+                        if (!cart || cart.items.length === 0) {
+                            result.message = '❌ Giỏ hàng của bạn đang trống. Vui lòng thêm món vào giỏ hàng trước khi đặt hàng.';
+                            result.success = false;
+                            result.data = {
+                                suggestions: [
+                                    {
+                                        text: '📋 Xem menu',
+                                        action: 'view_menu',
+                                        data: { branch_id: branchId, order_type: data.order_type || 'delivery' }
+                                    }
+                                ]
+                            };
+                            break;
+                        }
+                        data.cart_id = cart.id;
+                    }
+                    
+                    // Validate delivery address for delivery orders
+                    const cart = await CartService.getCartById(data.cart_id);
+                    if (cart.order_type === 'delivery' && !deliveryAddress) {
+                        result.message = '❌ Địa chỉ giao hàng là bắt buộc cho đơn hàng giao hàng. Vui lòng cung cấp địa chỉ giao hàng.';
+                        result.success = false;
+                        result.data = {
+                            suggestions: [
+                                {
+                                    text: '📍 Nhập địa chỉ giao hàng',
+                                    action: 'enter_delivery_address',
+                                    data: {}
+                                }
+                            ]
+                        };
+                        break;
+                    }
+                    
+                    // Get user info for customer name and phone
+                    if (!customerName || !customerPhone) {
+                        const UserService = require('../services/UserService');
+                        const user = await UserService.getUserById(user_id);
+                        if (user) {
+                            customerName = customerName || user.name || null;
+                            customerPhone = customerPhone || user.phone || null;
+                        }
+                    }
+                    
+                    const checkoutResult = await CartService.checkout(
+                        data.cart_id,
+                        data.reservation_id || null,
+                        deliveryAddress,
+                        deliveryPhone,
+                        customerName,
+                        customerPhone
+                    );
+                    
+                    const itemsList = cart.items.map(item => {
+                        const itemTotal = (item.price || 0) * (item.quantity || 0);
+                        return `• ${item.quantity || 0}x ${item.product_name || 'Món'} - ${new Intl.NumberFormat('vi-VN').format(itemTotal)}đ`;
+                    }).join('\n');
+                    
+                    const BranchService = require('../services/BranchService');
+                    const branch = await BranchService.getBranchById(cart.branch_id);
+                    const branchName = branch?.name || 'Chi nhánh';
+                    
+                    let successMessage = `✅ **Đặt hàng thành công!**\n\n📋 **Mã đơn hàng:** #${checkoutResult.order_id}\n📍 **Chi nhánh:** ${branchName}\n\n**Danh sách món:**\n${itemsList}\n\n💰 **Tổng tiền:** ${new Intl.NumberFormat('vi-VN').format(checkoutResult.total)}đ\n\n`;
+                    
+                    if (cart.order_type === 'delivery') {
+                        successMessage += `🚚 **Địa chỉ giao hàng:** ${deliveryAddress}\n\n📦 Đơn hàng sẽ được giao đến địa chỉ của bạn trong thời gian sớm nhất.`;
+                    } else if (cart.order_type === 'takeaway') {
+                        successMessage += `📦 Bạn có thể đến chi nhánh để lấy đơn hàng.`;
+                    } else {
+                        successMessage += `📦 Đơn hàng sẽ được chuẩn bị và phục vụ tại nhà hàng.`;
+                    }
+                    
+                    result.message = successMessage;
+                    result.success = true;
+                    result.data = {
+                        order_id: checkoutResult.order_id,
+                        total: checkoutResult.total,
+                        order_type: cart.order_type,
+                        suggestions: []
+                    };
+                } catch (error) {
+                    console.error('[ChatController] checkout_cart error:', error);
+                    result.message = `❌ Không thể đặt hàng: ${error.message}`;
+                    result.success = false;
+                    result.data = { error: error.message };
+                }
+                break;
             default:
                 result.message = `Action ${action} executed successfully`;
                 result.data = data;
+        }
+        // If action failed, return error response instead of success
+        if (result.success === false) {
+            return res.status(400).json({
+                status: 'fail',
+                message: result.message || 'Action execution failed',
+                data: result.data || {}
+            });
         }
         res.json(success(result, 'Action executed successfully'));
     } catch (error) {

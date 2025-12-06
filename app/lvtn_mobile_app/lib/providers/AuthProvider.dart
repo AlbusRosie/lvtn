@@ -88,4 +88,11 @@ class AuthProvider extends ChangeNotifier {
       rethrow;
     }
   }
+
+  /// Cập nhật thông tin user hiện tại và notify listeners
+  /// Method này được sử dụng khi user được cập nhật từ bên ngoài (ví dụ: EditProfileScreen)
+  Future<void> updateCurrentUser(User user) async {
+    await _authService.updateCurrentUser(user);
+    notifyListeners();
+  }
 }

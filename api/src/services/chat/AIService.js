@@ -110,7 +110,7 @@ class AIService {
                     };
                 }
             }
-            if (/(chi nhánh gần nhất|gần nhất|gần tôi|nearest|closest|chi nhanh gan nhat|gan nhat|gan toi)/i.test(message)) {
+            if (/(chi nhánh gần nhất|gần nhất|gần tôi|nearest|closest|chi nhanh gan nhat|gan nhat|gan toi|gan dia chi|gần địa chỉ|chi nhanh gan dia chi|chi nhánh gần địa chỉ)/i.test(message)) {
                 return {
                     intent: 'find_nearest_branch',
                     entities: {},
@@ -934,7 +934,7 @@ Dựa vào kết quả trên, hãy trả lời khách hàng một cách TỰ NHI
     _extractIntentFromMessage(aiResponse, userMessage) {
         const lower = aiResponse.toLowerCase();
         const userLower = userMessage.toLowerCase();
-        if (/(chi nhánh gần nhất|gần nhất|gần tôi|nearest|closest|chi nhanh gan nhat|gan nhat|gan toi)/i.test(userLower)) {
+        if (/(chi nhánh gần nhất|gần nhất|gần tôi|nearest|closest|chi nhanh gan nhat|gan nhat|gan toi|gan dia chi|gần địa chỉ|chi nhanh gan dia chi|chi nhánh gần địa chỉ)/i.test(userLower)) {
             return 'find_nearest_branch';
         }
         if (/(giao hàng|giao hang|delivery|đặt đơn giao|dat don giao)/i.test(userLower)) {

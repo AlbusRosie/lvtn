@@ -1,12 +1,11 @@
 <template>
   <div class="create-order-page">
-    <!-- Main Content Area -->
     <div class="create-order-main-content">
-      <!-- Main Tabs: Tables and Menu -->
       <div class="main-tabs">
         <button 
-          :class="['main-tab-btn', { active: activeMainTab === 'tables' }]"
-          @click="activeMainTab = 'tables'"
+          :class="['main-tab-btn', { active: activeMainTab === 'tables', disabled: hasDeliveryInfo }]"
+          @click="!hasDeliveryInfo && (activeMainTab = 'tables')"
+          :disabled="hasDeliveryInfo"
         >
           <i class="fas fa-table"></i> Select Table
           <span v-if="availableTables.length > 0" class="tab-badge">{{ availableTables.length }}</span>
@@ -191,8 +190,8 @@
             <div
               v-for="table in filteredTables"
               :key="table.id"
-              :class="['table-card', { 'selected': selectedTable == table.id, 'available': table.isAvailable }]"
-              @click="selectTable(table)"
+              :class="['table-card', { 'selected': selectedTable == table.id, 'available': table.isAvailable, 'disabled': hasDeliveryInfo }]"
+              @click="!hasDeliveryInfo && selectTable(table)"
             >
               <!-- Normal View -->
               <div v-if="selectedTable != table.id" class="table-card-normal">
@@ -245,7 +244,6 @@
     </div>
     <!-- Right Sidebar - Redesigned -->
     <div class="sidebar-right">
-      <!-- Order Info Section - Compact -->
       <div class="order-info-section">
         <div class="order-info-header">
           <h4><i class="fas fa-shopping-cart"></i> Order</h4>
@@ -292,21 +290,18 @@
             </div>
           </div>
           <!-- Delivery Info Form (for takeaway/delivery) -->
-          <div class="delivery-info-section-sidebar">
-            <div class="delivery-form-row-sidebar-full">
-              <div class="delivery-form-group-sidebar-full">
-                <label><i class="fas fa-map-marker-alt"></i> Delivery Address *</label>
-                <input 
-                  v-model="deliveryAddressDetail" 
-                  type="text" 
-                  class="delivery-form-input-sidebar"
-                  placeholder="Nhập địa chỉ để tìm kiếm..."
-                />
-                <small class="mapbox-hint">
-                  <i class="fas fa-map-marker-alt"></i> Sử dụng Mapbox Autofill để tìm địa chỉ
-                </small>
-              </div>
-            </div>
+          <div v-if="!selectedTableInfo" class="info-row delivery-address-row">
+            <label><i class="fas fa-map-marker-alt"></i> Delivery Address *</label>
+            <input 
+              v-model="deliveryAddressDetail" 
+              type="text" 
+              class="form-input-compact"
+              placeholder="Nhập địa chỉ để tìm kiếm..."
+              @input="handleAddressInput"
+            />
+            <small class="mapbox-hint">
+              <i class="fas fa-map-marker-alt"></i> Sử dụng Mapbox Autofill để tìm địa chỉ
+            </small>
             <div v-if="hasDeliveryInfo" class="delivery-info-badge-sidebar">
               <i class="fas fa-info-circle"></i>
               <span>Takeaway/delivery order</span>
@@ -314,7 +309,6 @@
           </div>
         </div>
       </div>
-      <!-- Cart Items Section - Scrollable -->
       <div class="cart-section">
         <div v-if="cartItems.length === 0" class="empty-cart">
           <i class="fas fa-shopping-cart"></i>
@@ -385,20 +379,6 @@
           <div class="summary-row-compact total-row">
             <span class="total-label">Total:</span>
             <span class="total-amount">{{ formatCurrency(total) }}</span>
-          </div>
-        </div>
-        <!-- Payment Methods -->
-        <div class="payment-methods-section">
-          <div class="methods-grid">
-            <button
-              v-for="method in paymentMethods"
-              :key="method.id"
-              :class="['method-btn', { active: selectedPaymentMethod === method.id }]"
-              @click="selectPaymentMethod(method.id)"
-              :title="method.name"
-            >
-              <i :class="method.icon"></i>
-            </button>
           </div>
         </div>
         <!-- Create Order Button -->
@@ -925,10 +905,7 @@ const productToppings = ref([]);
 const productOptions = ref([]); 
 const selectedOptions = ref({}); 
 const paymentMethods = [
-  { id: 'cash', name: 'Cash', icon: 'fas fa-money-bill-wave' },
-  { id: 'card', name: 'Card', icon: 'fas fa-credit-card' },
-  { id: 'bank_transfer', name: 'Bank transfer', icon: 'fas fa-university' },
-  { id: 'e_wallet', name: 'E-wallet', icon: 'fas fa-wallet' }
+  { id: 'cash', name: 'Cash', icon: 'fas fa-money-bill-wave' }
 ];
 const selectedPaymentMethod = ref('cash');
 const customerName = ref('');
@@ -1282,8 +1259,17 @@ async function selectTable(table) {
     selectedTable.value = '';
     selectedTableInfo.value = null;
   } else {
+    // Clear delivery address when selecting a table
+    deliveryAddressDetail.value = '';
     selectedTable.value = table.id;
     selectedTableInfo.value = table;
+  }
+}
+function handleAddressInput() {
+  // Clear table selection when entering address
+  if (deliveryAddressDetail.value.trim()) {
+    selectedTable.value = '';
+    selectedTableInfo.value = null;
   }
 }
 async function loadBranchInfo(branchId) {
@@ -1926,7 +1912,7 @@ async function placeOrder() {
       tax: tax.value,
       discount: discount.value,
       payment_method: selectedPaymentMethod.value || 'cash',
-      status: 'preparing', 
+      status: 'pending', 
       payment_status: 'pending',
       items: items,
       reservation_date: !hasDeliveryInfo.value && selectedTable.value && reservationDate.value ? reservationDate.value : null,
@@ -2151,6 +2137,15 @@ onMounted(async () => {
 .main-tab-btn.active {
   background: #F59E0B;
   color: white;
+}
+.main-tab-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.main-tab-btn.disabled:hover {
+  background: transparent;
+  color: #64748B;
 }
 .main-tab-btn i {
   font-size: 16px;
@@ -2812,6 +2807,14 @@ onMounted(async () => {
   border-color: #F59E0B;
   background: #FFF7ED;
 }
+.table-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.table-card.disabled:hover {
+  border-color: #E2E8F0;
+}
 .table-card-header {
   display: flex;
   justify-content: space-between;
@@ -3355,6 +3358,24 @@ onMounted(async () => {
   font-weight: 700;
   color: #D97706;
   font-size: 13px;
+}
+.delivery-address-row {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #E2E8F0;
+}
+.mapbox-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: #64748B;
+  font-weight: 500;
+}
+.mapbox-hint i {
+  color: #F59E0B;
+  font-size: 10px;
 }
 .table-details {
   font-size: 11px;

@@ -57,7 +57,7 @@
           <h3>Address Information</h3>
         </div>
         <div class="card-content">
-          <div class="form-group">
+          <div class="form-group" style="position: relative;">
             <label for="address_detail">Tìm kiếm địa chỉ *</label>
             <input
               id="address_detail"
@@ -69,12 +69,34 @@
               autocomplete="address-line1"
               placeholder="Nhập địa chỉ để tìm kiếm..."
               @input="onAddressInput"
+              @focus="onAddressFocus"
+              @blur="onAddressBlur"
             />
+            <!-- Autocomplete suggestions dropdown -->
+            <div v-if="showSuggestions && autocompleteSuggestions.length > 0" class="autocomplete-suggestions">
+              <div
+                v-for="(suggestion, index) in autocompleteSuggestions"
+                :key="index"
+                class="suggestion-item"
+                @mousedown="selectAddress(suggestion)"
+              >
+                <i class="fas fa-map-marker-alt"></i>
+                <div class="suggestion-text">
+                  <div class="suggestion-main">{{ suggestion.place_name || suggestion.text }}</div>
+                  <div class="suggestion-context" v-if="suggestion.context">
+                    {{ suggestion.context.map(c => c.text).join(', ') }}
+                  </div>
+                </div>
+              </div>
+            </div>
             <small v-if="mapboxInitialized" class="mapbox-hint">
               <i class="fas fa-map-marker-alt"></i> Mapbox Autofill đã sẵn sàng - Gõ để tìm địa chỉ
             </small>
             <small v-else-if="loadingMapbox" class="mapbox-loading">
               <i class="fas fa-spinner fa-spin"></i> Đang tải Mapbox Autofill...
+            </small>
+            <small v-else-if="!mapboxKey" class="mapbox-error" style="color: #ef4444;">
+              <i class="fas fa-exclamation-triangle"></i> Mapbox API key chưa được cấu hình
             </small>
             <small v-else class="mapbox-error" style="color: #ef4444;">
               <i class="fas fa-exclamation-triangle"></i> Mapbox Autofill chưa sẵn sàng
@@ -224,7 +246,234 @@
                 id="branchImage"
                 ref="imageInput"
                 type="file"
-                accept="image
+                accept="image/*"
+                @change="handleImageChange"
+                class="image-input"
+              />
+              <div class="image-preview" v-if="imagePreview">
+                <img :src="imagePreview" alt="Preview" />
+                <button type="button" @click="removeImage" class="remove-image-btn">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <div class="image-placeholder" v-else>
+                <i class="fas fa-image"></i>
+                <span>Chọn ảnh chi nhánh</span>
+              </div>
+            </div>
+            <div class="image-info">
+              <i class="fas fa-info-circle"></i>
+              <small>Định dạng: JPG, PNG, GIF, WebP. Kích thước tối đa: 5MB</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" @click="$emit('cancel')" class="btn btn-cancel">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-submit" :disabled="isSubmitting">
+          {{ isEditing ? 'Update Branch' : 'Create Branch' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</template>
+<script>
+export default {
+  name: 'BranchForm',
+  props: {
+    branch: {
+      type: Object,
+      default: null
+    },
+    isEditing: {
+      type: Boolean,
+      default: false
+    }
+  },
+  data() {
+    return {
+      form: {
+        name: '',
+        phone: '',
+        email: '',
+        address_detail: '',
+        latitude: null,
+        longitude: null,
+        opening_hours: null,
+        close_hours: null,
+        description: '',
+        status: 'active'
+      },
+      addressParts: {
+        street: '',
+        neighborhood: '',
+        district: '',
+        city: ''
+      },
+      selectedImage: null,
+      imagePreview: null,
+      coordinateError: null,
+      coordinateWarning: null,
+      mapboxKey: import.meta.env.VITE_MAPBOX_KEY || '',
+      geocodeTimer: null,
+      originalBranchData: null,
+      isSubmitting: false,
+      mapboxInitialized: false,
+      loadingMapbox: false,
+      addressSelectedFromMapbox: false,
+      autocompleteSuggestions: [],
+      showSuggestions: false,
+      mapboxAutofill: null
+    };
+  },
+  mounted() {
+    this.initMapboxAutofill();
+    if (this.branch) {
+      this.originalBranchData = { ...this.branch };
+      this.form = {
+        name: this.branch.name || '',
+        phone: this.branch.phone || '',
+        email: this.branch.email || '',
+        address_detail: this.branch.address_detail || '',
+        latitude: this.branch.latitude ?? null,
+        longitude: this.branch.longitude ?? null,
+        opening_hours: this.branch.opening_hours ?? null,
+        close_hours: this.branch.close_hours ?? null,
+        description: this.branch.description || '',
+        status: this.branch.status || 'active'
+      };
+      if (this.branch.image) {
+        this.imagePreview = this.getImageUrl(this.branch.image);
+      }
+    }
+  },
+  methods: {
+    async initMapboxAutofill() {
+      this.loadingMapbox = true;
+      try {
+        let apiKey = '';
+        
+        // Priority 1: Try to get from MapService (backend API)
+        try {
+          const MapService = (await import('@/services/MapService')).default;
+          apiKey = await MapService.getMapboxApiKey();
+        } catch (error) {
+          console.warn('Could not fetch Mapbox API key from service:', error);
+        }
+        
+        // Priority 2: Fallback to environment variable
+        if (!apiKey) {
+          apiKey = import.meta.env.VITE_MAPBOX_KEY || '';
+        }
+        
+        if (!apiKey) {
+          console.warn('Mapbox API key not found. Please configure MAPBOX_KEY_PUBLIC or MAPBOX_KEY in backend .env file');
+          this.loadingMapbox = false;
+          return;
+        }
+        
+        this.mapboxKey = apiKey;
+        
+        // Validate the API key by making a simple request
+        const testUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/test.json?access_token=${this.mapboxKey}&limit=1`;
+        const response = await fetch(testUrl);
+        if (response.ok || response.status === 200) {
+          this.mapboxInitialized = true;
+          console.log('Mapbox Autofill initialized successfully');
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Mapbox API key validation failed:', errorData);
+        }
+      } catch (error) {
+        console.error('Error initializing Mapbox:', error);
+      } finally {
+        this.loadingMapbox = false;
+      }
+    },
+    onAddressFocus() {
+      this.showSuggestions = this.autocompleteSuggestions.length > 0;
+    },
+    onAddressBlur() {
+      // Use setTimeout to allow click on suggestion before closing
+      setTimeout(() => {
+        this.showSuggestions = false;
+      }, 200);
+    },
+    async onAddressInput(event) {
+      const query = event.target.value.trim();
+      if (query.length < 3) {
+        this.autocompleteSuggestions = [];
+        this.showSuggestions = false;
+        return;
+      }
+      if (!this.mapboxKey) {
+        return;
+      }
+      try {
+        const encodedQuery = encodeURIComponent(query);
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${this.mapboxKey}&country=VN&limit=5`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          this.autocompleteSuggestions = data.features || [];
+          this.showSuggestions = this.autocompleteSuggestions.length > 0;
+        }
+      } catch (error) {
+        console.error('Error fetching suggestions:', error);
+      }
+      // Also try to get coordinates for the current input
+      await this.tryGetCoordinatesFromAutofill(event.target);
+    },
+    async selectAddress(feature) {
+      if (!feature) return;
+      this.form.address_detail = feature.place_name || feature.text || '';
+      this.addressSelectedFromMapbox = true;
+      this.parseAddressParts(feature);
+      const coordinates = feature.geometry.coordinates;
+      this.form.longitude = coordinates[0];
+      this.form.latitude = coordinates[1];
+      this.autocompleteSuggestions = [];
+      this.showSuggestions = false;
+      await this.$nextTick();
+      this.validateCoordinates();
+    },
+    getImageUrl(imagePath) {
+      if (!imagePath) return null;
+      if (imagePath.startsWith('http')) return imagePath;
+      if (imagePath.startsWith('/public')) {
+        return `${window.location.origin}${imagePath}`;
+      }
+      return `${window.location.origin}/public/uploads/${imagePath}`;
+    },
+    handleImageChange(event) {
+      const file = event.target.files[0];
+      if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          this.$toast?.error('Kích thước file không được vượt quá 5MB');
+          return;
+        }
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+          this.$toast?.error('Chỉ chấp nhận file ảnh (JPG, PNG, GIF, WebP)');
+          return;
+        }
+        this.selectedImage = file;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.imagePreview = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    },
+    removeImage() {
+      this.selectedImage = null;
+      this.imagePreview = null;
+      if (this.$refs.imageInput) {
+        this.$refs.imageInput.value = '';
+      }
+    },
     parseAddressParts(feature) {
       if (!feature) {
         this.addressParts = { street: '', neighborhood: '', district: '', city: '' };
@@ -360,7 +609,7 @@
         this.geocodeTimer = setTimeout(async () => {
           try {
             const encodedAddress = encodeURIComponent(address);
-            const url = `https:
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${this.mapboxKey}`;
             const response = await fetch(url);
             if (response.ok) {
               const data = await response.json();
@@ -400,7 +649,7 @@
       const HCM_LNG_MAX = 107.0;
       if (lat < HCM_LAT_MIN || lat > HCM_LAT_MAX || 
           lng < HCM_LNG_MIN || lng > HCM_LNG_MAX) {
-        this.coordinateWarning = `⚠️ Cảnh báo: Tọa độ (${lat.toFixed(6)}, ${lng.toFixed(6)}) có vẻ nằm ngoài phạm vi Hồ Chí Minh. Vui lòng kiểm tra lại!`;
+        this.coordinateWarning = 'Cảnh báo: Tọa độ (' + lat.toFixed(6) + ', ' + lng.toFixed(6) + ') có vẻ nằm ngoài phạm vi Hồ Chí Minh. Vui lòng kiểm tra lại!';
         if (lat < 8 || lat > 12 || lng < 104 || lng > 110) {
           this.coordinateError = 'Tọa độ quá xa so với Hồ Chí Minh. Vui lòng kiểm tra lại địa chỉ!';
         }
@@ -725,6 +974,57 @@
 }
 .mapbox-loading i {
   margin-right: 4px;
+}
+.autocomplete-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin-top: 4px;
+}
+.suggestion-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #F3F4F6;
+  transition: background-color 0.2s ease;
+}
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+.suggestion-item:hover {
+  background-color: #F9FAFB;
+}
+.suggestion-item i {
+  color: #3B82F6;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.suggestion-text {
+  flex: 1;
+  min-width: 0;
+}
+.suggestion-main {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1F2937;
+  margin-bottom: 4px;
+}
+.suggestion-context {
+  font-size: 12px;
+  color: #6B7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .image-status {
   margin-top: 8px;

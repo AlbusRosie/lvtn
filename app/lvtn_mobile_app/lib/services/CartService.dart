@@ -251,12 +251,33 @@ class CartService {
     required String token,
     required int cartId,
     int? reservationId,
+    String? deliveryAddress,
+    String? deliveryPhone,
+    String? customerName,
+    String? customerPhone,
   }) async {
     try {
+      final body = <String, dynamic>{};
+      if (reservationId != null) {
+        body['reservation_id'] = reservationId;
+      }
+      if (deliveryAddress != null && deliveryAddress.isNotEmpty) {
+        body['delivery_address'] = deliveryAddress;
+      }
+      if (deliveryPhone != null && deliveryPhone.isNotEmpty) {
+        body['delivery_phone'] = deliveryPhone;
+      }
+      if (customerName != null && customerName.isNotEmpty) {
+        body['customer_name'] = customerName;
+      }
+      if (customerPhone != null && customerPhone.isNotEmpty) {
+        body['customer_phone'] = customerPhone;
+      }
+      
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}${ApiConstants.checkout(cartId)}'),
         headers: ApiConstants.authHeaders(token),
-        body: reservationId != null ? jsonEncode({'reservation_id': reservationId}) : null,
+        body: body.isNotEmpty ? jsonEncode(body) : null,
       );
 
       if (response.statusCode == 200) {

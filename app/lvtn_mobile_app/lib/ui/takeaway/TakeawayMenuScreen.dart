@@ -989,7 +989,7 @@ class _TakeawayMenuScreenState extends State<TakeawayMenuScreen> {
         widget.branch.id,
         product.id,
         quantity: quantity,
-        orderType: widget.orderType == 'delivery' ? 'delivery' : 'delivery',
+        orderType: widget.orderType,  // 'takeaway' hoặc 'delivery'
         selectedOptions: selectedOptions,
         specialInstructions: specialRequest,
       );
@@ -1040,10 +1040,43 @@ class _TakeawayMenuScreenState extends State<TakeawayMenuScreen> {
       }
 
       final cart = cartProvider.cart!;
+      
+      // Get delivery address and phone for delivery orders
+      String? deliveryAddress;
+      String? deliveryPhone;
+      String? customerName;
+      String? customerPhone;
+      
+      final authService = AuthService();
+      final user = authService.currentUser;
+      
+      if (widget.orderType == 'delivery') {
+        deliveryAddress = widget.deliveryAddress;
+        // Use user phone for delivery phone if available
+        if (user != null && user.phone != null && user.phone!.isNotEmpty) {
+          deliveryPhone = user.phone;
+          customerPhone = user.phone;
+        }
+      }
+      
+      // Get customer name and phone from user account (optional, can be overridden)
+      if (user != null) {
+        if (user.name.isNotEmpty) {
+          customerName = user.name;
+        }
+        if (user.phone != null && user.phone!.isNotEmpty && customerPhone == null) {
+          customerPhone = user.phone;
+        }
+      }
+      
       final checkoutResult = await CartService.checkout(
         token: token,
         cartId: cart.id,
         reservationId: null,
+        deliveryAddress: deliveryAddress,
+        deliveryPhone: deliveryPhone,
+        customerName: customerName,
+        customerPhone: customerPhone,
       );
 
       if (bottomSheetContext != null && Navigator.canPop(bottomSheetContext)) {

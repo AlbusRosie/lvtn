@@ -188,10 +188,16 @@ async function getBranchStatistics() {
     return result;
 }
 async function getActiveBranches() {
-    return branchRepository()
-        .select('*')
-        .where('status', 'active')
-        .orderBy('name', 'asc');
+    try {
+        const branches = await branchRepository()
+            .select('*')
+            .where('status', 'active')
+            .orderBy('name', 'asc');
+        return branches || [];
+    } catch (error) {
+        console.error('Error in getActiveBranches service:', error);
+        throw error;
+    }
 }
 async function getManagers() {
     return knex('users')

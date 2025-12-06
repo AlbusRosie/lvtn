@@ -1037,10 +1037,28 @@ class _ReservationMenuScreenState extends State<ReservationMenuScreen> {
       }
 
       final cart = cartProvider.cart!;
+      
+      // Get customer name and phone from user account
+      String? customerName;
+      String? customerPhone;
+      final authService = AuthService();
+      final user = authService.currentUser;
+      
+      if (user != null) {
+        if (user.name.isNotEmpty) {
+          customerName = user.name;
+        }
+        if (user.phone != null && user.phone!.isNotEmpty) {
+          customerPhone = user.phone;
+        }
+      }
+      
       await CartService.checkout(
         token: token,
         cartId: cart.id,
         reservationId: widget.reservationId,
+        customerName: customerName,
+        customerPhone: customerPhone,
       );
 
       if (bottomSheetContext != null && Navigator.canPop(bottomSheetContext)) {

@@ -24,6 +24,9 @@ class OrderService {
                 reservation_duration = null,
                 guest_count = null
             } = orderData;
+            
+            // Force payment method to be cash only
+            const finalPaymentMethod = 'cash';
             if (!branch_id) {
                 throw new Error('Branch ID is required');
             }
@@ -40,7 +43,7 @@ class OrderService {
                     delivery_address: delivery_address,
                     delivery_phone: customer_phone || null,
                     total: total || 0,
-                    payment_method: payment_method,
+                    payment_method: finalPaymentMethod,
                     payment_status: payment_status,
                     status: status,
                     notes: customer_name ? `Khách hàng: ${customer_name}` : null,
@@ -59,6 +62,7 @@ class OrderService {
                 if (table_id && reservation_date && reservation_time && reservation_duration) {
                     const TableService = require('./TableService');
                     try {
+                        // Pass transaction to createTableSchedule to avoid lock timeout
                         await TableService.createTableSchedule({
                             table_id: table_id,
                             reservation_id: null,
@@ -67,7 +71,7 @@ class OrderService {
                             duration_minutes: reservation_duration || 120,
                             status: 'reserved',
                             notes: customer_name ? `Đơn hàng #${orderId} - Khách: ${customer_name}` : `Đơn hàng #${orderId}`
-                        });
+                        }, trx);
                     } catch (scheduleError) {
                     }
                 }
@@ -360,7 +364,11 @@ class OrderService {
                 payment_status: paymentStatus
             };
             if (paymentMethod) {
-                updateData.payment_method = paymentMethod;
+                // Only allow cash payment method
+                updateData.payment_method = 'cash';
+            } else if (paymentStatus === 'paid') {
+                // Default to cash if payment status is paid and no method specified
+                updateData.payment_method = 'cash';
             }
             const result = await knex('orders')
                 .where('id', orderId)
@@ -473,21 +481,26 @@ class OrderService {
                 )
                 .join('products', 'order_details.product_id', 'products.id')
                 .join('orders', 'order_details.order_id', 'orders.id')
+                .whereNotIn('orders.status', ['cancelled'])
                 .groupBy('products.id', 'products.name', 'products.image');
             if (filters.branch_id) {
-                query = query.where('orders.branch_id', filters.branch_id);
+                query = query.where('orders.branch_id', parseInt(filters.branch_id));
             }
             if (filters.date_from) {
                 query = query.where('orders.created_at', '>=', filters.date_from);
             }
             if (filters.date_to) {
-                query = query.where('orders.created_at', '<=', filters.date_to);
+                // Add time to end of day for date_to
+                const dateTo = new Date(filters.date_to);
+                dateTo.setHours(23, 59, 59, 999);
+                query = query.where('orders.created_at', '<=', dateTo.toISOString());
             }
             const products = await query
                 .orderBy('total_quantity', 'desc')
-                .limit(limit);
-            return products;
+                .limit(parseInt(limit) || 10);
+            return products || [];
         } catch (error) {
+            console.error('Error in getTopProducts:', error);
             throw new Error(`Failed to get top products: ${error.message}`);
         }
     }

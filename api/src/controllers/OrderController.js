@@ -1,1 +1,356 @@
-const OrderService = require('../services/OrderService');const ReservationService = require('../services/ReservationService');const ApiError = require('../api-error');const { success } = require('../jsend');async function createOrder(req, res, next) {    try {        const orderData = req.body;        if (!orderData.branch_id) {            throw new ApiError(400, 'Branch ID is required');        }        if (!orderData.items || orderData.items.length === 0) {            throw new ApiError(400, 'Order must have at least one item');        }        const order = await OrderService.createOrder(orderData);        res.status(201).json(success(order, 'Order created successfully'));    } catch (error) {        next(error);    }}async function getUserOrders(req, res, next) {    try {        const { user_id } = req.query;        if (!user_id) {            throw new ApiError(400, 'User ID is required');        }        const orders = await OrderService.getUserOrders(parseInt(user_id));        res.json(success(orders));    } catch (error) {        next(error);    }}async function getUserReservations(req, res, next) {    try {        const { user_id } = req.query;        if (!user_id) {            throw new ApiError(400, 'User ID is required');        }        const reservations = await ReservationService.getUserReservations(parseInt(user_id));        res.json(success(reservations));    } catch (error) {        next(error);    }}async function getOrderById(req, res, next) {    try {        const { id } = req.params;        const order = await OrderService.getOrderById(parseInt(id));        if (!order) {            throw new ApiError(404, 'Order not found');        }        res.json(success(order));    } catch (error) {        next(error);    }}async function getOrderWithDetails(req, res, next) {    try {        const { id } = req.params;        const order = await OrderService.getOrderWithDetails(parseInt(id));        if (!order) {            throw new ApiError(404, 'Order not found');        }        res.json(success(order));    } catch (error) {        next(error);    }}async function getReservationById(req, res, next) {    try {        const { id } = req.params;        const reservation = await ReservationService.getReservationById(parseInt(id));        res.json(success(reservation));    } catch (error) {        if (error.message === 'Reservation not found') {            return next(new ApiError(404, error.message));        }        next(error);    }}async function cancelOrder(req, res, next) {    try {        const { id } = req.params;        const userId = req.user?.id;        const orderId = parseInt(id);        if (isNaN(orderId)) {            throw new ApiError(400, 'Invalid order ID');        }        const order = await OrderService.getOrderById(orderId);        if (!order) {            throw new ApiError(404, 'Order not found');        }        const userRole = req.user?.role_id;        const isAdmin = userRole === 1;         const isManager = userRole === 2;         if (!isAdmin && !isManager && order.user_id !== userId) {            throw new ApiError(403, 'You do not have permission to cancel this order');        }        if (order.status !== 'pending' && order.status !== 'preparing') {            throw new ApiError(400, `Cannot cancel order with status: ${order.status}`);        }        const result = await OrderService.cancelOrder(orderId, userId);        if (!result) {            throw new ApiError(400, 'Failed to cancel order');        }        res.json(success(null, 'Order cancelled successfully'));    } catch (error) {        next(error);    }}async function cancelReservation(req, res, next) {    try {        const { id } = req.params;        const result = await ReservationService.cancelReservationSimple(parseInt(id));        if (!result) {            throw new ApiError(400, 'Failed to cancel reservation');        }        res.json(success(null, 'Reservation cancelled successfully'));    } catch (error) {        next(error);    }}async function getOrdersByBranch(req, res, next) {    try {        const branch_id = req.params.branch_id;        if (!branch_id) {            throw new ApiError(400, 'Branch ID is required');        }        const { status, order_type, payment_status, page = 1, limit = 100, date_from, date_to } = req.query;        const filters = {};        if (status) filters.status = status;        if (order_type) filters.order_type = order_type;        if (payment_status) filters.payment_status = payment_status;        if (date_from) filters.date_from = date_from;        if (date_to) filters.date_to = date_to;        const orders = await OrderService.getOrdersByBranch(parseInt(branch_id), filters, parseInt(page), parseInt(limit));        res.json(success(orders));    } catch (error) {        next(error);    }}async function getReservationsByBranch(req, res, next) {    try {        const { branch_id } = req.query;        if (!branch_id) {            throw new ApiError(400, 'Branch ID is required');        }        const reservations = await ReservationService.getReservationsByBranch(parseInt(branch_id));        res.json(success(reservations));    } catch (error) {        next(error);    }}async function getAllOrders(req, res, next) {    try {        const { branch_id, status, order_type, payment_status, payment_method, page = 1, limit = 20, date_from, date_to } = req.query;        const filters = {};        if (branch_id) filters.branch_id = parseInt(branch_id);        if (status) filters.status = status;        if (order_type) filters.order_type = order_type;        if (payment_status) filters.payment_status = payment_status;        if (payment_method) filters.payment_method = payment_method;        if (date_from) filters.date_from = date_from;        if (date_to) filters.date_to = date_to;        const result = await OrderService.getAllOrders(filters, parseInt(page), parseInt(limit));        res.json(success(result));    } catch (error) {        next(error);    }}async function updateOrderStatus(req, res, next) {    try {        const { id } = req.params;        const { status } = req.body;        const userId = req.user?.id || null;         if (!status) {            throw new ApiError(400, 'Status is required');        }        const validStatuses = ['pending', 'preparing', 'ready', 'out_for_delivery', 'completed', 'cancelled'];        if (!validStatuses.includes(status)) {            throw new ApiError(400, 'Invalid status');        }        const result = await OrderService.updateOrderStatus(parseInt(id), status, userId);        if (!result) {            throw new ApiError(404, 'Order not found');        }        res.json(success(null, 'Order status updated successfully'));    } catch (error) {        next(error);    }}async function updatePaymentStatus(req, res, next) {    try {        const { id } = req.params;        const { payment_status, payment_method } = req.body;        const userId = req.user?.id || null;         if (!payment_status) {            throw new ApiError(400, 'Payment status is required');        }        const validPaymentStatuses = ['pending', 'paid', 'failed'];        if (!validPaymentStatuses.includes(payment_status)) {            throw new ApiError(400, 'Invalid payment status');        }        const result = await OrderService.updatePaymentStatus(parseInt(id), payment_status, payment_method || null, userId);        if (!result) {            throw new ApiError(404, 'Order not found');        }        res.json(success(null, 'Payment status updated successfully'));    } catch (error) {        next(error);    }}async function getOrderLogs(req, res, next) {    try {        const { id } = req.params;        const logs = await OrderService.getOrderLogs(parseInt(id));        res.json(success(logs));    } catch (error) {        next(error);    }}async function updateInternalNotes(req, res, next) {    try {        const { id } = req.params;        const { internal_notes } = req.body;        const result = await OrderService.updateInternalNotes(parseInt(id), internal_notes || '');        if (!result) {            throw new ApiError(404, 'Order not found');        }        res.json(success(null, 'Internal notes updated successfully'));    } catch (error) {        next(error);    }}async function getOrderStatistics(req, res, next) {    try {        const { branch_id, date_from, date_to } = req.query;        const filters = {};        if (branch_id) filters.branch_id = parseInt(branch_id);        if (date_from) filters.date_from = date_from;        if (date_to) filters.date_to = date_to;        const stats = await OrderService.getOrderStatistics(filters);        res.json(success(stats));    } catch (error) {        next(error);    }}async function getTopProducts(req, res, next) {    try {        const { branch_id, date_from, date_to, limit = 4 } = req.query;        const filters = {};        if (branch_id) filters.branch_id = parseInt(branch_id);        if (date_from) filters.date_from = date_from;        if (date_to) filters.date_to = date_to;        const topProducts = await OrderService.getTopProducts(filters, parseInt(limit));        res.json(success(topProducts));    } catch (error) {        next(error);    }}async function getKitchenOrders(req, res, next) {    try {        const { branch_id } = req.query;        if (!branch_id) {            throw new ApiError(400, 'Branch ID is required');        }        const orders = await OrderService.getKitchenOrders(parseInt(branch_id));        res.json(success(orders));    } catch (error) {        next(error);    }}async function markOrderReady(req, res, next) {    try {        const { order_id } = req.params;        const result = await OrderService.markOrderReady(parseInt(order_id));        if (!result) {            throw new ApiError(404, 'Order not found');        }        res.json(success(null, 'Order marked as ready'));    } catch (error) {        next(error);    }}async function assignDeliveryStaff(req, res, next) {    try {        const { id } = req.params;        const { delivery_staff_id } = req.body;        if (!delivery_staff_id) {            return res.status(400).json({                status: 'error',                message: 'delivery_staff_id is required'            });        }        await OrderService.assignDeliveryStaff(parseInt(id), parseInt(delivery_staff_id));        res.json(success(null, 'Delivery staff assigned successfully'));    } catch (error) {        next(error);    }}async function deleteOrder(req, res, next) {    try {        const { id } = req.params;        const result = await OrderService.deleteOrder(parseInt(id));        if (!result) {            throw new ApiError(404, 'Order not found');        }        res.json(success(null, 'Order deleted successfully'));    } catch (error) {        next(error);    }}module.exports = {    createOrder,    getUserOrders,    getUserReservations,    getOrderById,    getOrderWithDetails,    getReservationById,    cancelOrder,    cancelReservation,    getOrdersByBranch,    getReservationsByBranch,    getAllOrders,    updateOrderStatus,    getOrderStatistics,    getTopProducts,    assignDeliveryStaff,    updatePaymentStatus,    updateInternalNotes,    getOrderLogs,    deleteOrder,    getKitchenOrders,    markOrderReady,};
+const OrderService = require('../services/OrderService');
+const ReservationService = require('../services/ReservationService');
+const ApiError = require('../api-error');
+const { success } = require('../jsend');
+async function createOrder(req, res, next) {
+    try {
+        const orderData = req.body;
+        if (!orderData.branch_id) {
+            throw new ApiError(400, 'Branch ID is required');
+        }
+        if (!orderData.items || orderData.items.length === 0) {
+            throw new ApiError(400, 'Order must have at least one item');
+        }
+        const order = await OrderService.createOrder(orderData);
+        res.status(201).json(success(order, 'Order created successfully'));
+    } catch (error) {
+        next(error);
+    }
+}
+async function getUserOrders(req, res, next) {
+    try {
+        const { user_id } = req.query;
+        if (!user_id) {
+            throw new ApiError(400, 'User ID is required');
+        }
+        const orders = await OrderService.getUserOrders(parseInt(user_id));
+        res.json(success(orders));
+    } catch (error) {
+        next(error);
+    }
+}
+async function getUserReservations(req, res, next) {
+    try {
+        const { user_id } = req.query;
+        if (!user_id) {
+            throw new ApiError(400, 'User ID is required');
+        }
+        const reservations = await ReservationService.getUserReservations(parseInt(user_id));
+        res.json(success(reservations));
+    } catch (error) {
+        next(error);
+    }
+}
+async function getOrderById(req, res, next) {
+    try {
+        const { id } = req.params;
+        const order = await OrderService.getOrderById(parseInt(id));
+        if (!order) {
+            throw new ApiError(404, 'Order not found');
+        }
+        res.json(success(order));
+    } catch (error) {
+        next(error);
+    }
+}
+async function getOrderWithDetails(req, res, next) {
+    try {
+        const { id } = req.params;
+        const order = await OrderService.getOrderWithDetails(parseInt(id));
+        if (!order) {
+            throw new ApiError(404, 'Order not found');
+        }
+        res.json(success(order));
+    } catch (error) {
+        next(error);
+    }
+}
+async function getReservationById(req, res, next) {
+    try {
+        const { id } = req.params;
+        const reservation = await ReservationService.getReservationById(parseInt(id));
+        res.json(success(reservation));
+    } catch (error) {
+        if (error.message === 'Reservation not found') {
+            return next(new ApiError(404, error.message));
+        }
+        next(error);
+    }
+}
+async function cancelOrder(req, res, next) {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.id;
+        const orderId = parseInt(id);
+        if (isNaN(orderId)) {
+            throw new ApiError(400, 'Invalid order ID');
+        }
+        const order = await OrderService.getOrderById(orderId);
+        if (!order) {
+            throw new ApiError(404, 'Order not found');
+        }
+        const userRole = req.user?.role_id;
+        const isAdmin = userRole === 1; 
+        const isManager = userRole === 2; 
+        if (!isAdmin && !isManager && order.user_id !== userId) {
+            throw new ApiError(403, 'You do not have permission to cancel this order');
+        }
+        if (order.status !== 'pending' && order.status !== 'preparing') {
+            throw new ApiError(400, `Cannot cancel order with status: ${order.status}`);
+        }
+        const result = await OrderService.cancelOrder(orderId, userId);
+        if (!result) {
+            throw new ApiError(400, 'Failed to cancel order');
+        }
+        res.json(success(null, 'Order cancelled successfully'));
+    } catch (error) {
+        next(error);
+    }
+}
+async function cancelReservation(req, res, next) {
+    try {
+        const { id } = req.params;
+        const result = await ReservationService.cancelReservationSimple(parseInt(id));
+        if (!result) {
+            throw new ApiError(400, 'Failed to cancel reservation');
+        }
+        res.json(success(null, 'Reservation cancelled successfully'));
+    } catch (error) {
+        next(error);
+    }
+}
+async function getOrdersByBranch(req, res, next) {
+    try {
+        const branch_id = req.params.branch_id;
+        if (!branch_id) {
+            throw new ApiError(400, 'Branch ID is required');
+        }
+        const { status, order_type, payment_status, page = 1, limit = 100, date_from, date_to } = req.query;
+        const filters = {};
+        if (status) filters.status = status;
+        if (order_type) filters.order_type = order_type;
+        if (payment_status) filters.payment_status = payment_status;
+        if (date_from) filters.date_from = date_from;
+        if (date_to) filters.date_to = date_to;
+        const orders = await OrderService.getOrdersByBranch(parseInt(branch_id), filters, parseInt(page), parseInt(limit));
+        res.json(success(orders));
+    } catch (error) {
+        next(error);
+    }
+}
+async function getReservationsByBranch(req, res, next) {
+    try {
+        const { branch_id } = req.query;
+        if (!branch_id) {
+            throw new ApiError(400, 'Branch ID is required');
+        }
+        const reservations = await ReservationService.getReservationsByBranch(parseInt(branch_id));
+        res.json(success(reservations));
+    } catch (error) {
+        next(error);
+    }
+}
+async function getAllOrders(req, res, next) {
+    try {
+        const { branch_id, status, order_type, payment_status, payment_method, page = 1, limit = 20, date_from, date_to } = req.query;
+        const filters = {};
+        if (branch_id) filters.branch_id = parseInt(branch_id);
+        if (status) filters.status = status;
+        if (order_type) filters.order_type = order_type;
+        if (payment_status) filters.payment_status = payment_status;
+        if (payment_method) filters.payment_method = payment_method;
+        if (date_from) filters.date_from = date_from;
+        if (date_to) filters.date_to = date_to;
+        const result = await OrderService.getAllOrders(filters, parseInt(page), parseInt(limit));
+        res.json(success(result));
+    } catch (error) {
+        next(error);
+    }
+}
+async function updateOrderStatus(req, res, next) {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        const userId = req.user?.id || null; 
+        if (!status) {
+            throw new ApiError(400, 'Status is required');
+        }
+        const validStatuses = ['pending', 'preparing', 'ready', 'out_for_delivery', 'completed', 'cancelled'];
+        if (!validStatuses.includes(status)) {
+            throw new ApiError(400, 'Invalid status');
+        }
+        const result = await OrderService.updateOrderStatus(parseInt(id), status, userId);
+        if (!result) {
+            throw new ApiError(404, 'Order not found');
+        }
+        res.json(success(null, 'Order status updated successfully'));
+    } catch (error) {
+        next(error);
+    }
+}
+async function updatePaymentStatus(req, res, next) {
+    try {
+        const { id } = req.params;
+        const { payment_status, payment_method } = req.body;
+        const userId = req.user?.id || null; 
+        if (!payment_status) {
+            throw new ApiError(400, 'Payment status is required');
+        }
+        const validPaymentStatuses = ['pending', 'paid', 'failed'];
+        if (!validPaymentStatuses.includes(payment_status)) {
+            throw new ApiError(400, 'Invalid payment status');
+        }
+        const result = await OrderService.updatePaymentStatus(parseInt(id), payment_status, payment_method || null, userId);
+        if (!result) {
+            throw new ApiError(404, 'Order not found');
+        }
+        res.json(success(null, 'Payment status updated successfully'));
+    } catch (error) {
+        next(error);
+    }
+}
+async function getOrderLogs(req, res, next) {
+    try {
+        const { id } = req.params;
+        const logs = await OrderService.getOrderLogs(parseInt(id));
+        res.json(success(logs));
+    } catch (error) {
+        next(error);
+    }
+}
+async function updateInternalNotes(req, res, next) {
+    try {
+        const { id } = req.params;
+        const { internal_notes } = req.body;
+        const result = await OrderService.updateInternalNotes(parseInt(id), internal_notes || '');
+        if (!result) {
+            throw new ApiError(404, 'Order not found');
+        }
+        res.json(success(null, 'Internal notes updated successfully'));
+    } catch (error) {
+        next(error);
+    }
+}
+async function getOrderStatistics(req, res, next) {
+    try {
+        const { branch_id, date_from, date_to } = req.query;
+        const filters = {};
+        if (branch_id) filters.branch_id = parseInt(branch_id);
+        if (date_from) filters.date_from = date_from;
+        if (date_to) filters.date_to = date_to;
+        const stats = await OrderService.getOrderStatistics(filters);
+        res.json(success(stats));
+    } catch (error) {
+        next(error);
+    }
+}
+async function getTopProducts(req, res, next) {
+    try {
+        const { branch_id, date_from, date_to, limit = 10 } = req.query;
+        const filters = {};
+        if (branch_id) filters.branch_id = parseInt(branch_id);
+        if (date_from) filters.date_from = date_from;
+        if (date_to) filters.date_to = date_to;
+        const topLimit = parseInt(limit) || 10;
+        const topProducts = await OrderService.getTopProducts(filters, topLimit);
+        res.json(success(topProducts || []));
+    } catch (error) {
+        console.error('Error in getTopProducts controller:', error);
+        next(new ApiError(500, 'Failed to get top products', error.message));
+    }
+}
+async function getKitchenOrders(req, res, next) {
+    try {
+        const { branch_id } = req.query;
+        if (!branch_id) {
+            throw new ApiError(400, 'Branch ID is required');
+        }
+        const orders = await OrderService.getKitchenOrders(parseInt(branch_id));
+        res.json(success(orders));
+    } catch (error) {
+        next(error);
+    }
+}
+async function markOrderReady(req, res, next) {
+    try {
+        const { order_id } = req.params;
+        const result = await OrderService.markOrderReady(parseInt(order_id));
+        if (!result) {
+            throw new ApiError(404, 'Order not found');
+        }
+        res.json(success(null, 'Order marked as ready'));
+    } catch (error) {
+        next(error);
+    }
+}
+async function assignDeliveryStaff(req, res, next) {
+    try {
+        const { id } = req.params;
+        const { delivery_staff_id } = req.body;
+        if (!delivery_staff_id) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'delivery_staff_id is required'
+            });
+        }
+        await OrderService.assignDeliveryStaff(parseInt(id), parseInt(delivery_staff_id));
+        res.json(success(null, 'Delivery staff assigned successfully'));
+    } catch (error) {
+        next(error);
+    }
+}
+async function deleteOrder(req, res, next) {
+    try {
+        const { id } = req.params;
+        const result = await OrderService.deleteOrder(parseInt(id));
+        if (!result) {
+            throw new ApiError(404, 'Order not found');
+        }
+        res.json(success(null, 'Order deleted successfully'));
+    } catch (error) {
+        next(error);
+    }
+}
+async function getTopProducts(req, res, next) {
+    try {
+        const { branch_id, date_from, date_to, limit = 10 } = req.query;
+        const filters = {};
+        if (branch_id) {
+            filters.branch_id = parseInt(branch_id);
+        }
+        if (date_from) {
+            filters.date_from = date_from;
+        }
+        if (date_to) {
+            filters.date_to = date_to;
+        }
+        const topLimit = parseInt(limit) || 10;
+        const products = await OrderService.getTopProducts(filters, topLimit);
+        res.json(success(products));
+    } catch (error) {
+        next(new ApiError(500, 'Failed to get top products', error.message));
+    }
+}
+module.exports = {
+    createOrder,
+    getUserOrders,
+    getUserReservations,
+    getOrderById,
+    getOrderWithDetails,
+    getReservationById,
+    cancelOrder,
+    cancelReservation,
+    getOrdersByBranch,
+    getReservationsByBranch,
+    getAllOrders,
+    updateOrderStatus,
+    getOrderStatistics,
+    getTopProducts,
+    assignDeliveryStaff,
+    updatePaymentStatus,
+    updateInternalNotes,
+    getOrderLogs,
+    deleteOrder,
+    getKitchenOrders,
+    markOrderReady,
+};

@@ -32,9 +32,10 @@ function playNewOrderSound() {
   if (soundEnabled.value && newOrderSound) {
     try {
       newOrderSound.volume = 0.5;
-      newOrderSound.play().catch(e => );
+      newOrderSound.play().catch(() => {});
     } catch (e) {
-      }
+      // Ignore audio errors
+    }
   }
 }
 function playWarningSound() {
@@ -197,6 +198,13 @@ function formatDate(dateString) {
   const year = date.getFullYear();
   return `${day}/${month}/${year}`;
 }
+function formatCurrency(amount) {
+  if (!amount && amount !== 0) return '₫0';
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND'
+  }).format(amount);
+}
 function clearFilters() {
   filters.value = {
     orderType: 'all',
@@ -358,38 +366,111 @@ function handleLogout() {
             <span class="section-badge">{{ filteredOrders.pending.length }}</span>
         </h2>
         </div>
-        <div class="orders-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+        <div class="orders-grid">
           <div 
             v-for="order in filteredOrders.pending" 
             :key="order.id" 
             class="order-card"
             :class="{ 'sla-warning': isSLAWarning(order) }"
           >
-            <div class="order-header">
-              <div class="order-info">
-                <h3>
-                  <i class="fas fa-receipt"></i>
-                  Order #{{ order.id }}
-                </h3>
-                <p class="order-meta">
-                  <span v-if="order.table_id">
-                    <i class="fas fa-table"></i> Table #{{ order.table_id }}
+            <!-- Order Header Info Card -->
+            <div class="info-card">
+              <div class="card-header">
+                <i class="fas fa-receipt"></i>
+                <h3>Order #{{ order.id }}</h3>
+                <span class="status-badge status-pending">Pending</span>
+                <span v-if="isSLAWarning(order)" class="priority-badge">
+                  <i class="fas fa-exclamation-triangle"></i>
+                  Priority
+                </span>
+              </div>
+              <div class="card-content">
+                <div class="info-item">
+                  <span class="info-label">Order Type</span>
+                  <span class="info-value">
+                    <i v-if="order.table_id" class="fas fa-table"></i>
+                    <i v-else-if="order.order_type === 'delivery'" class="fas fa-truck"></i>
+                    <i v-else class="fas fa-shopping-bag"></i>
+                    {{ order.table_id ? `Table #${order.table_id}` : (order.order_type === 'delivery' ? 'Delivery' : 'Takeaway') }}
                   </span>
-                  <span v-else-if="order.order_type === 'delivery'">
-                    <i class="fas fa-truck"></i> Delivery
+                </div>
+                <div class="info-item" v-if="order.customer_name">
+                  <span class="info-label">Customer</span>
+                  <span class="info-value">
+                    <i class="fas fa-user"></i>
+                    {{ order.customer_name }}
                   </span>
-                  <span v-else>
-                    <i class="fas fa-shopping-bag"></i> Takeaway
+                </div>
+                <div class="info-item" v-if="order.delivery_address">
+                  <span class="info-label">Delivery Address</span>
+                  <span class="info-value">
+                    <i class="fas fa-map-marker-alt"></i>
+                    {{ order.delivery_address }}
                   </span>
-                  <span class="time-elapsed" :class="{ 'warning': isSLAWarning(order) }">
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Time Elapsed</span>
+                  <span class="info-value" :class="{ 'warning-text': isSLAWarning(order) }">
                     <i class="fas fa-clock"></i>
                     {{ formatTime(order.elapsed_minutes) }}
                   </span>
-                </p>
-                <p class="order-time">
-                  <i class="fas fa-calendar-alt"></i>
-                  {{ formatDate(order.created_at) }} {{ formatDateTime(order.created_at) }}
-                </p>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Created At</span>
+                  <span class="info-value">
+                    <i class="fas fa-calendar-alt"></i>
+                    {{ formatDate(order.created_at) }} {{ formatDateTime(order.created_at) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Order Items Section -->
+            <div class="order-items-section">
+              <div class="section-header">
+                <i class="fas fa-list"></i>
+                <h3>Order Items</h3>
+              </div>
+              <div class="items-list">
+                <div 
+                  v-for="item in order.items" 
+                  :key="item.id"
+                  class="order-item"
+                >
+                  <div class="item-info">
+                    <div class="item-image">
+                      <img :src="item.product_image || '/default-product.jpg'" :alt="item.product_name" />
+                    </div>
+                    <div class="item-details">
+                      <div class="item-name">{{ item.product_name }}</div>
+                      <div class="item-details-row">
+                        <span class="item-quantity">Qty: {{ item.quantity }}</span>
+                        <span v-if="item.price" class="item-price">@ {{ formatCurrency(item.price) }}</span>
+                      </div>
+                      <p v-if="item.special_instructions" class="item-note">
+                        <i class="fas fa-sticky-note"></i>
+                        {{ formatSpecialInstructions(item.special_instructions) }}
+                      </p>
+                    </div>
+                  </div>
+                  <div v-if="item.price" class="item-total">
+                    {{ formatCurrency(item.price * item.quantity) }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Order Footer -->
+            <div class="order-footer">
+              <div class="order-summary">
+                <div class="summary-row">
+                  <span class="summary-label">Total Items</span>
+                  <span class="summary-value">{{ order.items_count }}</span>
+                </div>
+                <div v-if="order.total" class="summary-row total-row">
+                  <span class="summary-label">Total Amount</span>
+                  <span class="summary-value total-amount">{{ formatCurrency(order.total) }}</span>
+                </div>
               </div>
               <button 
                 @click="markOrderReady(order.id)" 
@@ -401,32 +482,6 @@ function handleLogout() {
                 <i v-else class="fas fa-check-circle"></i>
                 {{ order.status === 'ready' ? 'Ready' : 'Mark as Ready' }}
               </button>
-            </div>
-            <div class="order-items">
-              <div 
-                v-for="item in order.items" 
-                :key="item.id"
-                class="order-item"
-              >
-                <div class="item-info">
-                  <div class="item-image">
-                    <img :src="item.product_image || '/default-product.jpg'" :alt="item.product_name" />
-                  </div>
-                  <div class="item-details">
-                    <h4>{{ item.product_name }}</h4>
-                    <p class="item-quantity">Quantity: {{ item.quantity }}</p>
-                    <p v-if="item.special_instructions" class="item-note">
-                      <i class="fas fa-sticky-note"></i>
-                      {{ formatSpecialInstructions(item.special_instructions) }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="order-footer">
-              <span class="items-summary">
-                Total: {{ order.items_count }} items
-              </span>
             </div>
           </div>
         </div>
@@ -440,38 +495,111 @@ function handleLogout() {
             <span class="section-badge">{{ filteredOrders.preparing.length }}</span>
         </h2>
         </div>
-        <div class="orders-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+        <div class="orders-grid">
           <div 
             v-for="order in filteredOrders.preparing" 
             :key="order.id" 
             class="order-card"
             :class="{ 'sla-warning': isSLAWarning(order) }"
           >
-            <div class="order-header">
-              <div class="order-info">
-                <h3>
-                  <i class="fas fa-receipt"></i>
-                  Order #{{ order.id }}
-                </h3>
-                <p class="order-meta">
-                  <span v-if="order.table_id">
-                    <i class="fas fa-table"></i> Table #{{ order.table_id }}
+            <!-- Order Header Info Card -->
+            <div class="info-card">
+              <div class="card-header">
+                <i class="fas fa-receipt"></i>
+                <h3>Order #{{ order.id }}</h3>
+                <span class="status-badge status-preparing">Preparing</span>
+                <span v-if="isSLAWarning(order)" class="priority-badge">
+                  <i class="fas fa-exclamation-triangle"></i>
+                  Priority
+                </span>
+              </div>
+              <div class="card-content">
+                <div class="info-item">
+                  <span class="info-label">Order Type</span>
+                  <span class="info-value">
+                    <i v-if="order.table_id" class="fas fa-table"></i>
+                    <i v-else-if="order.order_type === 'delivery'" class="fas fa-truck"></i>
+                    <i v-else class="fas fa-shopping-bag"></i>
+                    {{ order.table_id ? `Table #${order.table_id}` : (order.order_type === 'delivery' ? 'Delivery' : 'Takeaway') }}
                   </span>
-                  <span v-else-if="order.order_type === 'delivery'">
-                    <i class="fas fa-truck"></i> Delivery
+                </div>
+                <div class="info-item" v-if="order.customer_name">
+                  <span class="info-label">Customer</span>
+                  <span class="info-value">
+                    <i class="fas fa-user"></i>
+                    {{ order.customer_name }}
                   </span>
-                  <span v-else>
-                    <i class="fas fa-shopping-bag"></i> Takeaway
+                </div>
+                <div class="info-item" v-if="order.delivery_address">
+                  <span class="info-label">Delivery Address</span>
+                  <span class="info-value">
+                    <i class="fas fa-map-marker-alt"></i>
+                    {{ order.delivery_address }}
                   </span>
-                  <span class="time-elapsed" :class="{ 'warning': isSLAWarning(order) }">
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Time Elapsed</span>
+                  <span class="info-value" :class="{ 'warning-text': isSLAWarning(order) }">
                     <i class="fas fa-clock"></i>
                     {{ formatTime(order.elapsed_minutes) }}
                   </span>
-                </p>
-                <p class="order-time">
-                  <i class="fas fa-calendar-alt"></i>
-                  {{ formatDate(order.created_at) }} {{ formatDateTime(order.created_at) }}
-                </p>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Created At</span>
+                  <span class="info-value">
+                    <i class="fas fa-calendar-alt"></i>
+                    {{ formatDate(order.created_at) }} {{ formatDateTime(order.created_at) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Order Items Section -->
+            <div class="order-items-section">
+              <div class="section-header">
+                <i class="fas fa-list"></i>
+                <h3>Order Items</h3>
+              </div>
+              <div class="items-list">
+                <div 
+                  v-for="item in order.items" 
+                  :key="item.id"
+                  class="order-item"
+                >
+                  <div class="item-info">
+                    <div class="item-image">
+                      <img :src="item.product_image || '/default-product.jpg'" :alt="item.product_name" />
+                    </div>
+                    <div class="item-details">
+                      <div class="item-name">{{ item.product_name }}</div>
+                      <div class="item-details-row">
+                        <span class="item-quantity">Qty: {{ item.quantity }}</span>
+                        <span v-if="item.price" class="item-price">@ {{ formatCurrency(item.price) }}</span>
+                      </div>
+                      <p v-if="item.special_instructions" class="item-note">
+                        <i class="fas fa-sticky-note"></i>
+                        {{ formatSpecialInstructions(item.special_instructions) }}
+                      </p>
+                    </div>
+                  </div>
+                  <div v-if="item.price" class="item-total">
+                    {{ formatCurrency(item.price * item.quantity) }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Order Footer -->
+            <div class="order-footer">
+              <div class="order-summary">
+                <div class="summary-row">
+                  <span class="summary-label">Total Items</span>
+                  <span class="summary-value">{{ order.items_count }}</span>
+                </div>
+                <div v-if="order.total" class="summary-row total-row">
+                  <span class="summary-label">Total Amount</span>
+                  <span class="summary-value total-amount">{{ formatCurrency(order.total) }}</span>
+                </div>
               </div>
               <button 
                 @click="markOrderReady(order.id)" 
@@ -483,32 +611,6 @@ function handleLogout() {
                 <i v-else class="fas fa-check-circle"></i>
                 {{ order.status === 'ready' ? 'Ready' : 'Mark as Ready' }}
               </button>
-            </div>
-            <div class="order-items">
-              <div 
-                v-for="item in order.items" 
-                :key="item.id"
-                class="order-item"
-              >
-                <div class="item-info">
-                  <div class="item-image">
-                    <img :src="item.product_image || '/default-product.jpg'" :alt="item.product_name" />
-                  </div>
-                  <div class="item-details">
-                    <h4>{{ item.product_name }}</h4>
-                    <p class="item-quantity">Quantity: {{ item.quantity }}</p>
-                    <p v-if="item.special_instructions" class="item-note">
-                      <i class="fas fa-sticky-note"></i>
-                      {{ formatSpecialInstructions(item.special_instructions) }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="order-footer">
-              <span class="items-summary">
-                Total: {{ order.items_count }} items
-              </span>
             </div>
           </div>
         </div>
@@ -548,7 +650,7 @@ function handleLogout() {
 </template>
 <style scoped>
 .kitchen-dashboard {
-  background: white;
+  background: #F5F7FA;
   min-height: calc(100vh - 124px);
   width: 100%;
   max-width: 100vw;
@@ -560,9 +662,14 @@ function handleLogout() {
 .stats-filters-container {
   display: grid;
   grid-template-columns: 1fr 1.5fr;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 20px;
+  margin-bottom: 24px;
   align-items: stretch;
+}
+@media (max-width: 1024px) {
+  .stats-filters-container {
+    grid-template-columns: 1fr;
+  }
 }
 .stats-section {
   min-width: 0;
@@ -573,28 +680,42 @@ function handleLogout() {
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 20px;
   width: 100%;
   align-items: stretch;
   height: 100%;
 }
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .stat-card {
   background: white;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 16px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  border: 1px solid #E2E8F0;
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+.stat-card:hover {
+  border-color: #FF8C42;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 .stat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: #FFF9F5;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 24px;
+  color: #FF8C42;
   flex-shrink: 0;
 }
 .stat-info {
@@ -602,16 +723,17 @@ function handleLogout() {
   min-width: 0;
 }
 .stat-value {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 700;
   color: #1a1a1a;
+  letter-spacing: -0.5px;
   line-height: 1.2;
 }
 .stat-label {
-  font-size: 12px;
+  font-size: 13px;
   color: #6B7280;
   font-weight: 500;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 .error-message {
   background: #FEE2E2;
@@ -668,18 +790,19 @@ function handleLogout() {
 }
 .orders-section {
   background: white;
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: 12px;
+  padding: 24px;
   border: 1px solid #E2E8F0;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 .section-header {
-  margin-bottom: 12px;
-  padding-bottom: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
   border-bottom: 1px solid #E2E8F0;
 }
 .section-title {
@@ -687,14 +810,14 @@ function handleLogout() {
   align-items: center;
   gap: 10px;
   margin: 0;
-  font-size: 16px;
+  font-size: 18px;
   color: #1E293B;
   font-weight: 700;
-  letter-spacing: -0.1px;
+  letter-spacing: -0.3px;
 }
 .section-title i {
-  color: #F59E0B;
-  font-size: 16px;
+  color: #FF8C42;
+  font-size: 18px;
 }
 .section-badge {
   padding: 4px 10px;
@@ -723,77 +846,124 @@ function handleLogout() {
 }
 .order-card {
   border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: 10px;
+  padding: 0;
   background: white;
   min-width: 0;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
 }
 .order-card.sla-warning {
   border-color: #F59E0B;
   background: #FFF7ED;
 }
-.order-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
+.info-card {
+  background: #FAFBFC;
+  border: none;
   border-bottom: 1px solid #E2E8F0;
+  border-radius: 0;
+  overflow: hidden;
 }
-.order-info h3 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
-  color: #1E293B;
-  font-weight: 700;
-}
-.order-info h3 i {
-  color: #F59E0B;
-  margin-right: 8px;
-}
-.order-meta {
-  display: flex;
-  gap: 16px;
-  font-size: 13px;
-  color: #666;
-  flex-wrap: wrap;
-}
-.order-meta span {
+.card-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-weight: 500;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #FFF7ED;
+  border-bottom: 1px solid #FED7AA;
 }
-.order-meta i {
-  color: #F59E0B;
-}
-.time-elapsed {
-  font-weight: 700;
-  color: #64748B;
-}
-.time-elapsed.warning {
+.card-header i {
   color: #F59E0B;
   font-size: 14px;
 }
+.card-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1E293B;
+  letter-spacing: -0.2px;
+  flex: 1;
+}
+.card-content {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.info-item .info-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748B;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.info-item .info-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1E293B;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.info-item .info-value i {
+  color: #F59E0B;
+  font-size: 12px;
+}
+.info-item .info-value.warning-text {
+  color: #F59E0B;
+  font-weight: 700;
+}
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: auto;
+}
+.status-badge.status-pending {
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+}
+.status-badge.status-preparing {
+  background: #DBEAFE;
+  color: #1E40AF;
+  border: 1px solid #60A5FA;
+}
+.status-badge.status-ready {
+  background: #D1FAE5;
+  color: #065F46;
+  border: 1px solid #34D399;
+}
 .btn-mark-ready {
-  padding: 8px 16px;
-  background: #F59E0B;
+  padding: 10px 20px;
+  background: #FF8C42;
   color: white;
   border: none;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: 10px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 .btn-mark-ready:hover:not(:disabled) {
-  background: #D97706;
+  background: #E67E22;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 140, 66, 0.3);
 }
 .btn-mark-ready:disabled {
   opacity: 0.6;
@@ -802,37 +972,57 @@ function handleLogout() {
 .btn-mark-ready.all-ready {
   background: #10B981;
 }
-.order-items {
+.btn-mark-ready.all-ready:hover:not(:disabled) {
+  background: #059669;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+.order-items-section {
+  margin-bottom: 0;
+  background: #FAFBFC;
+  border: none;
+  border-bottom: 1px solid #E2E8F0;
+  border-radius: 0;
+  overflow: hidden;
+}
+.order-items-section .section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #FFF7ED;
+  border-bottom: 1px solid #FED7AA;
+}
+.order-items-section .section-header i {
+  color: #F59E0B;
+  font-size: 14px;
+}
+.order-items-section .section-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1E293B;
+  letter-spacing: -0.2px;
+}
+.items-list {
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
 }
 .order-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 12px;
-  border-radius: 8px;
+  background: white;
   border: 1px solid #E2E8F0;
-  background: #FAFBFC;
-}
-.order-item.status-pending {
-  background: #fff3cd;
-  border-color: #ffc107;
-}
-.order-item.status-preparing {
-  background: #cfe2ff;
-  border-color: #0d6efd;
-}
-.order-item.status-ready {
-  background: #d1e7dd;
-  border-color: #198754;
+  border-radius: 8px;
 }
 .item-info {
+  flex: 1;
   display: flex;
   gap: 12px;
-  flex: 1;
+  align-items: flex-start;
 }
 .item-image {
   width: 60px;
@@ -848,17 +1038,38 @@ function handleLogout() {
   height: 100%;
   object-fit: cover;
 }
-.item-details h4 {
-  margin: 0 0 6px 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: #333;
+.item-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1E293B;
+  margin: 0;
+}
+.item-details-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #64748B;
 }
 .item-quantity {
-  margin: 4px 0;
-  font-size: 13px;
-  color: #666;
   font-weight: 500;
+}
+.item-price {
+  color: #94A3B8;
+  font-size: 11px;
+}
+.item-total {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1E293B;
+  min-width: 100px;
+  text-align: right;
 }
 .item-note {
   margin: 6px 0 0 0;
@@ -933,12 +1144,80 @@ function handleLogout() {
   font-weight: 600;
 }
 .order-footer {
-  padding-top: 12px;
+  padding: 14px 16px;
+  background: #FAFBFC;
   border-top: 1px solid #E2E8F0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.order-summary {
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  margin-bottom: 0;
+}
+.summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #E2E8F0;
+}
+.summary-row:last-child {
+  border-bottom: none;
+}
+.summary-label {
   font-size: 13px;
+  font-weight: 500;
   color: #64748B;
-  text-align: center;
+}
+.summary-value {
+  font-size: 13px;
   font-weight: 600;
+  color: #1E293B;
+}
+.summary-value.total-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #FF8C42;
+}
+.priority-badge {
+  padding: 4px 10px;
+  background: #FEE2E2;
+  color: #DC2626;
+  border: 1px solid #FCA5A5;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.priority-badge i {
+  font-size: 10px;
+}
+.priority-badge {
+  padding: 4px 10px;
+  background: #FEE2E2;
+  color: #DC2626;
+  border: 1px solid #FCA5A5;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.priority-badge i {
+  font-size: 10px;
+}
+.order-footer .btn-mark-ready {
+  width: 100%;
+  justify-content: center;
 }
 @media (max-width: 768px) {
   .orders-grid {
@@ -953,29 +1232,33 @@ function handleLogout() {
 }
 .filters-card {
   background: white;
-  border-radius: 8px;
-  padding: 12px;
-  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow-x: hidden;
+  max-width: 100%;
   width: 100%;
   display: flex;
   flex-direction: column;
   height: 100%;
+  border: 1px solid transparent;
 }
 .filters-header {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 20px;
 }
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
 }
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .filter-group label {
   font-size: 13px;
@@ -986,44 +1269,47 @@ function handleLogout() {
   gap: 6px;
 }
 .filter-group label i {
-  color: #F59E0B;
+  color: #FF8C42;
   font-size: 12px;
 }
 .filter-select,
 .filter-input {
-  padding: 8px 12px;
-  border: 1px solid #E2E8F0;
-  border-radius: 6px;
-  font-size: 13px;
-  background: white;
-  color: #1F2937;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #FAFAFA;
+  color: #1a1a1a;
   font-weight: 500;
   transition: all 0.2s ease;
-  height: 36px;
+  box-sizing: border-box;
 }
 .filter-select:focus,
 .filter-input:focus {
   outline: none;
-  border-color: #F59E0B;
+  border-color: #FF8C42;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.1);
 }
 .btn-clear-filters {
-  padding: 6px 12px;
-  border: 1px solid #E2E8F0;
+  padding: 8px 16px;
+  border: 1px solid #E5E5E5;
   background: white;
-  color: #64748B;
-  border-radius: 6px;
-  font-size: 12px;
+  color: #666;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   transition: all 0.2s ease;
 }
 .btn-clear-filters:hover {
-  border-color: #F59E0B;
-  color: #F59E0B;
-  background: #FFF7ED;
+  border-color: #FF8C42;
+  color: #FF8C42;
+  background: #FFF9F5;
 }
 .btn-sound {
   padding: 8px 16px;

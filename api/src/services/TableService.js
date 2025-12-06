@@ -200,25 +200,28 @@ async function isTableAvailable(tableId, date, time, durationMinutes = 120) {
  * @param {Object} payload - Schedule data
  * @returns {Promise<Object>} - Created schedule
  */
-async function createTableSchedule(payload) {
+async function createTableSchedule(payload, trx = null) {
     if (!payload.table_id || !payload.schedule_date || !payload.start_time) {
         throw new Error('Table ID, schedule date, and start time are required');
     }
 
-    const table = await knex('tables').where('id', payload.table_id).first();
-    if (!table) {
-        throw new Error('Table not found');
-    }
+    // Only check table existence and availability if not in transaction (to avoid double checking)
+    if (!trx) {
+        const table = await knex('tables').where('id', payload.table_id).first();
+        if (!table) {
+            throw new Error('Table not found');
+        }
 
-    const available = await isTableAvailable(
-        payload.table_id,
-        payload.schedule_date,
-        payload.start_time,
-        payload.duration_minutes || 120
-    );
+        const available = await isTableAvailable(
+            payload.table_id,
+            payload.schedule_date,
+            payload.start_time,
+            payload.duration_minutes || 120
+        );
 
-    if (!available) {
-        throw new Error('Table is not available at the requested date and time');
+        if (!available) {
+            throw new Error('Table is not available at the requested date and time');
+        }
     }
 
     let endTime = payload.end_time;
@@ -240,7 +243,9 @@ async function createTableSchedule(payload) {
         updated_at: new Date()
     };
 
-    const [id] = await tableScheduleRepository().insert(schedule);
+    // Use transaction if provided, otherwise use default connection
+    const repository = trx ? trx('table_schedules') : tableScheduleRepository();
+    const [id] = await repository.insert(schedule);
     return { id, ...schedule };
 }
 

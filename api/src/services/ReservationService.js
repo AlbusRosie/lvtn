@@ -57,6 +57,7 @@ async function createReservation(payload) {
         }
         const reservation = readReservation(payload);
         const [id] = await trx('reservations').insert(reservation);
+        // Pass transaction to createTableSchedule to avoid lock timeout
         await TableService.createTableSchedule({
             table_id: payload.table_id,
             reservation_id: id,
@@ -64,7 +65,7 @@ async function createReservation(payload) {
             start_time: payload.reservation_time,
             duration_minutes: 120,
             status: 'reserved'
-        });
+        }, trx);
         try {
             const OrderService = require('./OrderService');
             await OrderService.createEmptyOrderForReservation({
@@ -474,6 +475,7 @@ async function createQuickReservation(payload) {
             table_id: selectedTable.id
         });
         const [id] = await trx('reservations').insert(reservation);
+        // Pass transaction to createTableSchedule to avoid lock timeout
         await TableService.createTableSchedule({
             table_id: selectedTable.id,
             reservation_id: id,
@@ -481,7 +483,7 @@ async function createQuickReservation(payload) {
             start_time: payload.reservation_time,
             duration_minutes: 120,
             status: 'reserved'
-        });
+        }, trx);
         if (emptyOrder) {
             try {
                 await trx('orders')

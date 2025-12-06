@@ -11,7 +11,7 @@ class BranchIntentHandler extends BaseIntentHandler {
     canHandle(intent) {
         return this.intentSet.has(intent);
     }
-    async handle({ intent, entities, context, userId, aiResponse }) {
+    async handle({ intent, entities, context, userId, aiResponse, message }) {
         if (aiResponse && aiResponse.tool_results && aiResponse.tool_results.length > 0) {
             const normalized = Utils.normalizeEntityFields(entities || {});
             return this.buildResponse({
@@ -132,6 +132,104 @@ class BranchIntentHandler extends BaseIntentHandler {
                 });
             }
         }
+        
+        // Check if user has delivery address and wants to find nearest branch
+        const deliveryAddress = context.conversationContext?.lastDeliveryAddress || context.conversationContext?.deliveryAddress;
+        const userLatFromContext = context.conversationContext?.userLatitude;
+        const userLngFromContext = context.conversationContext?.userLongitude;
+        
+        // Get user message from payload or conversation history
+        let userMessage = message || '';
+        if (!userMessage && context.conversationHistory && context.conversationHistory.length > 0) {
+            for (let i = context.conversationHistory.length - 1; i >= 0; i--) {
+                const msg = context.conversationHistory[i];
+                if (msg.message_type === 'user' || msg.is_user) {
+                    userMessage = msg.message_content || msg.content || '';
+                    break;
+                }
+            }
+        }
+        const isAskingForNearest = /(gan|gần|nearest|closest|gần nhất|gan nhat|gan dia chi|gần địa chỉ)/i.test(userMessage);
+        
+        // If user has delivery address and asking about nearest branch, try to find nearest
+        if ((isAskingForNearest || intent === 'view_branches') && (deliveryAddress || userLatFromContext)) {
+            let userLat = userLatFromContext;
+            let userLng = userLngFromContext;
+            
+            // Geocode delivery address if we don't have coordinates yet
+            if (!userLat && !userLng && deliveryAddress) {
+                try {
+                    const axios = require('axios');
+                    const mapboxKey = process.env.MAPBOX_KEY_PUBLIC || process.env.MAPBOX_KEY;
+                    if (mapboxKey && deliveryAddress) {
+                        const encodedQuery = encodeURIComponent(deliveryAddress.trim());
+                        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${mapboxKey}&country=VN&limit=1`;
+                        const geocodeResponse = await axios.get(url, { timeout: 5000 });
+                        if (geocodeResponse.data && geocodeResponse.data.features && geocodeResponse.data.features.length > 0) {
+                            const coordinates = geocodeResponse.data.features[0].geometry.coordinates; 
+                            userLng = coordinates[0];
+                            userLat = coordinates[1];
+                            const ConversationService = require('../ConversationService');
+                            const conversationId = context.conversationId;
+                            if (conversationId) {
+                                await ConversationService.updateConversationContext(conversationId, {
+                                    userLatitude: userLat,
+                                    userLongitude: userLng
+                                }, userId);
+                            }
+                        }
+                    }
+                } catch (geocodeError) {
+                    console.error('[BranchIntentHandler] Geocode error:', geocodeError);
+                }
+            }
+            
+            // If we have coordinates, find nearest branches
+            if (userLat && userLng) {
+                try {
+                    const nearbyBranches = await BranchService.getNearbyBranches(userLat, userLng);
+                    if (nearbyBranches.length > 0) {
+                        const nearestBranch = nearbyBranches[0]; 
+                        const distance = nearestBranch.distance_km;
+                        const distanceText = distance ? ` (cách bạn ${distance.toFixed(1)} km)` : '';
+                        const suggestions = await BranchHandler.createBranchSuggestions([nearestBranch], {
+                            intent: context.conversationContext?.lastIntent === 'order_delivery' ? 'order_delivery' : 
+                                    context.conversationContext?.lastIntent === 'order_takeaway' ? 'order_takeaway' : 
+                                    'view_menu'
+                        });
+                        if (nearbyBranches.length > 1) {
+                            const otherBranches = nearbyBranches.slice(1, 4); 
+                            const otherSuggestions = await BranchHandler.createBranchSuggestions(otherBranches, {
+                                intent: context.conversationContext?.lastIntent === 'order_delivery' ? 'order_delivery' : 
+                                        context.conversationContext?.lastIntent === 'order_takeaway' ? 'order_takeaway' : 
+                                        'view_menu'
+                            });
+                            suggestions.push(...otherSuggestions);
+                        }
+                        const address = nearestBranch.address_detail || '';
+                        const phone = nearestBranch.phone || '';
+                        const openingHours = nearestBranch.opening_hours ? `${nearestBranch.opening_hours}h` : '';
+                        const closeHours = nearestBranch.close_hours ? `${nearestBranch.close_hours}h` : '';
+                        const hoursText = openingHours && closeHours ? `🕐 ${openingHours} - ${closeHours}` : '';
+                        const responseText = `📍 **Chi nhánh gần bạn nhất${distanceText}:**\n\n` +
+                            `🏢 **${nearestBranch.name}**\n` +
+                            `${address ? `📍 ${address}\n` : ''}` +
+                            `${hoursText ? `${hoursText}\n` : ''}` +
+                            `${phone ? `📞 ${phone}\n` : ''}` +
+                            `\n${nearbyBranches.length > 1 ? `Còn ${nearbyBranches.length - 1} chi nhánh khác gần bạn. ` : ''}Bạn muốn xem menu hoặc đặt bàn tại chi nhánh này không?`;
+                        return this.buildResponse({
+                            intent: 'find_nearest_branch',
+                            response: responseText,
+                            entities: Utils.normalizeEntityFields({ ...entities, branch_id: nearestBranch.id, branch_name: nearestBranch.name }),
+                            suggestions: suggestions,
+                        });
+                    }
+                } catch (error) {
+                    console.error('[BranchIntentHandler] Error finding nearest branches:', error);
+                }
+            }
+        }
+        
         const branches = await BranchHandler.getAllActiveBranches();
         if (!branches.length) {
             return this.buildResponse({

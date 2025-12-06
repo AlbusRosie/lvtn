@@ -417,51 +417,245 @@ class _CartScreenState extends State<CartScreen> {
 
           return Column(
             children: [
-              Container(
-                margin: EdgeInsets.all(16),
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 0,
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.store, color: Colors.orange, size: 24),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.branchName,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[800],
-                              fontFamily: 'Inter',
+              Consumer<CartProvider>(
+                builder: (context, cartProvider, child) {
+                  final reservationInfo = cartProvider.reservationInfo;
+                  
+                  return Column(
+                    children: [
+                      Container(
+                        margin: EdgeInsets.all(16),
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              spreadRadius: 0,
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
                             ),
-                          ),
-                          Text(
-                            '${cart.items.length} items in cart',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                              fontFamily: 'Inter',
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.store, color: Colors.orange, size: 24),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.branchName,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey[800],
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                  Text(
+                                    '${cart.items.length} items in cart',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                      
+                      // Hiển thị thông tin reservation nếu có
+                      if (reservationInfo != null)
+                        Builder(
+                          builder: (context) {
+                            // Kiểm tra reservation có expired không
+                            bool isExpired = false;
+                            String? expiredMessage;
+                            if (reservationInfo['reservation_date'] != null && reservationInfo['reservation_time'] != null) {
+                              try {
+                                final dateStr = reservationInfo['reservation_date'] as String;
+                                final timeStr = reservationInfo['reservation_time'].toString().substring(0, 5);
+                                final reservationDateTime = DateTime.parse('$dateStr $timeStr');
+                                final now = DateTime.now();
+                                final expiredThreshold = reservationDateTime.add(Duration(minutes: 30));
+                                isExpired = now.isAfter(expiredThreshold);
+                                
+                                if (isExpired) {
+                                  final minutesOverdue = now.difference(expiredThreshold).inMinutes;
+                                  if (minutesOverdue >= 60) {
+                                    expiredMessage = 'Reservation đã quá hơn 1 giờ. Vui lòng đặt bàn mới.';
+                                  } else {
+                                    expiredMessage = 'Reservation đã quá giờ ${minutesOverdue} phút. Vui lòng đặt bàn mới.';
+                                  }
+                                }
+                              } catch (e) {
+                                // Nếu không parse được, không hiển thị expired
+                              }
+                            }
+                            
+                            return Container(
+                              margin: EdgeInsets.symmetric(horizontal: 16),
+                              padding: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: isExpired ? Colors.red[50] : Colors.orange[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isExpired ? Colors.red[200]! : Colors.orange[200]!,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: isExpired ? Colors.red[100] : Colors.orange[100],
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(
+                                          isExpired ? Icons.warning : Icons.table_restaurant,
+                                          color: isExpired ? Colors.red[700] : Colors.orange[700],
+                                          size: 20,
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  isExpired ? 'Reservation Expired' : 'Table Reserved',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isExpired ? Colors.red[900] : Colors.orange[900],
+                                                  ),
+                                                ),
+                                                SizedBox(width: 8),
+                                                Container(
+                                                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: isExpired ? Colors.red[200] : Colors.orange[200],
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    'ID: ${cartProvider.reservationId}',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: isExpired ? Colors.red[900] : Colors.orange[900],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            SizedBox(height: 4),
+                                            if (reservationInfo['reservation_date'] != null)
+                                              Text(
+                                                'Date: ${reservationInfo['reservation_date']}',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[700],
+                                                ),
+                                              ),
+                                            if (reservationInfo['reservation_time'] != null)
+                                              Text(
+                                                'Time: ${reservationInfo['reservation_time'].toString().substring(0, 5)}',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[700],
+                                                ),
+                                              ),
+                                            if (reservationInfo['guest_count'] != null)
+                                              Text(
+                                                'Guests: ${reservationInfo['guest_count']}',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[700],
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (isExpired) ...[
+                                    SizedBox(height: 8),
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red[100],
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.error_outline,
+                                            size: 14,
+                                            color: Colors.red[700],
+                                          ),
+                                          SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              expiredMessage ?? 'Reservation đã quá giờ',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.red[900],
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    SizedBox(height: 8),
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.info_outline,
+                                            size: 14,
+                                            color: Colors.orange[700],
+                                          ),
+                                          SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              'Order sẽ được liên kết với reservation này khi checkout',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey[700],
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  );
+                },
               ),
 
               Expanded(

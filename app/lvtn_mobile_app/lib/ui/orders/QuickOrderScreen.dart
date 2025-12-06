@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/branch.dart';
 import '../../models/product.dart';
+import '../../models/cart.dart';
 import '../../providers/BranchProvider.dart';
 import '../../providers/ProductProvider.dart';
 import '../../providers/CategoryProvider.dart';
@@ -13,6 +14,11 @@ import '../widgets/AppBottomNav.dart';
 import '../../utils/image_utils.dart';
 import '../../services/ProductOptionService.dart';
 import '../../models/product_option.dart';
+import '../../services/TableService.dart';
+import '../../services/ReservationService.dart';
+import '../../services/CartService.dart';
+import '../../services/AuthService.dart';
+import '../../constants/api_constants.dart';
 
 class QuickOrderScreen extends StatefulWidget {
   static const String routeName = '/quick-order';
@@ -23,13 +29,14 @@ class QuickOrderScreen extends StatefulWidget {
   State<QuickOrderScreen> createState() => _QuickOrderScreenState();
 }
 
-class _QuickOrderScreenState extends State<QuickOrderScreen> {
+class _QuickOrderScreenState extends State<QuickOrderScreen> with SingleTickerProviderStateMixin {
   int _currentStep = 0;
   Branch? _selectedBranch;
   final Map<int, int> _cartItems = {};
   final Map<int, List<SelectedOption>> _cartItemOptions = {};
   final Map<int, String> _cartItemSpecialInstructions = {};
   bool _isLoading = false;
+  String? _quickOrderSessionId; // Session ID riêng cho QuickOrder
 
 
   DateTime _selectedDate = DateTime.now();
@@ -37,6 +44,19 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
   int _numberOfGuests = 2;
   String _specialRequests = '';
 
+  // Tab selection for reservation step
+  int _reservationTabIndex = 0;
+  
+  // Table selection for tab 2
+  final TableService _tableService = TableService();
+  List<Map<String, dynamic>> _tables = [];
+  List<Map<String, dynamic>> _filteredTables = [];
+  Map<int, bool> _tableAvailability = {};
+  bool _isLoadingTables = false;
+  bool _isCheckingAvailability = false;
+  int? _selectedTableId;
+  DateTime? _tableSelectionDate;
+  TimeOfDay? _tableSelectionTime;
 
   int? _selectedCategoryId = 0;
 
@@ -684,87 +704,126 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
 
   Widget _buildReservationStep() {
     final primaryColor = Color(0xFFFF8A00);
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.store_rounded, color: primaryColor, size: 24),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _selectedBranch?.name ?? '',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey[900],
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      _selectedBranch?.address ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        color: Colors.grey[600],
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => setState(() => _currentStep = 0),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Text(
+                      'Đổi',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        DefaultTabController(
+          length: 2,
+          initialIndex: _reservationTabIndex,
+          child: Container(
+            color: Colors.white,
+            child: TabBar(
+              onTap: (index) => setState(() => _reservationTabIndex = index),
+              indicatorColor: primaryColor,
+              indicatorWeight: 3,
+              labelColor: primaryColor,
+              unselectedLabelColor: Colors.grey[600],
+              labelStyle: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+              tabs: [
+                Tab(text: 'Nhanh'),
+                Tab(text: 'Chọn bàn'),
+              ],
+            ),
+          ),
+        ),
+        
+        Expanded(
+          child: IndexedStack(
+            index: _reservationTabIndex,
+            children: [
+              _buildQuickReservationTab(primaryColor),
+              _buildTableSelectionTab(primaryColor),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickReservationTab(Color primaryColor) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: primaryColor.withOpacity(0.2)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 20,
-                  offset: Offset(0, 4),
-                  spreadRadius: 0,
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.store_rounded, color: primaryColor, size: 24),
-                ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _selectedBranch?.name ?? '',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.grey[900],
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        _selectedBranch?.address ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          color: Colors.grey[600],
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => setState(() => _currentStep = 0),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      child: Text(
-                        'Đổi',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: primaryColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          SizedBox(height: 20),
           Container(
             padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -1129,9 +1188,756 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
               ],
             ),
           ),
+          
+          SizedBox(height: 20),
+          Consumer<AuthProvider>(
+            builder: (context, authProvider, child) {
+              final user = authProvider.currentUser;
+              final hasInfo = user?.name?.isNotEmpty == true && 
+                             user?.phone?.isNotEmpty == true;
+              
+              return Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: hasInfo ? Colors.green.withOpacity(0.2) : primaryColor.withOpacity(0.2),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 20,
+                      offset: Offset(0, 4),
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: hasInfo ? Colors.green : primaryColor,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Icon(
+                          hasInfo ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                          color: hasInfo ? Colors.green : primaryColor,
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Thông tin liên hệ',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey[900],
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Họ tên',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(height: 6),
+                              Text(
+                                user?.name ?? 'Chưa có',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: user?.name != null ? Colors.grey[900] : primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: 20),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Điện thoại',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(height: 6),
+                              Text(
+                                user?.phone ?? 'Chưa có',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: user?.phone != null ? Colors.grey[900] : primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (!hasInfo) ...[
+                      SizedBox(height: 16),
+                      Container(
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: primaryColor.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded, 
+                              color: primaryColor, 
+                              size: 18
+                            ),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Vui lòng cập nhật thông tin trong Tài khoản',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: primaryColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+          
+          SizedBox(height: 20),
+          Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 20,
+                  offset: Offset(0, 4),
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: primaryColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Icon(Icons.note_alt_outlined, color: primaryColor, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Yêu cầu đặc biệt',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey[900],
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    Spacer(),
+                    Text(
+                      '(Tùy chọn)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  maxLines: 3,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[800],
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'VD: Gần cửa sổ, tránh thức ăn cay...',
+                    hintStyle: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 13,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: primaryColor, width: 2),
+                    ),
+                    contentPadding: EdgeInsets.all(16),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                  ),
+                  onChanged: (value) => _specialRequests = value,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildTableSelectionTab(Color primaryColor) {
+    if (_tableSelectionDate == null) {
+      _tableSelectionDate = DateTime.now();
+    }
+    if (_tableSelectionTime == null) {
+      _tableSelectionTime = TimeOfDay.now();
+    }
+    
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 20,
+                  offset: Offset(0, 4),
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: primaryColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Text(
+                      'Chọn ngày giờ',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey[900],
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildCompactInfoTile(
+                        icon: Icons.calendar_today_outlined,
+                        label: 'Ngày',
+                        value: _formatCompactDate(_tableSelectionDate!),
+                        onTap: _selectTableDate,
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactInfoTile(
+                        icon: Icons.access_time_outlined,
+                        label: 'Giờ',
+                        value: _tableSelectionTime!.format(context),
+                        onTap: _selectTableTime,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.people_rounded, color: primaryColor, size: 20),
+                      ),
+                      SizedBox(width: 12),
+                      Text(
+                        'Số khách',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.grey[800],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Spacer(),
+                      _buildCompactCounter(
+                        icon: Icons.remove_rounded,
+                        onTap: _numberOfGuests > 1
+                            ? () => setState(() => _numberOfGuests--)
+                            : null,
+                      ),
+                      Container(
+                        width: 50,
+                        alignment: Alignment.center,
+                        child: Text(
+                          '$_numberOfGuests',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: primaryColor,
+                          ),
+                        ),
+                      ),
+                      _buildCompactCounter(
+                        icon: Icons.add_rounded,
+                        onTap: _numberOfGuests < 20
+                            ? () => setState(() => _numberOfGuests++)
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _tableSelectionDate != null && _tableSelectionTime != null
+                        ? () => _loadTablesForSelection()
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isLoadingTables
+                        ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : Text(
+                            'Tìm bàn phù hợp',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          if (_isLoadingTables && _tables.isEmpty)
+            Container(
+              padding: EdgeInsets.all(40),
+              child: Center(
+                child: CircularProgressIndicator(color: primaryColor),
+              ),
+            )
+          else if (_tables.isNotEmpty) ...[
+            SizedBox(height: 20),
+            Container(
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 20,
+                    offset: Offset(0, 4),
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Text(
+                        'Danh sách bàn',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey[900],
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      Spacer(),
+                      Text(
+                        '${_filteredTables.length} bàn',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                  if (_isCheckingAvailability)
+                    Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(color: primaryColor),
+                      ),
+                    )
+                  else
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.15,
+                      ),
+                      itemCount: _filteredTables.length,
+                      itemBuilder: (context, index) {
+                        final table = _filteredTables[index];
+                        final tableId = table['id'] as int;
+                        final isSelected = _selectedTableId == tableId;
+                        final isAvailable = _tableAvailability[tableId] ?? false;
+                        
+                        return _buildTableCard(table, isSelected, isAvailable, primaryColor);
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableCard(Map<String, dynamic> table, bool isSelected, bool isAvailable, Color primaryColor) {
+    final tableId = table['id'] is int ? table['id'] as int : int.tryParse(table['id']?.toString() ?? '0') ?? 0;
+    // Try multiple possible field names for table number
+    final tableNumber = table['table_number']?.toString() ?? 
+                       table['tableNumber']?.toString() ?? 
+                       table['name']?.toString() ??
+                       table['id']?.toString() ?? 
+                       'N/A';
+    final capacity = table['capacity'] ?? 0;
+    final status = (table['status'] ?? 'available').toString();
+    final location = (table['location'] ?? '').toString();
+    
+    return GestureDetector(
+      onTap: isAvailable
+          ? () {
+              setState(() {
+                _selectedTableId = isSelected ? null : tableId;
+                if (!isSelected) {
+                  _selectedDate = _tableSelectionDate!;
+                  _selectedTime = _tableSelectionTime!;
+                }
+              });
+            }
+          : null,
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? primaryColor.withOpacity(0.2) 
+              : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: isSelected 
+              ? null 
+              : Border.all(
+                  color: isAvailable
+                      ? Colors.grey[300]!
+                      : Colors.grey[200]!,
+                  width: 1,
+                ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: primaryColor.withOpacity(0.25),
+                    blurRadius: 10,
+                    offset: Offset(0, 3),
+                    spreadRadius: 0,
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                    spreadRadius: 0,
+                  ),
+                ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.table_restaurant,
+                size: 26,
+                color: isSelected
+                    ? primaryColor
+                    : isAvailable
+                        ? Colors.grey[700]
+                        : Colors.grey[400],
+              ),
+              SizedBox(height: 6),
+              Text(
+                'Bàn $tableNumber',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected
+                      ? primaryColor
+                      : isAvailable
+                          ? Colors.grey[900]
+                          : Colors.grey[500],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(height: 3),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.people, size: 12, color: Colors.grey[600]),
+                  SizedBox(width: 3),
+                  Flexible(
+                    child: Text(
+                      '$capacity người',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              if (location.isNotEmpty) ...[
+                SizedBox(height: 3),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.location_on_outlined, size: 11, color: Colors.grey[500]),
+                      SizedBox(width: 3),
+                      Flexible(
+                        child: Text(
+                          location,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[600],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (isSelected)
+                Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: Icon(Icons.check_circle, color: primaryColor, size: 18),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectTableDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _tableSelectionDate ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(Duration(days: 90)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Color(0xFFFF8A00),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() => _tableSelectionDate = picked);
+    }
+  }
+
+  Future<void> _selectTableTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _tableSelectionTime ?? TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Color(0xFFFF8A00),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() => _tableSelectionTime = picked);
+    }
+  }
+
+  Future<void> _loadTablesForSelection() async {
+    if (_selectedBranch == null || _tableSelectionDate == null || _tableSelectionTime == null) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingTables = true;
+      _tables = [];
+      _filteredTables = [];
+      _tableAvailability = {};
+    });
+
+    try {
+      final tables = await _tableService.getTablesByBranch(_selectedBranch!.id);
+      final normalized = tables.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final branchTables = normalized.where((t) => (t['branch_id'] ?? t['branchId']) == _selectedBranch!.id).toList();
+      
+      setState(() {
+        _tables = branchTables;
+        _filteredTables = branchTables.where((t) => (t['capacity'] ?? 0) >= _numberOfGuests).toList();
+      });
+
+      await _checkTableAvailability();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Không thể tải danh sách bàn: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isLoadingTables = false);
+    }
+  }
+
+  Future<void> _checkTableAvailability() async {
+    if (_tableSelectionDate == null || _tableSelectionTime == null) return;
+
+    setState(() => _isCheckingAvailability = true);
+
+    try {
+      final dateStr = '${_tableSelectionDate!.year}-${_tableSelectionDate!.month.toString().padLeft(2, '0')}-${_tableSelectionDate!.day.toString().padLeft(2, '0')}';
+      final timeStr = '${_tableSelectionTime!.hour.toString().padLeft(2, '0')}:${_tableSelectionTime!.minute.toString().padLeft(2, '0')}';
+
+      for (var table in _filteredTables) {
+        final tableId = table['id'] as int;
+        final result = await _tableService.checkTableAvailability(
+          tableId: tableId,
+          date: dateStr,
+          time: timeStr,
+        );
+        _tableAvailability[tableId] = result['available'] == true;
+      }
+    } catch (e) {
+      print('Error checking table availability: $e');
+    } finally {
+      setState(() => _isCheckingAvailability = false);
+    }
   }
 
 
@@ -1516,6 +2322,7 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                     return _ProductDineInItem(
                       product: product,
                       quantity: quantity,
+                      branch: _selectedBranch,
                       onQuantityChanged: (q, {List<SelectedOption>? options, String? specialInstructions}) {
                         setState(() {
                           if (q <= 0) {
@@ -1739,6 +2546,20 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
       return;
     }
     
+    if (_cartItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Vui lòng chọn ít nhất một món'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    setState(() {
+      _isLoading = true;
+    });
+    
     try {
 
 
@@ -1749,34 +2570,85 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
 
       
 
-      if (cartProvider.needsBranchSwitchConfirmation(_selectedBranch!.id)) {
-        final shouldSwitch = await _showBranchSwitchDialog(
-          cartProvider.currentBranchName ?? 'previous branch',
-          _selectedBranch!.name,
-        );
-        
-        if (shouldSwitch != true) {
-          return;
-        }
-        
-        await cartProvider.clearCartForBranchSwitch();
+      // Tạo sessionId riêng cho QuickOrder để không ảnh hưởng đến cart bên ngoài
+      if (_quickOrderSessionId == null) {
+        _quickOrderSessionId = DateTime.now().millisecondsSinceEpoch.toString();
       }
       
+      // Thêm món vào giỏ hàng riêng của QuickOrder (không dùng CartProvider)
+      final authService = AuthService();
+      final token = authService.token;
+      if (token == null) {
+        throw Exception('Không tìm thấy token xác thực');
+      }
+      
+      Cart? quickOrderCart;
+      
+      // Thêm từng món vào cart riêng của QuickOrder
       for (final e in _cartItems.entries) {
         final productId = e.key;
         final qty = e.value;
         final options = _cartItemOptions[productId];
         final specialInstructions = _cartItemSpecialInstructions[productId];
         
-        await cartProvider.addToCart(
-          _selectedBranch!.id,
-          productId,
+        // Sử dụng CartService trực tiếp với sessionId riêng
+        quickOrderCart = await CartService.addToCart(
+          token: token,
+          branchId: _selectedBranch!.id,
+          productId: productId,
           quantity: qty,
           orderType: 'dine_in',
+          sessionId: _quickOrderSessionId, // Sử dụng sessionId riêng
           selectedOptions: options,
           specialInstructions: specialInstructions,
         );
       }
+      
+      if (quickOrderCart == null) {
+        throw Exception('Không thể tạo giỏ hàng cho đơn hàng nhanh');
+      }
+      
+      // Tạo reservation nếu có thông tin đặt bàn
+      int? reservationId;
+      if (_selectedTableId != null && _tableSelectionDate != null && _tableSelectionTime != null) {
+        try {
+          final reservationDate = _tableSelectionDate!;
+          final reservationTime = _tableSelectionTime!;
+          final dateTime = DateTime(
+            reservationDate.year,
+            reservationDate.month,
+            reservationDate.day,
+            reservationTime.hour,
+            reservationTime.minute,
+          );
+          
+          final reservation = await ReservationService.createReservation(
+            userId: user!.id,
+            branchId: _selectedBranch!.id,
+            tableId: _selectedTableId!,
+            reservationDate: dateTime.toIso8601String().split('T')[0],
+            reservationTime: '${reservationTime.hour.toString().padLeft(2, '0')}:${reservationTime.minute.toString().padLeft(2, '0')}:00',
+            guestCount: _numberOfGuests,
+            specialRequests: _specialRequests.isNotEmpty ? _specialRequests : null,
+          );
+          
+          if (reservation != null && reservation['id'] != null) {
+            reservationId = reservation['id'] as int;
+          }
+        } catch (e) {
+          print('Lỗi khi tạo reservation: $e');
+          // Tiếp tục tạo đơn hàng dù không tạo được reservation
+        }
+      }
+      
+      // Checkout cart riêng của QuickOrder để tạo đơn hàng
+      final orderData = await CartService.checkout(
+        token: token,
+        cartId: quickOrderCart.id,
+        reservationId: reservationId,
+        customerName: user?.name,
+        customerPhone: user?.phone,
+      );
       
       if (mounted) {
         Navigator.pop(context);
@@ -1796,7 +2668,7 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        '${_formatDate(_selectedDate)} • ${_selectedTime.format(context)}',
+                        'Mã đơn: #${orderData['id'] ?? 'N/A'} • ${_formatDate(_selectedDate)} • ${_selectedTime.format(context)}',
                         style: TextStyle(fontSize: 12),
                       ),
                     ],
@@ -1810,14 +2682,24 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
           ),
         );
       }
+      
+      // KHÔNG clear cart bên ngoài, chỉ reset sessionId của QuickOrder
+      _quickOrderSessionId = null;
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Có lỗi xảy ra: $e'),
           backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -1933,11 +2815,13 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> {
 class _ProductDineInItem extends StatefulWidget {
   final Product product;
   final int quantity;
+  final Branch? branch;
   final Function(int, {List<SelectedOption>? options, String? specialInstructions}) onQuantityChanged;
 
   const _ProductDineInItem({
     required this.product,
     required this.quantity,
+    this.branch,
     required this.onQuantityChanged,
   });
 
@@ -2492,8 +3376,7 @@ Future<void> _showProductOptionsDialog() async {
                                         return;
                                       }
                                       
-                                      final quickOrderState = context.findAncestorStateOfType<_QuickOrderScreenState>();
-                                      if (quickOrderState == null || quickOrderState._selectedBranch == null) {
+                                      if (widget.branch == null) {
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(
                                             content: Text('Vui lòng chọn chi nhánh trước'),
@@ -2507,7 +3390,7 @@ Future<void> _showProductOptionsDialog() async {
                                         final cartProvider = Provider.of<CartProvider>(context, listen: false);
                                         
                                         await cartProvider.addToCart(
-                                          quickOrderState._selectedBranch!.id,
+                                          widget.branch!.id,
                                           widget.product.id,
                                           quantity: quantity,
                                           orderType: 'dine_in',

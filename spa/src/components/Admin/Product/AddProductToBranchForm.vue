@@ -260,7 +260,47 @@ onMounted(() => {
                   id="productImage"
                   ref="imageInput"
                   type="file"
-                  accept="image
+                  accept="image/*"
+                  @change="handleImageUpload"
+                  class="image-input"
+                />
+                <div class="image-preview" v-if="imagePreview">
+                  <img :src="imagePreview" alt="Preview" />
+                  <button type="button" @click="removeImage" class="remove-image-btn">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+                <div class="image-placeholder" v-else>
+                  <i class="fas fa-image"></i>
+                  <span>Chọn ảnh sản phẩm</span>
+                </div>
+              </div>
+              <div class="image-info">
+                <i class="fas fa-info-circle"></i>
+                <small>Định dạng: JPG, PNG, GIF, WebP. Kích thước tối đa: 5MB</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Product Options Section -->
+      <ProductOptionsManager 
+        :options="formData.newProduct.options" 
+        :loading="loading"
+        @update:options="updateProductOptions"
+      />
+      <div class="form-actions">
+        <button type="button" @click="$emit('cancel')" class="btn btn-cancel">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-submit" :disabled="!isFormValid || loading">
+          {{ loading ? 'Creating...' : 'Create Product' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</template>
+<style scoped>
 .info-card {
   background: #FAFBFC;
   border: 1px solid #E2E8F0;
@@ -359,7 +399,7 @@ onMounted(() => {
   font-weight: 500;
   color: #1a1a1a;
 }
-.radio-option input[type="radio"] {
+.radio-option input[type='radio'] {
   margin: 0;
   width: 18px;
   height: 18px;
@@ -427,7 +467,7 @@ onMounted(() => {
   font-size: 14px;
   color: #1a1a1a;
 }
-.branch-item .checkbox-label input[type="checkbox"] {
+.branch-item .checkbox-label input[type='checkbox'] {
   margin: 0;
   width: 18px;
   height: 18px;
@@ -464,7 +504,7 @@ onMounted(() => {
   font-weight: 500;
   color: #1a1a1a;
 }
-.checkbox-label input[type="checkbox"] {
+.checkbox-label input[type='checkbox'] {
   margin: 0;
   width: 18px;
   height: 18px;

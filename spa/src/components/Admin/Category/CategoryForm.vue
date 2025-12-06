@@ -52,7 +52,139 @@
                 <input
                   ref="imageInput"
                   type="file"
-                  accept="image
+                  accept="image/*"
+                  @change="handleImageChange"
+                  class="image-input"
+                />
+                <div class="image-preview" v-if="imagePreview">
+                  <img :src="imagePreview" alt="Preview" />
+                  <button type="button" @click="removeImage" class="remove-image-btn">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+                <div class="image-placeholder" v-else>
+                  <i class="fas fa-image"></i>
+                  <span>Chọn ảnh danh mục</span>
+                </div>
+              </div>
+              <div class="image-info">
+                <i class="fas fa-info-circle"></i>
+                <small>Định dạng: JPG, PNG, GIF, WebP. Kích thước tối đa: 5MB</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" @click="$emit('cancel')" class="btn btn-cancel">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-submit" :disabled="isSubmitting">
+          {{ isEditing ? 'Update Category' : 'Create Category' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</template>
+<script>
+export default {
+  name: 'CategoryForm',
+  props: {
+    category: {
+      type: Object,
+      default: null
+    },
+    isEditing: {
+      type: Boolean,
+      default: false
+    }
+  },
+  data() {
+    return {
+      form: {
+        name: '',
+        description: '',
+        image: null
+      },
+      selectedImage: null,
+      imagePreview: null,
+      isSubmitting: false
+    };
+  },
+  mounted() {
+    if (this.category) {
+      this.form = {
+        name: this.category.name || '',
+        description: this.category.description || '',
+        image: this.category.image || null
+      };
+      if (this.category.image) {
+        this.imagePreview = this.getImageUrl(this.category.image);
+      }
+    }
+  },
+  methods: {
+    getImageUrl(imagePath) {
+      if (!imagePath) return null;
+      if (imagePath.startsWith('http')) return imagePath;
+      if (imagePath.startsWith('/public')) {
+        return `${window.location.origin}${imagePath}`;
+      }
+      return `${window.location.origin}/public/uploads/${imagePath}`;
+    },
+    handleImageChange(event) {
+      const file = event.target.files[0];
+      if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          this.$toast?.error('Kích thước file không được vượt quá 5MB');
+          return;
+        }
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+          this.$toast?.error('Chỉ chấp nhận file ảnh (JPG, PNG, GIF, WebP)');
+          return;
+        }
+        this.selectedImage = file;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.imagePreview = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    },
+    removeImage() {
+      this.selectedImage = null;
+      this.imagePreview = null;
+      if (this.$refs.imageInput) {
+        this.$refs.imageInput.value = '';
+      }
+    },
+    async handleSubmit() {
+      if (!this.form.name || !this.form.name.trim()) {
+        this.$toast?.error('Category name is required');
+        return;
+      }
+      this.isSubmitting = true;
+      try {
+        const formData = {
+          name: this.form.name.trim(),
+          description: this.form.description ? this.form.description.trim() : null
+        };
+        let imageFile = this.selectedImage;
+        if (this.isEditing && !imageFile) {
+          imageFile = 'KEEP_EXISTING';
+        }
+        this.$emit('submit', { formData, imageFile });
+      } catch (error) {
+        this.$toast?.error('An error occurred: ' + error.message);
+      } finally {
+        this.isSubmitting = false;
+      }
+    }
+  }
+};
+</script>
+<style scoped>
 .info-card {
   background: #FAFBFC;
   border: 1px solid #E2E8F0;
