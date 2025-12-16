@@ -32,7 +32,7 @@ class AuthProvider extends ChangeNotifier {
     required String password,
     required String email,
     required String name,
-    String? phone,
+    required String phone,
     String? address,
   }) async {
     try {

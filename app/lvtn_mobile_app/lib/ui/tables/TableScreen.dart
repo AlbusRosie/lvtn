@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/branch.dart';
 import '../../services/TableService.dart';
 import '../../services/FloorService.dart';
 import '../../services/ReservationService.dart';
+import '../../services/NotificationService.dart';
 import '../cart/CartProvider.dart';
 import '../cart/CartScreen.dart';
 import '../widgets/AppBottomNav.dart';
@@ -48,7 +50,28 @@ class _TableScreenState extends State<TableScreen> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
     _fetchInitial();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
   }
 
   Future<void> _fetchInitial() async {
@@ -117,10 +140,18 @@ class _TableScreenState extends State<TableScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
         backgroundColor: Colors.white,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         elevation: 0,
         title: Text(
           'Đặt bàn',
@@ -185,9 +216,8 @@ class _TableScreenState extends State<TableScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
+      body: Column(
+        children: [
 
             Container(
               width: double.infinity,
@@ -413,11 +443,9 @@ class _TableScreenState extends State<TableScreen> {
                                   statusIcon: statusIcon,
                                   onTap: () {
                                     if (status.toLowerCase() != 'available') {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('This table is not available'),
-                                          backgroundColor: Colors.red,
-                                        ),
+                                      NotificationService().showError(
+                                        context: context,
+                                        message: 'Bàn này không khả dụng',
                                       );
                                       return;
                                     }
@@ -432,9 +460,9 @@ class _TableScreenState extends State<TableScreen> {
               ),
           ],
         ),
-      ),
       bottomNavigationBar: AppBottomNav(
         currentIndex: 1,
+      ),
       ),
     );
   }
@@ -655,8 +683,9 @@ class _TableScreenState extends State<TableScreen> {
 
             void confirm() async {
               if (selectedDate == null || selectedTime == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Please select date and time')),
+                NotificationService().showWarning(
+                  context: context,
+                  message: 'Vui lòng chọn ngày và giờ',
                 );
                 return;
               }
@@ -683,27 +712,20 @@ class _TableScreenState extends State<TableScreen> {
                 
                 if (reservation != null) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Đặt bàn thành công! Bàn #${table['id']} • ${reservationDate} ${selectedTime!.format(context)}'),
-                      backgroundColor: Colors.green,
-                      duration: Duration(seconds: 3),
-                    ),
+                  NotificationService().showSuccess(
+                    context: context,
+                    message: 'Đặt bàn thành công! Bàn #${table['id']} • ${reservationDate} ${selectedTime!.format(context)}',
                   );
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Đặt bàn thất bại. Vui lòng thử lại.'),
-                      backgroundColor: Colors.red,
-                    ),
+                  NotificationService().showError(
+                    context: context,
+                    message: 'Đặt bàn thất bại. Vui lòng thử lại.',
                   );
                 }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Có lỗi xảy ra. Vui lòng thử lại.'),
-                    backgroundColor: Colors.red,
-                  ),
+                NotificationService().showError(
+                  context: context,
+                  message: 'Có lỗi xảy ra. Vui lòng thử lại.',
                 );
               } finally {
                 setSheetState(() {

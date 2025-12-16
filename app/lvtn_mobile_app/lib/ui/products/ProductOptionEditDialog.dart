@@ -7,6 +7,7 @@ import '../../models/cart.dart';
 import '../../services/ProductOptionService.dart';
 import '../../services/CartService.dart';
 import '../../services/AuthService.dart';
+import '../../services/NotificationService.dart';
 import '../../constants/api_constants.dart';
 
 class ProductOptionEditDialog extends StatefulWidget {
@@ -145,8 +146,9 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
 
 
       if (!ProductOptionService().validateRequiredOptions(_options, _selectedOptions)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select all required options')),
+        NotificationService().showWarning(
+          context: context,
+          message: 'Vui lòng chọn tất cả các tùy chọn bắt buộc',
         );
         return;
       }
@@ -178,14 +180,16 @@ class _ProductOptionEditDialogState extends State<ProductOptionEditDialog> {
       
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Options updated successfully')),
+        NotificationService().showSuccess(
+          context: context,
+          message: 'Cập nhật tùy chọn thành công',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating options: $e')),
+        NotificationService().showError(
+          context: context,
+          message: 'Lỗi cập nhật tùy chọn: $e',
         );
       }
     }

@@ -1,10 +1,11 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import UserForm from '@/components/Admin/User/UserForm.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import usersService from '@/services/UserService';
 import OrderService from '@/services/OrderService';
+import SocketService from '@/services/SocketService';
 import { ROLE_NAMES, USER_ROLES, DEFAULT_AVATAR } from '@/constants';
 import { useMutation, useQueryClient } from '@tanstack/vue-query';
 import { useToast } from 'vue-toastification';
@@ -34,8 +35,9 @@ const deleteLoading = ref(false);
 const selectedUsers = ref([]);
 const isExporting = ref(false);
 const customersWithOrders = ref(0);
+const totalCustomers = ref(0);
 const userStats = computed(() => {
-  const total = users.value.length;
+  const total = totalCustomers.value || users.value.length;
   const now = new Date();
   const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -48,7 +50,7 @@ const userStats = computed(() => {
     return new Date(user.created_at) >= sevenDaysAgo;
   }).length;
   const orderPercentage = total > 0 
-    ? Math.round((customersWithOrders.value / total) * 100) 
+    ? Math.min(100, Math.round((customersWithOrders.value / total) * 100))
     : 0;
   return {
     total,
@@ -109,6 +111,7 @@ async function retrieveUsers(page) {
     }
     const chunk = await usersService.fetchUsers(page, 6, filters);
     totalPages.value = chunk.metadata.lastPage ?? 1;
+    totalCustomers.value = chunk.metadata.total || chunk.metadata.totalCount || 0;
     users.value = chunk.users.sort((current, next) => current.name.localeCompare(next.name));
     await loadCustomersWithOrders();
   } catch (err) {
@@ -323,76 +326,115 @@ watch(searchText, () => {
   retrieveUsers(1);
 });
 watch(currentPage, () => retrieveUsers(currentPage.value), { immediate: true });
+
+// Real-time user updates
+function handleUserCreated(data) {
+  if (data.user && data.user.role_id === USER_ROLES.CUSTOMER) {
+    users.value.unshift(data.user);
+    users.value = [...users.value];
+    totalCustomers.value = users.value.length;
+    toast.info(`Khách hàng mới: ${data.user.name}`);
+  }
+}
+
+function handleUserUpdated(data) {
+  if (data.user) {
+    const index = users.value.findIndex(u => u.id === data.userId);
+    if (index !== -1) {
+      users.value[index] = { ...users.value[index], ...data.user };
+      users.value = [...users.value];
+    } else if (data.user.role_id === USER_ROLES.CUSTOMER) {
+      // User might not be in current view, reload
+      retrieveUsers(currentPage.value);
+    }
+  }
+}
+
+function handleUserDeleted(data) {
+  const index = users.value.findIndex(u => u.id === data.userId);
+  if (index !== -1) {
+    users.value.splice(index, 1);
+    users.value = [...users.value];
+    totalCustomers.value = users.value.length;
+  }
+}
+
+onMounted(() => {
+  // Setup real-time listeners
+  SocketService.on('user-created', handleUserCreated);
+  SocketService.on('user-updated', handleUserUpdated);
+  SocketService.on('user-deleted', handleUserDeleted);
+});
+
+onUnmounted(() => {
+  // Cleanup listeners
+  SocketService.off('user-created', handleUserCreated);
+  SocketService.off('user-updated', handleUserUpdated);
+  SocketService.off('user-deleted', handleUserDeleted);
+});
 </script>
 <template>
   <div class="user-list">
-    <!-- Statistics Section -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon" style="background: #ECFDF5; color: #10B981;">
-          <i class="fas fa-users"></i>
+    <!-- Statistics and Filters Section -->
+    <div class="stats-filters-container">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #ECFDF5; color: #10B981;">
+            <i class="fas fa-users"></i>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ userStats.total }}</div>
+            <div class="stat-label">Total Customers</div>
+          </div>
         </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ userStats.total }}</div>
-          <div class="stat-label">Total Customers</div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #D1FAE5; color: #059669;">
+            <i class="fas fa-user-plus"></i>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ userStats.new3Days }}</div>
+            <div class="stat-label">New 3 Days</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #FEF3C7; color: #D97706;">
+            <i class="fas fa-calendar-week"></i>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ userStats.new7Days }}</div>
+            <div class="stat-label">New 7 Days</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #E0E7FF; color: #6366F1;">
+            <i class="fas fa-shopping-cart"></i>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ userStats.orderPercentage }}%</div>
+            <div class="stat-label">With Orders</div>
+          </div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background: #D1FAE5; color: #059669;">
-          <i class="fas fa-user-plus"></i>
-        </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ userStats.new3Days }}</div>
-          <div class="stat-label">New 3 Days</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background: #FEF3C7; color: #D97706;">
-          <i class="fas fa-calendar-week"></i>
-        </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ userStats.new7Days }}</div>
-          <div class="stat-label">New 7 Days</div>
-        </div>
-      </div>
-       <div class="stat-card">
-         <div class="stat-icon" style="background: #E0E7FF; color: #6366F1;">
-           <i class="fas fa-shopping-cart"></i>
-         </div>
-         <div class="stat-info">
-           <div class="stat-value">{{ userStats.orderPercentage }}%</div>
-           <div class="stat-label">With Orders</div>
-         </div>
-       </div>
-    </div>
-    <!-- Filters Section -->
-    <div class="filters-card">
-      <div class="filters-header">
-        <h3>Filters</h3>
-        <button v-if="searchText || selectedRole || selectedRecent" 
-                @click="clearFilters" class="btn-clear-filters">
-          <i class="fas fa-times"></i>
-          Clear Filters
-        </button>
-      </div>
-      <div class="filters-grid">
-        <div class="filter-group">
-          <label>Search</label>
+      <!-- Compact Filters -->
+      <div class="compact-filters">
+        <div class="filter-row">
           <input
             v-model="searchText"
             type="text"
             placeholder="Search customers..."
-            class="filter-input"
+            class="filter-input-compact"
             @keyup.enter="handleSearch"
           />
-        </div>
-        <div class="filter-group">
-          <label>Time</label>
-          <select v-model="selectedRecent" @change="handleRecentFilter" class="filter-select">
+          <select v-model="selectedRecent" @change="handleRecentFilter" class="filter-select-compact">
             <option value="">All Time</option>
             <option value="3d">New 3 Days</option>
             <option value="7d">New 7 Days</option>
           </select>
+          <button v-if="searchText || selectedRole || selectedRecent" 
+                  @click="clearFilters" class="btn-clear-compact">
+            <i class="fas fa-times"></i>
+            Clear
+          </button>
         </div>
       </div>
     </div>
@@ -694,11 +736,89 @@ watch(currentPage, () => retrieveUsers(currentPage.value), { immediate: true });
   background: #10B981;
   color: white;
 }
+.stats-filters-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 24px;
+}
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
-  margin-bottom: 24px;
+}
+.compact-filters {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #E2E8F0;
+}
+.filter-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.filter-input-compact {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 14px;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #FAFAFA;
+  color: #1a1a1a;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.filter-input-compact:focus {
+  outline: none;
+  border-color: #FF8C42;
+  box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.1);
+  background: white;
+}
+.filter-input-compact::placeholder {
+  color: #9CA3AF;
+  font-weight: 400;
+}
+.filter-select-compact {
+  padding: 10px 14px;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #FAFAFA;
+  color: #1a1a1a;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  min-width: 150px;
+}
+.filter-select-compact:focus {
+  outline: none;
+  border-color: #FF8C42;
+  box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.1);
+  background: white;
+}
+.btn-clear-compact {
+  padding: 10px 16px;
+  border: 1px solid #E5E5E5;
+  background: white;
+  color: #666;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-clear-compact:hover {
+  border-color: #FF8C42;
+  color: #FF8C42;
+  background: #FFF9F5;
 }
 .stat-card {
   background: white;

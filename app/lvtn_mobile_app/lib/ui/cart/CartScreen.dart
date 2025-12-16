@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../models/cart.dart';
@@ -9,6 +10,7 @@ import '../../services/AuthService.dart';
 import '../../ui/cart/CartProvider.dart';
 import '../../providers/AuthProvider.dart';
 import '../../providers/ChatProvider.dart';
+import '../../services/NotificationService.dart';
 import '../../constants/api_constants.dart';
 import '../products/ProductOptionEditDialog.dart';
 import '../branches/BranchDetailScreen.dart';
@@ -35,7 +37,28 @@ class _CartScreenState extends State<CartScreen> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
     _loadCart();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
   }
 
   Future<void> _loadCart() async {
@@ -76,12 +99,9 @@ class _CartScreenState extends State<CartScreen> {
             chatProvider.reset();
           }
           
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Session expired. Please login again.'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
-            ),
+          NotificationService().showWarning(
+            context: context,
+            message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại',
           );
           
           Future.delayed(Duration(seconds: 1), () {
@@ -126,8 +146,9 @@ class _CartScreenState extends State<CartScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating quantity: $e')),
+        NotificationService().showError(
+          context: context,
+          message: 'Lỗi cập nhật số lượng: $e',
         );
       }
     } finally {
@@ -158,8 +179,9 @@ class _CartScreenState extends State<CartScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error removing item: $e')),
+        NotificationService().showError(
+          context: context,
+          message: 'Lỗi xóa sản phẩm: $e',
         );
       }
     } finally {
@@ -204,8 +226,9 @@ class _CartScreenState extends State<CartScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error navigating to checkout: $e')),
+        NotificationService().showError(
+          context: context,
+          message: 'Lỗi điều hướng đến thanh toán: $e',
         );
       }
     }
@@ -339,11 +362,19 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios, color: Colors.grey[600]),
           onPressed: () => Navigator.pop(context),
@@ -1003,6 +1034,7 @@ class _CartScreenState extends State<CartScreen> {
             ],
           );
         },
+      ),
       ),
     );
   }

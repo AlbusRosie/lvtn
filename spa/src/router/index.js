@@ -106,16 +106,16 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: '/:pathMatch(.*)*',
-    name: 'notfound',
-    component: () => import('@/views/Admin/User/NotFound.vue'),
-    meta: { requiresAuth: false }
-  },
-  {
     path: '/admin/reservations',
     name: 'admin.reservations',
     component: () => import('@/views/Admin/Reservation/ReservationList.vue'),
     meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'notfound',
+    component: () => import('@/views/Admin/User/NotFound.vue'),
+    meta: { requiresAuth: false }
   },
 ];
 const router = createRouter({
@@ -125,11 +125,28 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const isAuthenticated = AuthService.isAuthenticated();
   const user = AuthService.getUser();
-  if (to.meta.requiresAuth && !isAuthenticated) {
+  
+  // QUAN TRỌNG: Kiểm tra delivery driver TRƯỚC TẤT CẢ các logic khác
+  if (isAuthenticated && user && user.role_id === 7) {
+    // Nếu là delivery driver, LUÔN redirect về /employee/delivery (trừ khi đang ở đó)
+    if (to.path !== '/employee/delivery') {
+      return next('/employee/delivery');
+    }
+    // Nếu đã ở đúng route, cho phép tiếp tục
+    return next();
+  }
+  
+  // Nếu route yêu cầu auth nhưng chưa đăng nhập hoặc không có user hợp lệ
+  if (to.meta.requiresAuth && (!isAuthenticated || !user)) {
     return next('/auth');
   }
+  
+  // Nếu đã đăng nhập và có user hợp lệ
   if (isAuthenticated && user) {
+    // Kiểm tra và redirect employee về route phù hợp TRƯỚC khi xử lý các logic khác
     const isEmployee = user.role_id === 6 || user.role_id === 5 || user.role_id === 7 || user.role_id === 8 || user.role_id === 2;
+    
+    // Nếu là employee khác và đang truy cập route không phù hợp, redirect về route phù hợp
     if (isEmployee && (to.path === '/' || to.path.startsWith('/admin'))) {
       if (user.role_id === 6) return next('/employee/cashier'); 
       if (user.role_id === 5) return next('/employee/kitchen'); 
@@ -138,6 +155,22 @@ router.beforeEach((to, from, next) => {
       if (user.role_id === 2) return next('/employee/manager'); 
       return next('/employee');
     }
+    
+    // Nếu là employee và đang truy cập route không tồn tại (404), redirect về route phù hợp
+    if (isEmployee && to.name === 'notfound') {
+      if (user.role_id === 6) return next('/employee/cashier'); 
+      if (user.role_id === 5) return next('/employee/kitchen'); 
+      if (user.role_id === 7) return next('/employee/delivery'); 
+      if (user.role_id === 8) return next('/employee/cashier'); 
+      if (user.role_id === 2) return next('/employee/manager'); 
+      return next('/employee');
+    }
+    
+    // Nếu là delivery driver, đảm bảo không được truy cập route khác
+    if (user.role_id === 7 && to.path !== '/employee/delivery') {
+      return next('/employee/delivery');
+    }
+    
     if (to.path === '/') {
       if (user.role_id === 1 || user.role_id === 3) return next(); 
       if (user.role_id === 6) return next('/employee/cashier'); 
@@ -171,6 +204,14 @@ router.beforeEach((to, from, next) => {
       return next('/');
     }
   }
+  
+  // Nếu chưa đăng nhập và không phải route /auth, redirect về /auth
+  if (!isAuthenticated || !user) {
+    if (to.path !== '/auth') {
+      return next('/auth');
+    }
+  }
+  
   next();
 });
 export default router;

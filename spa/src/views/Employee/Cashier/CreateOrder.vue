@@ -3,9 +3,8 @@
     <div class="create-order-main-content">
       <div class="main-tabs">
         <button 
-          :class="['main-tab-btn', { active: activeMainTab === 'tables', disabled: hasDeliveryInfo }]"
-          @click="!hasDeliveryInfo && (activeMainTab = 'tables')"
-          :disabled="hasDeliveryInfo"
+          :class="['main-tab-btn', { active: activeMainTab === 'tables' }]"
+          @click="activeMainTab = 'tables'"
         >
           <i class="fas fa-table"></i> Select Table
           <span v-if="availableTables.length > 0" class="tab-badge">{{ availableTables.length }}</span>
@@ -190,8 +189,8 @@
             <div
               v-for="table in filteredTables"
               :key="table.id"
-              :class="['table-card', { 'selected': selectedTable == table.id, 'available': table.isAvailable, 'disabled': hasDeliveryInfo }]"
-              @click="!hasDeliveryInfo && selectTable(table)"
+              :class="['table-card', { 'selected': selectedTable == table.id, 'available': table.isAvailable }]"
+              @click="selectTable(table)"
             >
               <!-- Normal View -->
               <div v-if="selectedTable != table.id" class="table-card-normal">
@@ -289,9 +288,9 @@
               </button>
             </div>
           </div>
-          <!-- Delivery Info Form (for takeaway/delivery) -->
+          <!-- Delivery Info Form (for reservation address) -->
           <div v-if="!selectedTableInfo" class="info-row delivery-address-row">
-            <label><i class="fas fa-map-marker-alt"></i> Delivery Address *</label>
+            <label><i class="fas fa-map-marker-alt"></i> Địa chỉ (cho reservation) *</label>
             <input 
               v-model="deliveryAddressDetail" 
               type="text" 
@@ -304,7 +303,7 @@
             </small>
             <div v-if="hasDeliveryInfo" class="delivery-info-badge-sidebar">
               <i class="fas fa-info-circle"></i>
-              <span>Takeaway/delivery order</span>
+              <span>Reservation order (vui lòng chọn bàn)</span>
             </div>
           </div>
         </div>
@@ -367,10 +366,6 @@
           <div class="summary-row-compact">
             <span>Subtotal:</span>
             <span>{{ formatCurrency(subtotal) }}</span>
-          </div>
-          <div v-if="tax > 0" class="summary-row-compact">
-            <span>Tax:</span>
-            <span>{{ formatCurrency(tax) }}</span>
           </div>
           <div v-if="discount > 0" class="summary-row-compact discount">
             <span>Discount:</span>
@@ -871,9 +866,10 @@
   </div>
 </template>
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
+import SocketService from '@/services/SocketService';
 const emit = defineEmits(['order-created']);
 import ProductService from '@/services/ProductService';
 import CategoryService from '@/services/CategoryService';
@@ -910,6 +906,7 @@ const paymentMethods = [
 const selectedPaymentMethod = ref('cash');
 const customerName = ref('');
 const customerPhone = ref('');
+const selectedCustomerId = ref(null);
 const searchingCustomer = ref(false);
 const deliveryAddressDetail = ref('');
 const tables = ref([]);
@@ -983,6 +980,11 @@ const hasDeliveryInfo = computed(() => {
   return deliveryAddressDetail.value.trim();
 });
 const canAddToCart = computed(() => {
+  // Nếu có địa chỉ, yêu cầu cả bàn và địa chỉ (chỉ cho phép reservation)
+  if (hasDeliveryInfo.value) {
+    return selectedTable.value && hasDeliveryInfo.value;
+  }
+  // Nếu không có địa chỉ, chỉ cần bàn hoặc địa chỉ (như cũ)
   return selectedTable.value || hasDeliveryInfo.value;
 });
 const filteredTables = computed(() => {
@@ -1036,14 +1038,13 @@ const subtotal = computed(() => {
   return isNaN(sum) ? 0 : sum;
 });
 const tax = computed(() => {
-  const taxAmount = subtotal.value * 0.1; 
-  return isNaN(taxAmount) ? 0 : taxAmount;
+  return 0;
 });
 const discount = computed(() => {
   return 0;
 });
 const total = computed(() => {
-  const totalAmount = Math.max(0, subtotal.value + tax.value - discount.value);
+  const totalAmount = Math.max(0, subtotal.value - discount.value);
   return isNaN(totalAmount) ? 0 : totalAmount;
 });
 async function loadCategories() {
@@ -1117,10 +1118,12 @@ async function searchCustomerByPhone() {
       const customerPhoneNormalized = (customer.phone || '').replace(/[\s\-\(\)\.]/g, '').replace(/[^\d+]/g, '');
       if (!nameWasManuallyEntered || customerPhoneNormalized === phone) {
         customerName.value = customer.name || '';
+        selectedCustomerId.value = customer.id || null;
         toast.success('Customer found in system');
       }
     } else {
       if (!nameWasManuallyEntered) {
+        selectedCustomerId.value = null;
         }
     }
   } catch (error) {
@@ -1144,6 +1147,7 @@ watch(customerPhone, () => {
   } else {
     if (!customerName.value?.trim()) {
       customerName.value = '';
+      selectedCustomerId.value = null;
     }
   }
 });
@@ -1259,18 +1263,14 @@ async function selectTable(table) {
     selectedTable.value = '';
     selectedTableInfo.value = null;
   } else {
-    // Clear delivery address when selecting a table
-    deliveryAddressDetail.value = '';
+    // Không clear địa chỉ khi chọn bàn (địa chỉ có thể dùng cho reservation)
     selectedTable.value = table.id;
     selectedTableInfo.value = table;
   }
 }
 function handleAddressInput() {
-  // Clear table selection when entering address
-  if (deliveryAddressDetail.value.trim()) {
-    selectedTable.value = '';
-    selectedTableInfo.value = null;
-  }
+  // Khi có địa chỉ, yêu cầu chọn bàn (không clear bàn nữa)
+  // Địa chỉ chỉ dùng cho reservation, không dùng cho takeaway/delivery
 }
 async function loadBranchInfo(branchId) {
   try {
@@ -1774,7 +1774,11 @@ const optionTotalPrice = computed(() => {
 function confirmAddToCart() {
   if (!selectedProduct.value) return;
   if (!canAddToCart.value) {
-    toast.warning('Please select a table or fill in delivery information before adding items');
+    if (hasDeliveryInfo.value) {
+      toast.warning('Vui lòng chọn bàn để thêm sản phẩm vào giỏ hàng');
+    } else {
+      toast.warning('Please select a table or fill in delivery information before adding items');
+    }
     return;
   }
   const basePrice = Number(selectedProduct.value.price) || 0;
@@ -1799,6 +1803,7 @@ function confirmAddToCart() {
       .filter(name => name);
     const newItem = {
       id: selectedProduct.value.id,
+      branch_product_id: selectedProduct.value.branch_product_id || null,
       cartKey: cartItemKey,
       name: selectedProduct.value.name,
       price: itemPrice,
@@ -1855,7 +1860,11 @@ async function placeOrder() {
     return;
   }
   if (!canAddToCart.value) {
-    toast.warning('Please select a table or fill in delivery information before creating order');
+    if (hasDeliveryInfo.value) {
+      toast.warning('Vui lòng chọn bàn để tạo đơn reservation');
+    } else {
+      toast.warning('Please select a table or fill in delivery information before creating order');
+    }
     return;
   }
   const branchId = getCurrentBranchId();
@@ -1886,7 +1895,7 @@ async function placeOrder() {
         });
       }
       return {
-        product_id: item.id,
+        branch_product_id: item.branch_product_id || null,
         quantity: item.quantity,
         price: item.price,
         special_instructions: specialInstructions.length > 0 
@@ -1894,18 +1903,105 @@ async function placeOrder() {
           : null
       };
     });
-    const orderType = hasDeliveryInfo.value ? 'delivery' : 'dine_in';
+    // Khi có địa chỉ, chỉ cho phép tạo reservation (dine_in), không cho takeaway/delivery
+    const orderType = 'dine_in'; // Luôn là dine_in khi có địa chỉ hoặc bàn
+    // Không gửi delivery_address trong order khi là reservation (địa chỉ sẽ lưu trong reservation special_requests)
     let fullDeliveryAddress = null;
-    if (hasDeliveryInfo.value) {
-      fullDeliveryAddress = deliveryAddressDetail.value.trim();
+    
+    // Tạo reservation trước nếu có table được chọn
+    let reservationId = null;
+    if (selectedTable.value && reservationDate.value && reservationStartTime.value && reservationGuestCount.value) {
+      try {
+        // Tìm customer user để lấy user_id
+        let customerUserId = selectedCustomerId.value;
+        
+        // Nếu chưa có customer ID, thử tìm bằng phone nếu có
+        if (!customerUserId && customerPhone.value) {
+          const phone = customerPhone.value.replace(/[\s\-\(\)\.]/g, '').replace(/[^\d+]/g, '');
+          if (phone) {
+            try {
+              const customerData = await UserService.getAllUsers({ 
+                role_id: 4,
+                phone: phone
+              });
+              const customers = customerData.users || customerData.items || customerData.data || [];
+              if (customers.length > 0) {
+                customerUserId = customers[0].id;
+                selectedCustomerId.value = customerUserId;
+              }
+            } catch (err) {
+              console.warn('Could not find customer by phone:', err);
+            }
+          }
+        }
+        
+        // Nếu vẫn không tìm thấy, tìm customer đầu tiên (fallback)
+        if (!customerUserId) {
+          try {
+            const customerData = await UserService.getAllUsers({ 
+              role_id: 4,
+              limit: 1
+            });
+            const customers = customerData.users || customerData.items || customerData.data || [];
+            if (customers.length > 0) {
+              customerUserId = customers[0].id;
+            }
+          } catch (err) {
+            console.warn('Could not find default customer:', err);
+          }
+        }
+        
+        if (!customerUserId) {
+          throw new Error('No customer user found. Please ensure there is at least one customer in the system.');
+        }
+        
+        const reservationData = {
+          user_id: customerUserId,
+          branch_id: branchId,
+          table_id: selectedTable.value,
+          reservation_date: reservationDate.value,
+          reservation_time: reservationStartTime.value,
+          reservation_duration: reservationDuration.value || 120,
+          guest_count: reservationGuestCount.value,
+          special_requests: hasDeliveryInfo.value ? deliveryAddressDetail.value.trim() : null
+        };
+        const createdReservation = await ReservationService.createReservation(reservationData);
+        if (createdReservation && createdReservation.id) {
+          reservationId = createdReservation.id;
+        }
+      } catch (error) {
+        console.error('Error creating reservation:', error);
+        throw new Error('Failed to create reservation: ' + (error.message || 'Unknown error'));
+      }
     }
+    
+    // Tìm customer user_id nếu có phone hoặc đã được chọn trước đó
+    let customerUserId = selectedCustomerId.value;
+    if (!customerUserId && customerPhone.value) {
+      const phone = customerPhone.value.replace(/[\s\-\(\)\.]/g, '').replace(/[^\d+]/g, '');
+      if (phone) {
+        try {
+          const customerData = await UserService.getAllUsers({ 
+            role_id: 4,
+            phone: phone
+          });
+          const customers = customerData.users || customerData.items || customerData.data || [];
+          if (customers.length > 0) {
+            customerUserId = customers[0].id;
+            selectedCustomerId.value = customerUserId;
+          }
+        } catch (err) {
+          console.warn('Could not find customer by phone:', err);
+        }
+      }
+    }
+    
     const orderData = {
-      user_id: null, 
+      user_id: customerUserId, 
       customer_name: customerName.value || null,
       customer_phone: customerPhone.value || null,
       branch_id: branchId,
       order_type: orderType,
-      table_id: hasDeliveryInfo.value ? null : (selectedTable.value || null), 
       delivery_address: fullDeliveryAddress,
       total: total.value,
       subtotal: subtotal.value,
@@ -1915,10 +2011,7 @@ async function placeOrder() {
       status: 'pending', 
       payment_status: 'pending',
       items: items,
-      reservation_date: !hasDeliveryInfo.value && selectedTable.value && reservationDate.value ? reservationDate.value : null,
-      reservation_time: !hasDeliveryInfo.value && selectedTable.value && reservationStartTime.value ? reservationStartTime.value : null,
-      reservation_duration: !hasDeliveryInfo.value && selectedTable.value && reservationDuration.value ? reservationDuration.value : null,
-      guest_count: !hasDeliveryInfo.value && selectedTable.value && reservationGuestCount.value ? reservationGuestCount.value : null
+      reservation_id: reservationId
     };
     const createdOrder = await OrderService.createOrder(orderData);
     toast.success('Order created successfully');
@@ -1926,6 +2019,7 @@ async function placeOrder() {
     cartItems.value = [];
     customerName.value = '';
     customerPhone.value = '';
+    selectedCustomerId.value = null;
     selectedTable.value = '';
     selectedTableInfo.value = null;
     selectedPaymentMethod.value = 'cash';
@@ -2039,6 +2133,76 @@ watch(activeMainTab, async (newTab, oldTab) => {
     }
   }
 }, { immediate: false });
+
+// Real-time product price updates
+function handleProductPriceUpdate(data) {
+  const { branchProductId, productId, branchId, price, isAvailable, status } = data;
+  const currentBranchId = getCurrentBranchId();
+  
+  // Only update if it's for the current branch
+  if (currentBranchId && branchId !== currentBranchId) {
+    return;
+  }
+  
+  // Update product in the list
+  const productIndex = products.value.findIndex(p => 
+    (p.id === productId || p.product_id === productId) &&
+    (p.branch_id === branchId || p.branchId === branchId || !p.branch_id)
+  );
+  
+  if (productIndex !== -1) {
+    const product = products.value[productIndex];
+    if (price !== undefined) {
+      product.price = Number(price);
+      product.display_price = Number(price);
+    }
+    if (isAvailable !== undefined) {
+      product.is_available = isAvailable;
+    }
+    if (status !== undefined) {
+      product.status = status;
+    }
+    // Force reactivity
+    products.value = [...products.value];
+    
+    // Show notification
+    toast.info(`Giá ${product.name} đã được cập nhật: ${formatCurrency(price)}`);
+  } else {
+    // Product not in list, reload to get updated data
+    loadProducts();
+  }
+}
+
+function handleProductUpdate(data) {
+  const { productId, basePrice, status } = data;
+  
+  // Update all matching products
+  let updated = false;
+  products.value.forEach(product => {
+    if (product.id === productId || product.product_id === productId) {
+      if (basePrice !== undefined) {
+        product.base_price = Number(basePrice);
+        // Update price if no branch-specific price
+        if (!product.price || product.price === product.base_price) {
+          product.price = Number(basePrice);
+          product.display_price = Number(basePrice);
+        }
+      }
+      if (status !== undefined) {
+        product.status = status;
+      }
+      updated = true;
+    }
+  });
+  
+  if (updated) {
+    products.value = [...products.value];
+  } else {
+    // Reload if product not found
+    loadProducts();
+  }
+}
+
 onMounted(async () => {
   await loadCategories();
   await loadProducts();
@@ -2065,6 +2229,63 @@ onMounted(async () => {
     } catch (error) {
     }
   }
+  
+  // Setup real-time listeners
+  SocketService.on('product-price-updated', handleProductPriceUpdate);
+  SocketService.on('product-updated', handleProductUpdate);
+  SocketService.on('table-updated', handleTableUpdated);
+  SocketService.on('reservation-created', handleReservationCreated);
+  SocketService.on('reservation-updated', handleReservationUpdated);
+});
+
+// Real-time table updates
+function handleTableUpdated(data) {
+  const currentBranchId = getCurrentBranchId();
+  if (currentBranchId && data.branchId !== currentBranchId) {
+    return;
+  }
+  
+  const index = tables.value.findIndex(t => t.id === data.tableId);
+  if (index !== -1) {
+    tables.value[index] = { ...tables.value[index], ...data.table };
+    tables.value = [...tables.value];
+  }
+  
+  // Reload tables if on tables tab
+  if (activeMainTab.value === 'tables') {
+    loadTables();
+  }
+}
+
+// Real-time reservation updates
+function handleReservationCreated(data) {
+  const currentBranchId = getCurrentBranchId();
+  if (currentBranchId && data.branchId !== currentBranchId) {
+    return;
+  }
+  toast.info('Có đặt bàn mới được tạo');
+  if (activeMainTab.value === 'tables') {
+    checkAvailableTables();
+  }
+}
+
+function handleReservationUpdated(data) {
+  const currentBranchId = getCurrentBranchId();
+  if (currentBranchId && data.branchId !== currentBranchId) {
+    return;
+  }
+  if (activeMainTab.value === 'tables') {
+    checkAvailableTables();
+  }
+}
+
+onUnmounted(() => {
+  // Cleanup listeners
+  SocketService.off('product-price-updated', handleProductPriceUpdate);
+  SocketService.off('product-updated', handleProductUpdate);
+  SocketService.off('table-updated', handleTableUpdated);
+  SocketService.off('reservation-created', handleReservationCreated);
+  SocketService.off('reservation-updated', handleReservationUpdated);
 });
 </script>
 <style scoped>
@@ -4353,7 +4574,7 @@ onMounted(async () => {
 }
 .option-btn-select.active {
   border-color: #F59E0B;
-  background: linear-gradient(135deg, #FFF7ED 0%, #FEF3C7 100%);
+  background: #FFF7ED;
   border-width: 2px;
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1), 0 2px 8px rgba(245, 158, 11, 0.15);
 }
@@ -4435,7 +4656,7 @@ onMounted(async () => {
 }
 .option-checkbox-custom.checked {
   border-color: #F59E0B;
-  background: linear-gradient(135deg, #FFF7ED 0%, #FEF3C7 100%);
+  background: #FFF7ED;
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
 }
 .custom-checkbox-wrapper {

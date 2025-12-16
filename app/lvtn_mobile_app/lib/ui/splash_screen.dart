@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/AuthProvider.dart';
 import 'home/HomeScreen.dart';
+import 'delivery/DeliveryDriverScreen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -19,6 +21,14 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
     _initializeAnimations();
     _checkAuthAndNavigate();
   }
@@ -64,7 +74,15 @@ class _SplashScreenState extends State<SplashScreen>
       
       if (mounted) {
         if (isAuthenticated) {
+          final user = authProvider.currentUser;
+          // Kiểm tra role và redirect đến màn hình phù hợp
+          if (user != null && user.roleId == 7) {
+            // Delivery staff - redirect to delivery driver screen
+            Navigator.of(context).pushReplacementNamed(DeliveryDriverScreen.routeName);
+          } else {
+            // Customer - redirect to home screen
           Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
+          }
         } else {
           Navigator.of(context).pushReplacementNamed('/auth');
         }
@@ -84,8 +102,15 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
       body: SizedBox.expand(
         child: Stack(
           children: [
@@ -202,6 +227,7 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           ],
         ),
+      ),
       ),
     );
   }

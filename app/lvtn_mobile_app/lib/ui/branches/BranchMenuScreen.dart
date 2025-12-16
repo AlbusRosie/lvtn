@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/BranchProvider.dart';
 import '../../providers/CategoryProvider.dart';
@@ -14,15 +15,18 @@ import '../cart/CartProvider.dart';
 import '../cart/CartScreen.dart';
 import '../../utils/image_utils.dart';
 import '../widgets/AppBottomNav.dart';
+import '../../services/NotificationService.dart';
 
 class BranchMenuScreen extends StatefulWidget {
   final Branch branch;
   final int? reservationId;
+  final String? orderType; // 'dine_in', 'takeaway', 'delivery'
   
   const BranchMenuScreen({
     Key? key,
     required this.branch,
     this.reservationId,
+    this.orderType, // Nếu null, sẽ dùng 'dine_in' mặc định
   }) : super(key: key);
   
   static const String routeName = '/branch-menu';
@@ -34,20 +38,41 @@ class BranchMenuScreen extends StatefulWidget {
 class _BranchMenuScreenState extends State<BranchMenuScreen> {
   int? selectedCategoryId = 0; 
   final ScrollController _scrollController = ScrollController();
+  Set<int> _availableCategoryIds = {}; // Lưu categoryIds ban đầu
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _isSearchExpanded = false;
 
   @override
   void initState() {
     super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final productProvider = Provider.of<ProductProvider>(context, listen: false);
       final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
       
-      categoryProvider.loadCategories();
+      // Load categories đầy đủ trước
+      await categoryProvider.loadCategories();
       
       productProvider.resetPagination();
       await productProvider.loadProducts(branchId: widget.branch.id, loadAll: true);
+      
+      // Lưu categoryIds ban đầu từ tất cả products
+      if (productProvider.allProducts.isNotEmpty) {
+        _availableCategoryIds = productProvider.allProducts
+            .where((p) => p.categoryId != null)
+            .map((p) => p.categoryId!)
+            .toSet();
+      }
       
       await cartProvider.loadCart(widget.branch.id);
       
@@ -57,9 +82,23 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
+  }
+
+  @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -109,91 +148,309 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: Colors.grey[600]),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Menu category',
-          style: TextStyle(
-            color: Colors.grey[900],
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
-          ),
-        ),
-        actions: [
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: PreferredSize(
+          preferredSize: Size.fromHeight(100),
+          child: SafeArea(
+            bottom: false,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(20, 12, 20, 12),
+                child: Row(
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => Navigator.pop(context),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.grey[200]!,
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.arrow_back_rounded,
+                            color: Colors.grey[800],
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    AnimatedContainer(
+                      duration: Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      width: _isSearchExpanded ? 0 : null,
+                      child: _isSearchExpanded
+                          ? SizedBox.shrink()
+                          : Expanded(
+                              child: Text(
+                                'Menu category',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.grey[900],
+                                  letterSpacing: -0.4,
+                                ),
+                              ),
+                            ),
+                    ),
+                    AnimatedContainer(
+                      duration: Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      width: _isSearchExpanded ? null : 0,
+                      child: _isSearchExpanded
+                          ? Expanded(
+                              child: Container(
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[50],
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey[200]!,
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.02),
+                                      blurRadius: 4,
+                                      offset: Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: TextField(
+                                  controller: _searchController,
+                                  autofocus: true,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _searchQuery = value.toLowerCase().trim();
+                                    });
+                                  },
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[800],
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Tìm món ăn, nhà hàng',
+                                    hintStyle: TextStyle(
+                                      color: Colors.grey[400],
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                    prefixIcon: Padding(
+                                      padding: EdgeInsets.only(left: 12, right: 8),
+                                      child: Icon(
+                                        Icons.search_rounded,
+                                        color: Color(0xFFFF8A00),
+                                        size: 20,
+                                      ),
+                                    ),
+                                    suffixIcon: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (_searchQuery.isNotEmpty)
+                                          IconButton(
+                                            icon: Icon(Icons.clear_rounded, color: Colors.grey[500], size: 18),
+                                            onPressed: () {
+                                              _searchController.clear();
+                                              setState(() {
+                                                _searchQuery = '';
+                                              });
+                                            },
+                                            padding: EdgeInsets.zero,
+                                            constraints: BoxConstraints(
+                                              minWidth: 32,
+                                              minHeight: 32,
+                                            ),
+                                          ),
+                                        IconButton(
+                                          icon: Icon(Icons.close_rounded, color: Colors.grey[600], size: 18),
+                                          onPressed: () {
+                                            setState(() {
+                                              _isSearchExpanded = false;
+                                              _searchController.clear();
+                                              _searchQuery = '';
+                                            });
+                                          },
+                                          padding: EdgeInsets.zero,
+                                          constraints: BoxConstraints(
+                                            minWidth: 32,
+                                            minHeight: 32,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 12,
+                                    ),
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : SizedBox.shrink(),
+                    ),
+                    SizedBox(width: 12),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _isSearchExpanded = !_isSearchExpanded;
+                            if (!_isSearchExpanded) {
+                              _searchController.clear();
+                              _searchQuery = '';
+                            }
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.grey[200]!,
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            _isSearchExpanded ? Icons.close_rounded : Icons.search_rounded,
+                            color: Colors.grey[800],
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12),
           Consumer<CartProvider>(
             builder: (context, cartProvider, child) {
-              return Padding(
-                padding: EdgeInsets.only(right: 16, top: 8, bottom: 8),
-                child: Stack(
+                        return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    GestureDetector(
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
                       onTap: () => _showCartBottomSheet(cartProvider),
+                                borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        width: 48,
-                        height: 48,
+                                  width: 40,
+                                  height: 40,
                         decoration: BoxDecoration(
-                          color: Color(0xFF2C2C2C),
-                          shape: BoxShape.circle,
+                                    color: Colors.grey[50],
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.grey[200]!,
+                                      width: 1,
+                                    ),
                         ),
-                        child: Icon(Icons.shopping_bag_outlined, color: Colors.white, size: 24),
+                                  child: Icon(
+                                    Icons.shopping_cart_outlined,
+                                    color: Colors.grey[800],
+                                    size: 20,
+                                  ),
+                                ),
                       ),
                     ),
                     if (cartProvider.itemCount > 0)
                       Positioned(
-                        right: 0,
-                        top: 0,
+                                right: -2,
+                                top: -2,
                         child: Container(
-                          padding: EdgeInsets.all(4),
+                                width: 20,
+                                height: 20,
                           decoration: BoxDecoration(
-                            color: Colors.orange,
+                                  color: Color(0xFFFF8A00),
                             shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Color(0xFFFF8A00).withOpacity(0.4),
+                                      blurRadius: 6,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
                           ),
-                          constraints: BoxConstraints(
-                            minWidth: 20,
-                            minHeight: 20,
-                          ),
-                          child: Text(
-                            '${cartProvider.itemCount}',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                          child: Center(
+                            child: Text(
+                                    '${cartProvider.itemCount > 99 ? '99+' : cartProvider.itemCount}',
+                              style: TextStyle(
+                                color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1,
+                              ),
                             ),
-                            textAlign: TextAlign.center,
                           ),
                         ),
                       ),
                   ],
-                ),
               );
             },
           ),
         ],
+                ),
+              ),
+            ),
+          ),
       ),
-      body: SafeArea(
-        child: Consumer2<CategoryProvider, ProductProvider>(
-          builder: (context, categoryProvider, productProvider, child) {
+      body: Consumer2<CategoryProvider, ProductProvider>(
+        builder: (context, categoryProvider, productProvider, child) {
+            // Sử dụng _availableCategoryIds đã lưu từ lần load đầu tiên
+            // Điều này đảm bảo categories không bị ẩn khi filter
             List<CategoryModel.Category> availableCategories = [];
-            if (!productProvider.isLoading && productProvider.allProducts.isNotEmpty) {
-              Set<int> categoryIds = productProvider.allProducts
-                  .where((p) => p.categoryId != null)
-                  .map((p) => p.categoryId!)
-                  .toSet();
-              
-              availableCategories = categoryProvider.categories
-                  .where((cat) => categoryIds.contains(cat.id))
-                  .toList();
-            } else if (!categoryProvider.isLoading) {
-              availableCategories = categoryProvider.categories;
+            
+            if (!categoryProvider.isLoading) {
+              if (_availableCategoryIds.isNotEmpty) {
+                // Sử dụng categoryIds đã lưu từ lần load đầu tiên
+                availableCategories = categoryProvider.categories
+                    .where((cat) => _availableCategoryIds.contains(cat.id))
+                    .toList();
+              } else if (!productProvider.isLoading && productProvider.allProducts.isNotEmpty) {
+                // Nếu chưa có _availableCategoryIds, tính từ allProducts hiện tại
+                // và cập nhật _availableCategoryIds
+                final categoryIds = productProvider.allProducts
+                    .where((p) => p.categoryId != null)
+                    .map((p) => p.categoryId!)
+                    .toSet();
+                _availableCategoryIds = categoryIds;
+                availableCategories = categoryProvider.categories
+                    .where((cat) => categoryIds.contains(cat.id))
+                    .toList();
+              } else {
+                // Nếu chưa có products, hiển thị tất cả categories
+                availableCategories = categoryProvider.categories;
+              }
             }
 
             if (categoryProvider.isLoading || productProvider.isLoading) {
@@ -268,7 +525,7 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                               child: Container(
                                 width: 80,
                                 margin: EdgeInsets.only(right: 12),
-                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 12),
                                 decoration: BoxDecoration(
                                   color: isAllSelected ? Colors.orange : Colors.white,
                                   borderRadius: BorderRadius.circular(16),
@@ -310,7 +567,7 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                      ),
                                    ),
                                     
-                                     SizedBox(height: 6),
+                                    SizedBox(height: 8),
                                      
                                      Text(
                                        'All',
@@ -325,7 +582,7 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                        overflow: TextOverflow.ellipsis,
                                      ),
                                      
-                                     SizedBox(height: 4),
+                                    SizedBox(height: 8),
                                      
                                     Container(
                                       margin: EdgeInsets.symmetric(horizontal: 1),
@@ -338,7 +595,7 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                       ),
                                     ),
                                     
-                                    SizedBox(height: 4),
+                                    SizedBox(height: 8),
                                     
                                     Container(
                                       margin: EdgeInsets.symmetric(horizontal: 3),
@@ -433,7 +690,7 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                     ),
                                   ),
                                   
-                                  SizedBox(height: 6),
+                                  SizedBox(height: 8),
                                   
                                   Text(
                                     category.name,
@@ -448,7 +705,7 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   
-                                  SizedBox(height: 4),
+                                  SizedBox(height: 8),
                                   
                                   Container(
                                     margin: EdgeInsets.symmetric(horizontal: 1),
@@ -461,7 +718,7 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
                                     ),
                                   ),
                                   
-                                  SizedBox(height: 4),
+                                  SizedBox(height: 8),
                                   
                                   Container(
                                     margin: EdgeInsets.symmetric(horizontal: 3),
@@ -555,9 +812,9 @@ class _BranchMenuScreenState extends State<BranchMenuScreen> {
             );
           },
         ),
-      ),
       bottomNavigationBar: AppBottomNav(
         currentIndex: 1,
+      ),
       ),
     );
   }
@@ -604,6 +861,15 @@ Widget _buildPopularDishesGrid() {
 
       List<Product> products = productProvider.products;
       
+      // Filter products by search query if available
+      if (_searchQuery.isNotEmpty) {
+        products = products.where((product) {
+          final name = (product.name ?? '').toLowerCase();
+          final description = (product.description ?? '').toLowerCase();
+          return name.contains(_searchQuery) || description.contains(_searchQuery);
+        }).toList();
+      }
+      
       if (products.isEmpty) {
         return Container(
           height: 320,
@@ -611,12 +877,26 @@ Widget _buildPopularDishesGrid() {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.restaurant_menu, color: Colors.grey[400], size: 48),
+                Icon(
+                  _searchQuery.isNotEmpty ? Icons.search_off_rounded : Icons.restaurant_menu,
+                  color: Colors.grey[400],
+                  size: 48,
+                ),
                 SizedBox(height: 8),
                 Text(
-                  'Không có sản phẩm nào',
+                  _searchQuery.isNotEmpty ? 'Không tìm thấy kết quả' : 'Không có sản phẩm nào',
                   style: TextStyle(color: Colors.grey[600]),
                 ),
+                if (_searchQuery.isNotEmpty) ...[
+                  SizedBox(height: 4),
+                  Text(
+                    'Thử tìm kiếm với từ khóa khác',
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -686,13 +966,13 @@ Widget _buildPopularDishCard(Product product) {
               return Container(
                 height: imageHeight,
                 width: double.infinity,
-                padding: EdgeInsets.all(8),
+                padding: EdgeInsets.all(24),
                 child: Center(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.network(
                       _getImageUrl(product.image),
-                      fit: BoxFit.cover,
+                      fit: BoxFit.contain,
                       width: double.infinity,
                       height: double.infinity,
                       errorBuilder: (context, error, stackTrace) {
@@ -1690,27 +1970,22 @@ Widget _buildPopularDishCard(Product product) {
         widget.branch.id,
         product.id,
         quantity: quantity,
+        orderType: widget.orderType ?? 'delivery', // Sử dụng orderType từ widget, mặc định 'delivery' (dine_in and takeaway only for Quick Dine In and Chatbot)
         selectedOptions: selectedOptions,
         specialInstructions: specialRequest,
       );
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Added $quantity x ${product.name} to cart'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
+        NotificationService().showSuccess(
+          context: context,
+          message: 'Đã thêm $quantity x ${product.name} vào giỏ hàng',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
+        NotificationService().showError(
+          context: context,
+          message: 'Lỗi: ${e.toString()}',
         );
       }
     }

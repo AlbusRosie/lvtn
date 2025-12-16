@@ -173,7 +173,7 @@ async function executeAction(req, res, next) {
                         }) : reservation.reservation_date;
                     if (existingCart && existingCart.items && existingCart.items.length > 0) {
                         const itemsCount = existingCart.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-                        result.message = `✅ **Đặt bàn thành công!**\n\nMã đặt bàn của bạn: **#${reservation.id}**\n\n📅 **Ngày:** ${formattedDate}\n🕐 **Giờ:** ${reservation.reservation_time}\n👥 **Số người:** ${reservation.guest_count}\n📍 **Chi nhánh:** ${reservation.branch_name}\n\n🛒 **Bạn đang có ${itemsCount} món trong giỏ hàng của chi nhánh này.**\n\nBạn có muốn đặt kèm các món này với đặt bàn không?`;
+                        result.message = `**Đặt bàn thành công!**\n\nMã đặt bàn của bạn: **#${reservation.id}**\n\n**Ngày:** ${formattedDate}\n**Giờ:** ${reservation.reservation_time}\n**Số người:** ${reservation.guest_count}\n**Chi nhánh:** ${reservation.branch_name}\n\n**Bạn đang có ${itemsCount} món trong giỏ hàng của chi nhánh này.**\n\nBạn có muốn đặt kèm các món này với đặt bàn không?`;
                         result.success = true;
                         result.data = {
                             reservation_id: reservation.id,
@@ -182,7 +182,7 @@ async function executeAction(req, res, next) {
                             cart_items_count: itemsCount,
                             suggestions: [
                                 { 
-                                    text: '✅ Đặt kèm giỏ hàng hiện tại', 
+                                    text: 'Đặt kèm giỏ hàng hiện tại', 
                                     action: 'use_existing_cart', 
                                     data: { 
                                         branch_id: reservation.branch_id, 
@@ -191,7 +191,7 @@ async function executeAction(req, res, next) {
                                     } 
                                 },
                                 { 
-                                    text: '🍽️ Đặt món mới', 
+                                    text: 'Đặt món mới', 
                                     action: 'order_food', 
                                     data: { 
                                         branch_id: reservation.branch_id, 
@@ -199,7 +199,7 @@ async function executeAction(req, res, next) {
                                     } 
                                 },
                                 { 
-                                    text: '✅ Xác nhận (không đặt món)', 
+                                    text: 'Xác nhận (không đặt món)', 
                                     action: 'confirm_reservation_only', 
                                     data: { 
                                         reservation_id: reservation.id 
@@ -208,7 +208,7 @@ async function executeAction(req, res, next) {
                             ]
                         };
                     } else {
-                        result.message = `✅ **Đặt bàn thành công!**\n\nMã đặt bàn của bạn: **#${reservation.id}**\n\n📅 **Ngày:** ${formattedDate}\n🕐 **Giờ:** ${reservation.reservation_time}\n👥 **Số người:** ${reservation.guest_count}\n📍 **Chi nhánh:** ${reservation.branch_name}\n\n🍽️ **Bạn có muốn đặt món trước không?**\n\nBạn có thể chọn món từ menu và đặt trước để tiết kiệm thời gian khi đến nhà hàng.`;
+                        result.message = `**Đặt bàn thành công!**\n\nMã đặt bàn của bạn: **#${reservation.id}**\n\n**Ngày:** ${formattedDate}\n**Giờ:** ${reservation.reservation_time}\n**Số người:** ${reservation.guest_count}\n**Chi nhánh:** ${reservation.branch_name}\n\n**Bạn có muốn đặt món trước không?**\n\nBạn có thể chọn món từ menu và đặt trước để tiết kiệm thời gian khi đến nhà hàng.`;
                         result.success = true;
                         result.data = {
                             reservation_id: reservation.id,
@@ -216,7 +216,7 @@ async function executeAction(req, res, next) {
                             has_existing_cart: false,
                             suggestions: [
                                 { 
-                                    text: '🍽️ Đặt món trước', 
+                                    text: 'Đặt món trước', 
                                     action: 'order_food', 
                                     data: { 
                                         branch_id: reservation.branch_id, 
@@ -224,14 +224,14 @@ async function executeAction(req, res, next) {
                                     } 
                                 },
                                 { 
-                                    text: '✅ Xác nhận (không đặt món)', 
+                                    text: 'Xác nhận (không đặt món)', 
                                     action: 'confirm_reservation_only', 
                                     data: { 
                                         reservation_id: reservation.id 
                                     } 
                                 },
                                 { 
-                                    text: '📋 Xem menu', 
+                                    text: 'Xem menu', 
                                     action: 'view_menu', 
                                     data: { 
                                         branch_id: reservation.branch_id,
@@ -258,7 +258,7 @@ async function executeAction(req, res, next) {
                 } catch (error) {
                     console.error('[ChatController] confirm_booking - Error:', error);
                     console.error('[ChatController] confirm_booking - Error stack:', error.stack);
-                    result.message = `❌ Không thể đặt bàn: ${error.message}`;
+                    result.message = `Không thể đặt bàn: ${error.message}`;
                     result.success = false;
                     result.data = { error: error.message };
                     try {
@@ -295,7 +295,7 @@ async function executeAction(req, res, next) {
                         suggestions: bookingResult.suggestions
                     };
                 } catch (error) {
-                    result.message = `❌ Không thể cập nhật giờ đặt bàn: ${error.message}`;
+                    result.message = `Không thể cập nhật giờ đặt bàn: ${error.message}`;
                     result.success = false;
                     result.data = { error: error.message };
                 }
@@ -362,7 +362,7 @@ async function executeAction(req, res, next) {
                         };
                     }
                 } else {
-                    result.message = '❌ Không tìm thấy thông tin chi nhánh. Vui lòng thử lại.';
+                    result.message = 'Không tìm thấy thông tin chi nhánh. Vui lòng thử lại.';
                     result.success = false;
                 }
                 break;
@@ -395,12 +395,12 @@ async function executeAction(req, res, next) {
                             suggestions: bookingResult.suggestions
                         };
                     } catch (error) {
-                        result.message = `❌ Không thể xử lý: ${error.message}`;
+                        result.message = `Không thể xử lý: ${error.message}`;
                         result.success = false;
                         result.data = { error: error.message };
                     }
                 } else {
-                    result.message = '❌ Không tìm thấy thông tin chi nhánh. Vui lòng thử lại.';
+                    result.message = 'Không tìm thấy thông tin chi nhánh. Vui lòng thử lại.';
                     result.success = false;
                 }
                 break;
@@ -419,7 +419,7 @@ async function executeAction(req, res, next) {
                             }, user_id);
                         }
                         const branchName = data.branch_name || data.branch || 'Chi nhánh';
-                        result.message = `✅ Đã chọn chi nhánh: **${branchName}**\n\n📍 **Địa chỉ giao hàng:** ${deliveryAddress || 'Chưa có'}\n\n🍽️ **Bạn muốn làm gì tiếp theo?**\n\nBạn có thể xem menu và chọn món để đặt giao hàng.`;
+                        result.message = `Đã chọn chi nhánh: **${branchName}**\n\n**Địa chỉ giao hàng:** ${deliveryAddress || 'Chưa có'}\n\n**Bạn muốn làm gì tiếp theo?**\n\nBạn có thể xem menu và chọn món để đặt giao hàng.`;
                         result.success = true;
                         result.data = {
                             branch_id: data.branch_id,
@@ -429,7 +429,7 @@ async function executeAction(req, res, next) {
                             action: 'navigate_to_delivery_menu',
                             suggestions: [
                                 {
-                                    text: '📋 Xem menu',
+                                    text: 'Xem menu',
                                     action: 'view_menu',
                                     data: {
                                         branch_id: data.branch_id,
@@ -439,7 +439,7 @@ async function executeAction(req, res, next) {
                                     }
                                 },
                                 {
-                                    text: '🍽️ Đặt món ngay',
+                                    text: 'Đặt món ngay',
                                     action: 'order_food',
                                     data: {
                                         branch_id: data.branch_id,
@@ -452,12 +452,12 @@ async function executeAction(req, res, next) {
                         };
                     } catch (error) {
                         console.error('[ChatController] select_branch_for_delivery error:', error);
-                        result.message = `❌ Không thể xử lý: ${error.message}`;
+                        result.message = `Không thể xử lý: ${error.message}`;
                         result.success = false;
                         result.data = { error: error.message };
                     }
                 } else {
-                    result.message = '❌ Không tìm thấy thông tin chi nhánh. Vui lòng thử lại.';
+                    result.message = 'Không tìm thấy thông tin chi nhánh. Vui lòng thử lại.';
                     result.success = false;
                 }
                 break;
@@ -504,11 +504,11 @@ async function executeAction(req, res, next) {
                             intent: 'order_delivery', 
                             delivery_address: data.delivery_address
                         });
-                        let message = `✅ Đã xác nhận địa chỉ giao hàng:\n\n**${data.delivery_address}**\n\n`;
+                        let message = `Đã xác nhận địa chỉ giao hàng:\n\n**${data.delivery_address}**\n\n`;
                         if (userLat && userLng && allBranches.length > 0 && allBranches[0].distance_km) {
                             const nearestBranch = allBranches[0];
                             const distance = nearestBranch.distance_km.toFixed(1);
-                            message += `📍 Chi nhánh gần bạn nhất: **${nearestBranch.name}** (cách ${distance} km)\n\n`;
+                            message += `Chi nhánh gần bạn nhất: **${nearestBranch.name}** (cách ${distance} km)\n\n`;
                         }
                         message += `Bạn muốn đặt món giao hàng từ chi nhánh nào?\n\nVui lòng chọn chi nhánh từ danh sách bên dưới:`;
                         result.message = message;
@@ -520,11 +520,11 @@ async function executeAction(req, res, next) {
                             userLongitude: userLng
                         };
                     } catch (error) {
-                        result.message = `❌ Không thể xử lý: ${error.message}`;
+                        result.message = `Không thể xử lý: ${error.message}`;
                         result.success = false;
                     }
                 } else {
-                    result.message = '❌ Không tìm thấy địa chỉ giao hàng. Vui lòng thử lại.';
+                    result.message = 'Không tìm thấy địa chỉ giao hàng. Vui lòng thử lại.';
                     result.success = false;
                 }
                 break;
@@ -539,10 +539,10 @@ async function executeAction(req, res, next) {
                             lastIntent: 'order_delivery'
                         }, user_id);
                     }
-                    result.message = '📍 Vui lòng cho tôi biết địa chỉ giao hàng mới của bạn.\n\nBạn có thể nhập địa chỉ chi tiết (số nhà, tên đường, phường/xã, quận/huyện, thành phố).';
+                    result.message = 'Vui lòng cho tôi biết địa chỉ giao hàng mới của bạn.\n\nBạn có thể nhập địa chỉ chi tiết (số nhà, tên đường, phường/xã, quận/huyện, thành phố).';
                     result.data = { action: 'enter_address' };
                 } catch (error) {
-                    result.message = '📍 Vui lòng cho tôi biết địa chỉ giao hàng mới của bạn.\n\nBạn có thể nhập địa chỉ chi tiết (số nhà, tên đường, phường/xã, quận/huyện, thành phố).';
+                    result.message = 'Vui lòng cho tôi biết địa chỉ giao hàng mới của bạn.\n\nBạn có thể nhập địa chỉ chi tiết (số nhà, tên đường, phường/xã, quận/huyện, thành phố).';
                     result.data = { action: 'enter_address' };
                 }
                 break;
@@ -566,17 +566,17 @@ async function executeAction(req, res, next) {
                             intent: 'order_delivery',
                             delivery_address: user.address
                         });
-                        result.message = `✅ Đã sử dụng địa chỉ đã lưu:\n\n**${user.address}**\n\nBạn muốn đặt món giao hàng từ chi nhánh nào?\n\nVui lòng chọn chi nhánh từ danh sách bên dưới:`;
+                        result.message = `Đã sử dụng địa chỉ đã lưu:\n\n**${user.address}**\n\nBạn muốn đặt món giao hàng từ chi nhánh nào?\n\nVui lòng chọn chi nhánh từ danh sách bên dưới:`;
                         result.data = {
                             delivery_address: user.address,
                             suggestions: branchSuggestions
                         };
                     } else {
-                        result.message = '❌ Bạn chưa có địa chỉ đã lưu. Vui lòng nhập địa chỉ mới.';
+                        result.message = 'Bạn chưa có địa chỉ đã lưu. Vui lòng nhập địa chỉ mới.';
                         result.data = { action: 'enter_address' };
                     }
                 } catch (error) {
-                    result.message = `❌ Không thể lấy địa chỉ đã lưu: ${error.message}`;
+                    result.message = `Không thể lấy địa chỉ đã lưu: ${error.message}`;
                     result.success = false;
                 }
                 break;
@@ -657,12 +657,12 @@ async function executeAction(req, res, next) {
             case 'find_branch': {
                 const BranchHandlerForFind = require('../services/chat/BranchHandler');
                 const allBranchesFind = await BranchHandlerForFind.getAllActiveBranches();
-                let branchListMessage = '📍 Danh sách chi nhánh của Beast Bite:\n\n';
+                let branchListMessage = 'Danh sách chi nhánh của Beast Bite:\n\n';
                 allBranchesFind.forEach((branch, index) => {
                     branchListMessage += `${index + 1}. ${branch.name}\n`;
-                    branchListMessage += `   📍 ${branch.address}\n`;
+                    branchListMessage += `   ${branch.address}\n`;
                     if (branch.phone) {
-                        branchListMessage += `   📞 ${branch.phone}\n`;
+                        branchListMessage += `   ${branch.phone}\n`;
                     }
                     branchListMessage += `\n`;
                 });
@@ -679,7 +679,7 @@ async function executeAction(req, res, next) {
                 };
                 break;
             case 'confirm_reservation_only':
-                result.message = '✅ Đã xác nhận đặt bàn!\n\nChúng tôi sẽ chuẩn bị bàn cho bạn. Bạn có thể đặt món khi đến nhà hàng hoặc đặt sau qua ứng dụng.\n\nCảm ơn bạn đã đặt bàn tại Beast Bite!';
+                result.message = 'Đã xác nhận đặt bàn!\n\nChúng tôi sẽ chuẩn bị bàn cho bạn. Bạn có thể đặt món khi đến nhà hàng hoặc đặt sau qua ứng dụng.\n\nCảm ơn bạn đã đặt bàn tại Beast Bite!';
                 result.data = {
                     reservation_id: data.reservation_id
                 };
@@ -695,7 +695,7 @@ async function executeAction(req, res, next) {
                             reservation_id: data.reservation_id,
                             suggestions: [
                                 {
-                                    text: '🍽️ Đặt món mới',
+                                    text: 'Đặt món mới',
                                     action: 'order_food',
                                     data: {
                                         branch_id: data.branch_id,
@@ -718,7 +718,7 @@ async function executeAction(req, res, next) {
                                 month: '2-digit',
                                 year: 'numeric'
                             }) : reservation.reservation_date;
-                        result.message = `✅ **Đã đặt kèm giỏ hàng thành công!**\n\n📋 **Mã đơn hàng:** #${checkoutResult.order_id}\n📅 **Ngày đặt bàn:** ${formattedDate}\n🕐 **Giờ:** ${reservation.reservation_time}\n📍 **Chi nhánh:** ${cart.branch_name || reservation.branch_name || 'Chi nhánh'}\n\n**Danh sách món:**\n${itemsList}\n\n💰 **Tổng tiền:** ${new Intl.NumberFormat('vi-VN').format(checkoutResult.total)}đ\n\n📦 Đơn hàng sẽ được chuẩn bị và phục vụ khi bạn đến nhà hàng.`;
+                        result.message = `**Đã đặt kèm giỏ hàng thành công!**\n\n**Mã đơn hàng:** #${checkoutResult.order_id}\n**Ngày đặt bàn:** ${formattedDate}\n**Giờ:** ${reservation.reservation_time}\n**Chi nhánh:** ${cart.branch_name || reservation.branch_name || 'Chi nhánh'}\n\n**Danh sách món:**\n${itemsList}\n\n**Tổng tiền:** ${new Intl.NumberFormat('vi-VN').format(checkoutResult.total)}đ\n\nĐơn hàng sẽ được chuẩn bị và phục vụ khi bạn đến nhà hàng.`;
                         result.success = true;
                         result.data = {
                             order_id: checkoutResult.order_id,
@@ -728,7 +728,7 @@ async function executeAction(req, res, next) {
                         };
                     }
                 } catch (error) {
-                    result.message = `❌ Không thể đặt kèm giỏ hàng: ${error.message}`;
+                    result.message = `Không thể đặt kèm giỏ hàng: ${error.message}`;
                     result.success = false;
                     result.data = { error: error.message };
                 }
@@ -750,7 +750,7 @@ async function executeAction(req, res, next) {
                                 month: '2-digit',
                                 year: 'numeric'
                             }) : reservation.reservation_date;
-                        result.message = `✅ **Đơn hàng của bạn đã được tạo!**\n\n📋 **Mã đơn hàng:** #${order.id}\n📅 **Ngày đặt bàn:** ${formattedDate}\n🕐 **Giờ:** ${reservation.reservation_time}\n📍 **Chi nhánh:** ${reservation.branch_name}\n\n**Danh sách món:**\n${itemsList}\n\n💰 **Tổng tiền:** ${new Intl.NumberFormat('vi-VN').format(order.total || 0)}đ\n\n📦 Đơn hàng sẽ được chuẩn bị và phục vụ khi bạn đến nhà hàng.`;
+                        result.message = `**Đơn hàng của bạn đã được tạo!**\n\n**Mã đơn hàng:** #${order.id}\n**Ngày đặt bàn:** ${formattedDate}\n**Giờ:** ${reservation.reservation_time}\n**Chi nhánh:** ${reservation.branch_name}\n\n**Danh sách món:**\n${itemsList}\n\n**Tổng tiền:** ${new Intl.NumberFormat('vi-VN').format(order.total || 0)}đ\n\nĐơn hàng sẽ được chuẩn bị và phục vụ khi bạn đến nhà hàng.`;
                         result.data = {
                             order_id: order.id,
                             reservation_id: reservation.id,
@@ -763,7 +763,7 @@ async function executeAction(req, res, next) {
                             reservation_id: reservation.id,
                             suggestions: [
                                 {
-                                    text: '🍽️ Đặt món ngay',
+                                    text: 'Đặt món ngay',
                                     action: 'order_food',
                                     data: {
                                         branch_id: reservation.branch_id,
@@ -781,7 +781,7 @@ async function executeAction(req, res, next) {
                 break;
             case 'checkout_cart':
                 if (!user_id) {
-                    result.message = '❌ Bạn cần đăng nhập để đặt hàng. Vui lòng đăng nhập và thử lại.';
+                    result.message = 'Bạn cần đăng nhập để đặt hàng. Vui lòng đăng nhập và thử lại.';
                     result.success = false;
                     result.data = { error: 'User not authenticated' };
                     break;
@@ -822,12 +822,12 @@ async function executeAction(req, res, next) {
                         }
                         const cart = await CartService.getUserCart(user_id, branchId, null);
                         if (!cart || cart.items.length === 0) {
-                            result.message = '❌ Giỏ hàng của bạn đang trống. Vui lòng thêm món vào giỏ hàng trước khi đặt hàng.';
+                            result.message = 'Giỏ hàng của bạn đang trống. Vui lòng thêm món vào giỏ hàng trước khi đặt hàng.';
                             result.success = false;
                             result.data = {
                                 suggestions: [
                                     {
-                                        text: '📋 Xem menu',
+                                        text: 'Xem menu',
                                         action: 'view_menu',
                                         data: { branch_id: branchId, order_type: data.order_type || 'delivery' }
                                     }
@@ -841,12 +841,12 @@ async function executeAction(req, res, next) {
                     // Validate delivery address for delivery orders
                     const cart = await CartService.getCartById(data.cart_id);
                     if (cart.order_type === 'delivery' && !deliveryAddress) {
-                        result.message = '❌ Địa chỉ giao hàng là bắt buộc cho đơn hàng giao hàng. Vui lòng cung cấp địa chỉ giao hàng.';
+                        result.message = 'Địa chỉ giao hàng là bắt buộc cho đơn hàng giao hàng. Vui lòng cung cấp địa chỉ giao hàng.';
                         result.success = false;
                         result.data = {
                             suggestions: [
                                 {
-                                    text: '📍 Nhập địa chỉ giao hàng',
+                                    text: 'Nhập địa chỉ giao hàng',
                                     action: 'enter_delivery_address',
                                     data: {}
                                 }
@@ -883,14 +883,14 @@ async function executeAction(req, res, next) {
                     const branch = await BranchService.getBranchById(cart.branch_id);
                     const branchName = branch?.name || 'Chi nhánh';
                     
-                    let successMessage = `✅ **Đặt hàng thành công!**\n\n📋 **Mã đơn hàng:** #${checkoutResult.order_id}\n📍 **Chi nhánh:** ${branchName}\n\n**Danh sách món:**\n${itemsList}\n\n💰 **Tổng tiền:** ${new Intl.NumberFormat('vi-VN').format(checkoutResult.total)}đ\n\n`;
+                    let successMessage = `**Đặt hàng thành công!**\n\n**Mã đơn hàng:** #${checkoutResult.order_id}\n**Chi nhánh:** ${branchName}\n\n**Danh sách món:**\n${itemsList}\n\n**Tổng tiền:** ${new Intl.NumberFormat('vi-VN').format(checkoutResult.total)}đ\n\n`;
                     
                     if (cart.order_type === 'delivery') {
-                        successMessage += `🚚 **Địa chỉ giao hàng:** ${deliveryAddress}\n\n📦 Đơn hàng sẽ được giao đến địa chỉ của bạn trong thời gian sớm nhất.`;
+                        successMessage += `**Địa chỉ giao hàng:** ${deliveryAddress}\n\nĐơn hàng sẽ được giao đến địa chỉ của bạn trong thời gian sớm nhất.`;
                     } else if (cart.order_type === 'takeaway') {
-                        successMessage += `📦 Bạn có thể đến chi nhánh để lấy đơn hàng.`;
+                        successMessage += `Bạn có thể đến chi nhánh để lấy đơn hàng.`;
                     } else {
-                        successMessage += `📦 Đơn hàng sẽ được chuẩn bị và phục vụ tại nhà hàng.`;
+                        successMessage += `Đơn hàng sẽ được chuẩn bị và phục vụ tại nhà hàng.`;
                     }
                     
                     result.message = successMessage;
@@ -903,7 +903,7 @@ async function executeAction(req, res, next) {
                     };
                 } catch (error) {
                     console.error('[ChatController] checkout_cart error:', error);
-                    result.message = `❌ Không thể đặt hàng: ${error.message}`;
+                    result.message = `Không thể đặt hàng: ${error.message}`;
                     result.success = false;
                     result.data = { error: error.message };
                 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/branch.dart';
 import '../../models/product.dart';
@@ -12,6 +13,7 @@ import '../../constants/app_constants.dart';
 import '../../constants/api_constants.dart';
 import '../cart/CartProvider.dart';
 import '../cart/CartScreen.dart';
+import '../../services/NotificationService.dart';
 import '../widgets/AppBottomNav.dart';
 import '../products/ProductDetailScreen.dart';
 
@@ -51,8 +53,29 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
     _scrollController.addListener(_onScroll);
     _loadData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
   }
 
   @override
@@ -169,17 +192,34 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
   Widget build(BuildContext context) {
     final effectiveBranch = _branch ?? widget.branch;
 
+    return Builder(
+        builder: (context) {
     if (_isLoading) {
-      return Scaffold(
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark.copyWith(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          systemNavigationBarColor: Colors.white,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+        child: Scaffold(
         backgroundColor: Colors.white,
         body: const Center(
           child: CircularProgressIndicator(),
+        ),
         ),
       );
     }
 
     if (_error != null) {
-      return Scaffold(
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark.copyWith(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          systemNavigationBarColor: Colors.white,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+        child: Scaffold(
         backgroundColor: Colors.white,
         body: Center(
           child: Column(
@@ -205,10 +245,18 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
             ],
           ),
         ),
+        ),
       );
     }
 
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
       backgroundColor: Colors.white,
       extendBodyBehindAppBar: true,
       appBar: PreferredSize(
@@ -611,6 +659,9 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
       bottomNavigationBar: AppBottomNav(
         currentIndex: 1,
       ),
+      ),
+    );
+        },
     );
   }
 
@@ -1912,22 +1963,16 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
       );
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Added $quantity x ${product.name} to cart'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
+        NotificationService().showSuccess(
+          context: context,
+          message: 'Đã thêm $quantity x ${product.name} vào giỏ hàng',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
+        NotificationService().showError(
+          context: context,
+          message: 'Lỗi: ${e.toString()}',
         );
       }
     }

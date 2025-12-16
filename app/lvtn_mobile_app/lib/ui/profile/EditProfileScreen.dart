@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/AuthProvider.dart';
 import '../../services/UserService.dart';
 import '../../services/AuthService.dart';
+import '../../services/NotificationService.dart';
 import '../../utils/image_utils.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -70,11 +72,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi chọn ảnh: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+        NotificationService().showError(
+          context: context,
+          message: 'Lỗi khi chọn ảnh: ${e.toString()}',
         );
       }
     }
@@ -92,11 +92,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     
     if (!nameChanged && !emailChanged && !phoneChanged && !avatarChanged) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Không có thay đổi nào để cập nhật'),
-            backgroundColor: Colors.orange,
-          ),
+        NotificationService().showInfo(
+          context: context,
+          message: 'Không có thay đổi nào để cập nhật',
         );
       }
       return;
@@ -191,12 +189,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       
       // Hiển thị thông báo thành công
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cập nhật thông tin thành công'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
+        NotificationService().showSuccess(
+          context: context,
+          message: 'Cập nhật thông tin thành công',
         );
       }
       
@@ -217,12 +212,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
+        NotificationService().showError(
+          context: context,
+          message: errorMessage,
         );
       }
     }
@@ -231,8 +223,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      extendBodyBehindAppBar: false,
+        backgroundColor: Colors.white,
+        extendBodyBehindAppBar: false,
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(100),
         child: SafeArea(

@@ -64,7 +64,7 @@
               v-model="form.branch_id"
               required
               @change="handleBranchChange"
-              :disabled="isEditing"
+              :disabled="isEditing || isManagerView"
             >
               <option value="">Select Branch</option>
               <option v-for="branch in branches" :key="branch.id" :value="branch.id">
@@ -140,6 +140,14 @@ export default {
     loading: {
       type: Boolean,
       default: false
+    },
+    isManagerView: {
+      type: Boolean,
+      default: false
+    },
+    managerBranchId: {
+      type: Number,
+      default: null
     }
   },
   data() {
@@ -164,6 +172,10 @@ export default {
   },
   async mounted() {
     await this.loadBranches();
+    if (this.isManagerView && this.managerBranchId && !this.isEditing) {
+      this.form.branch_id = this.managerBranchId;
+      await this.handleBranchChange();
+    }
   },
   watch: {
     floor: {

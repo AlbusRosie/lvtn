@@ -52,7 +52,10 @@ class StorageService {
   }
 
   Future<void> remove(String key) async {
-    await _prefs?.remove(key);
+    await ensureInitialized();
+    if (_prefs != null) {
+      await _prefs!.remove(key);
+    }
   }
 
   Future<void> clear() async {

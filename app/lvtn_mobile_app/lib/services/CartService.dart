@@ -32,7 +32,7 @@ class CartService {
     required int branchId,
     required int productId,
     int quantity = 1,
-    String orderType = 'dine_in',
+    String orderType = 'delivery', // Default to 'delivery' (dine_in and takeaway only for Quick Dine In and Chatbot)
     String? sessionId,
     List<SelectedOption>? selectedOptions,
     String? specialInstructions,

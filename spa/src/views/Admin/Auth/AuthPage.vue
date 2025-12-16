@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { Form, Field, ErrorMessage } from 'vee-validate';
 import { toTypedSchema } from '@vee-validate/zod';
@@ -17,7 +17,227 @@ const passwordValue = ref('');
 const usernameFocused = ref(false);
 const passwordFocused = ref(false);
 const backgroundImageUrl = computed(() => {
-  return `${window.location.origin}/public/images/bg.jpeg`;
+  return `${window.location.origin}/public/images/bg.jpg`;
+});
+
+onMounted(() => {
+  // Add class to body and html
+  document.body.classList.add('auth-page');
+  document.documentElement.classList.add('auth-page');
+  
+  // Hide pagination with inline style for maximum priority
+  const style = document.createElement('style');
+  style.id = 'auth-hide-pagination';
+  style.textContent = `
+    .auth-layout .pagination,
+    .auth-content .pagination,
+    .auth-container .pagination,
+    .login-container .pagination,
+    .login-wrapper .pagination,
+    .login-card .pagination,
+    body.auth-page .pagination,
+    html.auth-page .pagination,
+    body.auth-page .pagination-section,
+    html.auth-page .pagination-section,
+    body.auth-page .pagination-nav,
+    html.auth-page .pagination-nav,
+    body.auth-page .pagination-controls,
+    html.auth-page .pagination-controls,
+    body.auth-page .pagination-buttons,
+    html.auth-page .pagination-buttons,
+    body.auth-page .pagination-info,
+    html.auth-page .pagination-info,
+    body.auth-page .pagination-label,
+    html.auth-page .pagination-label,
+    body.auth-page .pagination-select,
+    html.auth-page .pagination-select,
+    body.auth-page nav.pagination,
+    html.auth-page nav.pagination {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      height: 0 !important;
+      width: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      position: absolute !important;
+      left: -9999px !important;
+      pointer-events: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  // Set theme color to white for status bar
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeColorMeta) {
+    themeColorMeta.setAttribute('content', '#FFFFFF');
+  } else {
+    const meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    meta.content = '#FFFFFF';
+    document.head.appendChild(meta);
+  }
+  
+  // Ensure status bar is visible
+  // Set a white background for status bar area
+  const statusBarHeight = window.visualViewport ? 
+    (window.visualViewport.offsetTop > 0 ? window.visualViewport.offsetTop : 44) : 
+    (window.innerHeight >= 812 ? 44 : 20);
+  
+  // Create a white overlay for status bar area if needed
+  const existingOverlay = document.querySelector('.status-bar-white-overlay');
+  if (!existingOverlay && statusBarHeight > 0) {
+    const overlay = document.createElement('div');
+    overlay.className = 'status-bar-white-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: ${statusBarHeight}px;
+      background: #FFFFFF;
+      z-index: 10001;
+      pointer-events: none;
+    `;
+    document.body.appendChild(overlay);
+  }
+  
+  // Apply background to body and html to ensure full coverage
+  const bgUrl = backgroundImageUrl.value;
+  
+  // Set background on html (covers everything including status bar area)
+  document.documentElement.style.backgroundImage = `url(${bgUrl})`;
+  document.documentElement.style.backgroundSize = 'cover';
+  document.documentElement.style.backgroundPosition = 'center';
+  document.documentElement.style.backgroundRepeat = 'no-repeat';
+  document.documentElement.style.backgroundAttachment = 'fixed';
+  document.documentElement.style.margin = '0';
+  document.documentElement.style.padding = '0';
+  document.documentElement.style.width = '100%';
+  document.documentElement.style.minHeight = '100vh';
+  document.documentElement.style.height = '100%';
+  document.documentElement.style.overflow = 'hidden';
+  
+  // Set background on body
+  document.body.style.backgroundImage = `url(${bgUrl})`;
+  document.body.style.backgroundSize = 'cover';
+  document.body.style.backgroundPosition = 'center';
+  document.body.style.backgroundRepeat = 'no-repeat';
+  document.body.style.backgroundAttachment = 'fixed';
+  document.body.style.margin = '0';
+  document.body.style.padding = '0';
+  document.body.style.width = '100%';
+  document.body.style.minHeight = '100vh';
+  document.body.style.height = '100%';
+  document.body.style.overflow = 'hidden';
+  
+  // Also set on admin-layout and all parent containers
+  const adminLayout = document.querySelector('.admin-layout.auth-layout');
+  if (adminLayout) {
+    adminLayout.style.backgroundImage = `url(${bgUrl})`;
+    adminLayout.style.backgroundSize = 'cover';
+    adminLayout.style.backgroundPosition = 'center';
+    adminLayout.style.backgroundRepeat = 'no-repeat';
+    adminLayout.style.backgroundAttachment = 'fixed';
+    adminLayout.style.height = '100vh';
+  }
+  
+  const authContent = document.querySelector('.auth-content');
+  if (authContent) {
+    authContent.style.backgroundImage = `url(${bgUrl})`;
+    authContent.style.backgroundSize = 'cover';
+    authContent.style.backgroundPosition = 'center';
+    authContent.style.backgroundRepeat = 'no-repeat';
+    authContent.style.backgroundAttachment = 'fixed';
+  }
+  
+  const authContainer = document.querySelector('.auth-container');
+  if (authContainer) {
+    authContainer.style.backgroundImage = `url(${bgUrl})`;
+    authContainer.style.backgroundSize = 'cover';
+    authContainer.style.backgroundPosition = 'center';
+    authContainer.style.backgroundRepeat = 'no-repeat';
+    authContainer.style.backgroundAttachment = 'fixed';
+  }
+});
+
+onUnmounted(() => {
+  // Remove class from body and html
+  document.body.classList.remove('auth-page');
+  document.documentElement.classList.remove('auth-page');
+  
+  // Reset theme color
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeColorMeta) {
+    themeColorMeta.setAttribute('content', '#FDFBF8');
+  }
+  
+  // Reset body and html styles
+  document.body.style.backgroundImage = '';
+  document.body.style.backgroundSize = '';
+  document.body.style.backgroundPosition = '';
+  document.body.style.backgroundRepeat = '';
+  document.body.style.backgroundAttachment = '';
+  document.body.style.margin = '';
+  document.body.style.padding = '';
+  document.body.style.width = '';
+  document.body.style.minHeight = '';
+  document.body.style.height = '';
+  document.body.style.overflow = '';
+  
+  document.documentElement.style.margin = '';
+  document.documentElement.style.padding = '';
+  document.documentElement.style.width = '';
+  document.documentElement.style.minHeight = '';
+  document.documentElement.style.height = '';
+  document.documentElement.style.overflow = '';
+  document.documentElement.style.backgroundImage = '';
+  document.documentElement.style.backgroundSize = '';
+  document.documentElement.style.backgroundPosition = '';
+  document.documentElement.style.backgroundRepeat = '';
+  document.documentElement.style.backgroundAttachment = '';
+  
+  // Reset container styles
+  const adminLayout = document.querySelector('.admin-layout.auth-layout');
+  if (adminLayout) {
+    adminLayout.style.backgroundImage = '';
+    adminLayout.style.backgroundSize = '';
+    adminLayout.style.backgroundPosition = '';
+    adminLayout.style.backgroundRepeat = '';
+    adminLayout.style.backgroundAttachment = '';
+    adminLayout.style.height = '';
+  }
+  
+  const authContent = document.querySelector('.auth-content');
+  if (authContent) {
+    authContent.style.backgroundImage = '';
+    authContent.style.backgroundSize = '';
+    authContent.style.backgroundPosition = '';
+    authContent.style.backgroundRepeat = '';
+    authContent.style.backgroundAttachment = '';
+  }
+  
+  const authContainer = document.querySelector('.auth-container');
+  if (authContainer) {
+    authContainer.style.backgroundImage = '';
+    authContainer.style.backgroundSize = '';
+    authContainer.style.backgroundPosition = '';
+    authContainer.style.backgroundRepeat = '';
+    authContainer.style.backgroundAttachment = '';
+  }
+  
+  // Remove status bar overlay
+  const statusBarOverlay = document.querySelector('.status-bar-white-overlay');
+  if (statusBarOverlay) {
+    statusBarOverlay.remove();
+  }
+  
+  // Remove pagination hide style
+  const paginationStyle = document.getElementById('auth-hide-pagination');
+  if (paginationStyle) {
+    paginationStyle.remove();
+  }
 });
 const loginSchema = toTypedSchema(
   z.object({
@@ -147,26 +367,43 @@ async function onLogin(values) {
 <style scoped>
 .login-container {
   min-height: 100vh;
+  height: 100vh;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  padding: 20px;
+  margin: 0;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
+  box-sizing: border-box;
   position: relative;
-  overflow: hidden;
-  padding: 20px;
 }
 .login-container::before {
   content: '';
   position: absolute;
-  top: 0;
+  top: env(safe-area-inset-top, 44px);
   left: 0;
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(3px);
+  pointer-events: none;
+  z-index: 0;
+}
+.login-container::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 44px);
+  min-height: 20px;
+  background: #FFFFFF;
+  z-index: 10001;
   pointer-events: none;
 }
 .login-wrapper {
@@ -317,5 +554,45 @@ async function onLogin(values) {
   .login-card {
     padding: 28px 20px;
   }
+}
+
+/* Hide pagination on login page */
+.login-container .pagination,
+.login-container .pagination-section,
+.login-container .pagination-nav,
+.login-container .pagination-controls,
+.login-container .pagination-buttons,
+.login-container .pagination-info,
+.login-container .pagination-label,
+.login-container .pagination-select,
+.login-wrapper .pagination,
+.login-wrapper .pagination-section,
+.login-wrapper .pagination-nav,
+.login-wrapper .pagination-controls,
+.login-wrapper .pagination-buttons,
+.login-wrapper .pagination-info,
+.login-wrapper .pagination-label,
+.login-wrapper .pagination-select,
+.login-card .pagination,
+.login-card .pagination-section,
+.login-card .pagination-nav,
+.login-card .pagination-controls,
+.login-card .pagination-buttons,
+.login-card .pagination-info,
+.login-card .pagination-label,
+.login-card .pagination-select,
+.login-container nav.pagination,
+.login-wrapper nav.pagination,
+.login-card nav.pagination {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
 }
 </style>

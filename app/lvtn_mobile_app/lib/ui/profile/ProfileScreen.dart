@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/AuthProvider.dart';
 import '../../providers/ChatProvider.dart';
+import '../../services/NotificationService.dart';
 import '../widgets/AppBottomNav.dart';
 import 'EditProfileScreen.dart';
 import '../../utils/image_utils.dart';
@@ -20,9 +22,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final primaryColor = Color(0xFFFF8A00);
     
-    return Scaffold(
-      backgroundColor: Colors.white,
-      extendBodyBehindAppBar: false,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        extendBodyBehindAppBar: false,
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(100),
         child: SafeArea(
@@ -298,11 +307,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Icons.receipt_long_rounded,
                   primaryColor,
                   () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Tính năng đang phát triển'),
-                        backgroundColor: primaryColor,
-                      ),
+                    NotificationService().showInfo(
+                      context: context,
+                      message: 'Tính năng đang phát triển',
                     );
                   },
                 ),
@@ -313,11 +320,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Icons.settings_rounded,
                   primaryColor,
                   () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Tính năng đang phát triển'),
-                        backgroundColor: primaryColor,
-                      ),
+                    NotificationService().showInfo(
+                      context: context,
+                      message: 'Tính năng đang phát triển',
                     );
                   },
                 ),
@@ -347,11 +352,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       );
 
                       if (confirmed == true) {
-                        await authProvider.logout();
-                        final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-                        chatProvider.reset();
-                        if (mounted) {
-                          Navigator.pushReplacementNamed(context, '/auth');
+                        try {
+                          await authProvider.logout();
+                          final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+                          chatProvider.reset();
+                          if (mounted) {
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              '/auth',
+                              (route) => false,
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            NotificationService().showError(
+                              context: context,
+                              message: 'Lỗi khi đăng xuất: ${e.toString()}',
+                            );
+                          }
                         }
                       }
                     },
@@ -380,6 +398,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       ),
       bottomNavigationBar: AppBottomNav(currentIndex: 4),
+      ),
     );
   }
 

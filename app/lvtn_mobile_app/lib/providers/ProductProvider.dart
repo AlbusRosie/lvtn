@@ -45,7 +45,7 @@ class ProductProvider extends ChangeNotifier {
             branchId, 
             categoryId: categoryId,
             page: 1,
-            limit: 1000,
+            limit: 10000, // Tăng limit để đảm bảo load đầy đủ tất cả products
           );
           _hasMore = false;
         } else {
@@ -170,6 +170,46 @@ class ProductProvider extends ChangeNotifier {
       await loadProducts(branchId: _selectedBranchId, categoryId: _selectedCategoryId);
     } else {
       await loadProducts(categoryId: _selectedCategoryId);
+    }
+  }
+
+  // Update product price in real-time
+  void updateProductPrice({
+    required int productId,
+    required double price,
+    int? branchId,
+    bool? isAvailable,
+    String? status,
+  }) {
+    bool updated = false;
+    
+    // Update matching products
+    for (int i = 0; i < _products.length; i++) {
+      final product = _products[i];
+      if (product.id == productId) {
+        // Note: Product model doesn't have branchId, so we can't filter by branch
+        // We'll update all products with matching ID
+        
+        // Create updated product using copyWith
+        final updatedProduct = product.copyWith(
+          basePrice: price, // Update basePrice with the new price
+          status: status ?? product.status,
+        );
+        
+        _products[i] = updatedProduct;
+        updated = true;
+      }
+    }
+    
+    // Update filtered products
+    if (_selectedCategoryId != null) {
+      _filteredProducts = _products.where((product) => product.categoryId == _selectedCategoryId).toList();
+    } else {
+      _filteredProducts = _products;
+    }
+    
+    if (updated) {
+      notifyListeners();
     }
   }
 

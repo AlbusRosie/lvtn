@@ -9,7 +9,7 @@ class Environment {
       case emulator:
         return 'http://10.0.2.2:3000/api';
       case device:
-        return 'http://192.168.1.20:3000/api';
+        return 'http://192.168.1.73:3000/api';
       default:
         return 'http://10.0.2.2:3000/api';
     }

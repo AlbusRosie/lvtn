@@ -54,11 +54,11 @@ class TakeawayIntentHandler extends BaseIntentHandler {
                 }
                 return this.buildResponse({
                     intent: 'order_delivery',
-                    response: `📍 Địa chỉ giao hàng bạn vừa nhập:\n\n**${message.trim()}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
+                    response: `Địa chỉ giao hàng bạn vừa nhập:\n\n**${message.trim()}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
                     entities: { ...entities, order_type: 'delivery', delivery_address: message.trim() },
                     suggestions: [
-                        { text: '✅ Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: message.trim() } },
-                        { text: '✏️ Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
+                        { text: 'Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: message.trim() } },
+                        { text: 'Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
                     ],
                 });
             }
@@ -76,11 +76,11 @@ class TakeawayIntentHandler extends BaseIntentHandler {
                 }
                 return this.buildResponse({
                     intent: 'order_delivery',
-                    response: '📍 Để đặt món giao hàng, tôi cần biết địa chỉ giao hàng của bạn.\n\nVui lòng cho tôi biết địa chỉ bạn muốn nhận hàng (số nhà, tên đường, phường/xã, quận/huyện, thành phố).',
+                    response: 'Để đặt món giao hàng, tôi cần biết địa chỉ giao hàng của bạn.\n\nVui lòng cho tôi biết địa chỉ bạn muốn nhận hàng (số nhà, tên đường, phường/xã, quận/huyện, thành phố).',
                     entities: { ...entities, order_type: 'delivery' },
                     suggestions: [
-                        { text: '📍 Sử dụng địa chỉ đã lưu', action: 'use_saved_address', data: {} },
-                        { text: '✏️ Nhập địa chỉ mới', action: 'enter_delivery_address', data: {} }
+                        { text: 'Sử dụng địa chỉ đã lưu', action: 'use_saved_address', data: {} },
+                        { text: 'Nhập địa chỉ mới', action: 'enter_delivery_address', data: {} }
                     ],
                 });
             }
@@ -88,11 +88,11 @@ class TakeawayIntentHandler extends BaseIntentHandler {
             if (!lastDeliveryAddress || lastDeliveryAddress !== deliveryAddress) {
                 return this.buildResponse({
                     intent: 'order_delivery',
-                    response: `📍 Địa chỉ giao hàng của bạn:\n\n**${deliveryAddress}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
+                    response: `Địa chỉ giao hàng của bạn:\n\n**${deliveryAddress}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
                     entities: { ...entities, order_type: 'delivery', delivery_address: deliveryAddress },
                     suggestions: [
-                        { text: '✅ Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: deliveryAddress } },
-                        { text: '✏️ Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
+                        { text: 'Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: deliveryAddress } },
+                        { text: 'Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
                     ],
                 });
             }
@@ -141,11 +141,11 @@ class TakeawayIntentHandler extends BaseIntentHandler {
                 }
                 return this.buildResponse({
                     intent: 'order_delivery',
-                    response: `📍 Địa chỉ giao hàng bạn vừa nhập:\n\n**${message.trim()}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
+                    response: `Địa chỉ giao hàng bạn vừa nhập:\n\n**${message.trim()}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
                     entities: { ...entities, order_type: 'delivery', delivery_address: message.trim() },
                     suggestions: [
-                        { text: '✅ Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: message.trim() } },
-                        { text: '✏️ Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
+                        { text: 'Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: message.trim() } },
+                        { text: 'Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
                     ],
                 });
             }
@@ -163,11 +163,11 @@ class TakeawayIntentHandler extends BaseIntentHandler {
                 }
                 return this.buildResponse({
                     intent: 'order_delivery',
-                    response: '📍 Để đặt món giao hàng, tôi cần biết địa chỉ giao hàng của bạn.\n\nVui lòng cho tôi biết địa chỉ bạn muốn nhận hàng (số nhà, tên đường, phường/xã, quận/huyện, thành phố).',
+                    response: 'Để đặt món giao hàng, tôi cần biết địa chỉ giao hàng của bạn.\n\nVui lòng cho tôi biết địa chỉ bạn muốn nhận hàng (số nhà, tên đường, phường/xã, quận/huyện, thành phố).',
                     entities: { ...entities, order_type: 'delivery' },
                     suggestions: [
-                        { text: '📍 Sử dụng địa chỉ đã lưu', action: 'use_saved_address', data: {} },
-                        { text: '✏️ Nhập địa chỉ mới', action: 'enter_delivery_address', data: {} }
+                        { text: 'Sử dụng địa chỉ đã lưu', action: 'use_saved_address', data: {} },
+                        { text: 'Nhập địa chỉ mới', action: 'enter_delivery_address', data: {} }
                     ],
                 });
             }
@@ -175,11 +175,11 @@ class TakeawayIntentHandler extends BaseIntentHandler {
             if (!lastDeliveryAddress || lastDeliveryAddress !== deliveryAddress) {
                 return this.buildResponse({
                     intent: 'order_delivery',
-                    response: `📍 Địa chỉ giao hàng của bạn:\n\n**${deliveryAddress}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
+                    response: `Địa chỉ giao hàng của bạn:\n\n**${deliveryAddress}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
                     entities: { ...entities, order_type: 'delivery', delivery_address: deliveryAddress },
                     suggestions: [
-                        { text: '✅ Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: deliveryAddress } },
-                        { text: '✏️ Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
+                        { text: 'Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: deliveryAddress } },
+                        { text: 'Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
                     ],
                 });
             }

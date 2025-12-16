@@ -179,10 +179,10 @@ class MenuHandler {
                     const branch = await BranchService.getBranchById(branchId);
                     if (menuItems && menuItems.length > 0) {
                         const menuText = this.formatMenuByCategory(menuItems);
-                        const response = `📋 Menu của ${branch?.name || branchName || 'chi nhánh'}:\n\n${menuText}\n\nBạn muốn đặt món nào?`;
+                        const response = `Menu của ${branch?.name || branchName || 'chi nhánh'}:\n\n${menuText}\n\nBạn muốn đặt món nào?`;
                         const suggestions = [
                             {
-                                text: `🍽️ Xem menu ${branch?.name || branchName || 'chi nhánh này'}`,
+                                text: `Xem menu ${branch?.name || branchName || 'chi nhánh này'}`,
                                 action: 'navigate_menu',
                                 data: {
                                     branch_id: branchId,
@@ -190,7 +190,7 @@ class MenuHandler {
                                 }
                             },
                             {
-                                text: '🪑 Đặt bàn tại đây',
+                                text: 'Đặt bàn tại đây',
                                 action: 'book_table',
                                 data: {
                                     branch_id: branchId,
@@ -234,7 +234,7 @@ class MenuHandler {
                             const searchResult = await ToolHandlers.searchProducts(searchParams);
                             if (searchResult && searchResult.products && searchResult.products.length > 0) {
                                 const products = searchResult.products;
-                                let responseText = `🔍 Tìm thấy ${products.length} món:\n\n`;
+                                let responseText = `Tìm thấy ${products.length} món:\n\n`;
                                 products.forEach((product, idx) => {
                                     responseText += `${idx + 1}. ${product.name}`;
                                     if (product.price) {
@@ -244,7 +244,7 @@ class MenuHandler {
                                         responseText += `\n   ${product.description}`;
                                     }
                                     if (product.category) {
-                                        responseText += `\n   📂 ${product.category}`;
+                                        responseText += `\n   ${product.category}`;
                                     }
                                     responseText += '\n\n';
                                 });
@@ -259,7 +259,7 @@ class MenuHandler {
                                 if (allBranches.length > 0) {
                                     const branchList = await BranchFormatter.formatBranchListWithDetails(allBranches);
                                     return {
-                                        response: `😔 Tôi không tìm thấy món "${searchKeyword}" trong menu.\n\nBạn có thể:\n• Xem menu theo chi nhánh:\n\n${branchList.join('\n\n')}\n\n• Hoặc thử tìm kiếm với từ khóa khác`,
+                                        response: `Tôi không tìm thấy món "${searchKeyword}" trong menu.\n\nBạn có thể:\n• Xem menu theo chi nhánh:\n\n${branchList.join('\n\n')}\n\n• Hoặc thử tìm kiếm với từ khóa khác`,
                                         intent: 'view_menu',
                                         entities: mergedEntities,
                                         suggestions: []
@@ -277,7 +277,7 @@ class MenuHandler {
                             intent: 'view_menu'
                         });
                         return {
-                            response: `📍 Chọn chi nhánh để xem menu:\n\nBạn muốn xem menu của chi nhánh nào? Vui lòng chọn một chi nhánh từ danh sách bên dưới:`,
+                            response: `Chọn chi nhánh để xem menu:\n\nBạn muốn xem menu của chi nhánh nào? Vui lòng chọn một chi nhánh từ danh sách bên dưới:`,
                             intent: 'view_menu',
                             entities: mergedEntities,
                             suggestions: branchSuggestions 
@@ -449,7 +449,7 @@ class MenuHandler {
             const itemsText = items.map(item => 
                 `• ${item.name} - ${item.price.toLocaleString()}đ\n  ${item.description || ''}`
             ).join('\n\n');
-            return `🍽️ ${category}\n${itemsText}`;
+            return `${category}\n${itemsText}`;
         }).join('\n\n');
         return menuText;
     }

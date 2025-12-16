@@ -1,10 +1,11 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import UserForm from '@/components/Admin/User/UserForm.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import usersService from '@/services/UserService';
 import branchService from '@/services/BranchService';
+import SocketService from '@/services/SocketService';
 import { ROLE_NAMES, USER_ROLES, DEFAULT_AVATAR } from '@/constants';
 import { useMutation, useQueryClient } from '@tanstack/vue-query';
 import { useToast } from 'vue-toastification';
@@ -415,8 +416,52 @@ function toggleSelectAll() {
     selectedUsers.value = filteredUsers.value.map(u => u.id);
   }
 }
-loadBranches();
-retrieveUsers(currentPage.value);
+// Real-time user updates
+function handleUserCreated(data) {
+  if (data.user && data.user.role_id !== USER_ROLES.CUSTOMER) {
+    users.value.unshift(data.user);
+    users.value = [...users.value];
+    toast.info(`Nhân viên mới: ${data.user.name}`);
+  }
+}
+
+function handleUserUpdated(data) {
+  if (data.user) {
+    const index = users.value.findIndex(u => u.id === data.userId);
+    if (index !== -1) {
+      users.value[index] = { ...users.value[index], ...data.user };
+      users.value = [...users.value];
+    } else if (data.user.role_id !== USER_ROLES.CUSTOMER) {
+      // User might not be in current view, reload
+      retrieveUsers(currentPage.value);
+    }
+  }
+}
+
+function handleUserDeleted(data) {
+  const index = users.value.findIndex(u => u.id === data.userId);
+  if (index !== -1) {
+    users.value.splice(index, 1);
+    users.value = [...users.value];
+  }
+}
+
+onMounted(() => {
+  loadBranches();
+  retrieveUsers(currentPage.value);
+  
+  // Setup real-time listeners
+  SocketService.on('user-created', handleUserCreated);
+  SocketService.on('user-updated', handleUserUpdated);
+  SocketService.on('user-deleted', handleUserDeleted);
+});
+
+onUnmounted(() => {
+  // Cleanup listeners
+  SocketService.off('user-created', handleUserCreated);
+  SocketService.off('user-updated', handleUserUpdated);
+  SocketService.off('user-deleted', handleUserDeleted);
+});
 </script>
 <template>
   <div class="staff-list">
@@ -448,97 +493,84 @@ retrieveUsers(currentPage.value);
         </button>
       </div>
     </div>
-    <!-- Statistics Section -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon" style="background: #ECFDF5; color: #10B981;">
-          <i class="fas fa-users"></i>
+    <!-- Statistics and Filters Section -->
+    <div class="stats-filters-container">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #ECFDF5; color: #10B981;">
+            <i class="fas fa-users"></i>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ staffStats.total }}</div>
+            <div class="stat-label">Total Staff</div>
+          </div>
         </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ staffStats.total }}</div>
-          <div class="stat-label">Total Staff</div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #D1FAE5; color: #059669;">
+            <i class="fas fa-user-plus"></i>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ staffStats.new3Days }}</div>
+            <div class="stat-label">New 3 Days</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #FEF3C7; color: #D97706;">
+            <i class="fas fa-calendar-week"></i>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ staffStats.new7Days }}</div>
+            <div class="stat-label">New 7 Days</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: #E0E7FF; color: #6366F1;">
+            <i class="fas fa-filter"></i>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ filteredUsers.length }}</div>
+            <div class="stat-label">Displaying</div>
+          </div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background: #D1FAE5; color: #059669;">
-          <i class="fas fa-user-plus"></i>
+      <!-- Compact Filters -->
+      <div class="compact-filters">
+        <div class="filter-row">
+          <input
+            v-model="searchText"
+            @keyup.enter="handleSearch"
+            class="filter-input-compact"
+            placeholder="Search staff..."
+          />
+          <select v-model="selectedRole" @change="handleRoleFilter" class="filter-select-compact">
+            <option value="">All Roles</option>
+            <option :value="USER_ROLES.ADMIN">Admin</option>
+            <option :value="USER_ROLES.MANAGER">Manager</option>
+            <option :value="USER_ROLES.STAFF">Staff</option>
+            <option :value="USER_ROLES.KITCHEN_STAFF">Kitchen Staff</option>
+            <option :value="USER_ROLES.CASHIER">Cashier & Receptionist</option>
+            <option :value="USER_ROLES.DELIVERY_STAFF">Delivery Staff</option>
+          </select>
+          <select v-if="!hideBranchFilter" v-model="selectedBranch" @change="handleBranchFilter" class="filter-select-compact">
+            <option value="">All Branches</option>
+            <option value="none">Not Assigned</option>
+            <option v-for="branch in branches" :key="branch.id" :value="branch.id">
+              {{ branch.name }}
+            </option>
+          </select>
+          <select v-model="selectedRecent" @change="handleRecentFilter" class="filter-select-compact">
+            <option value="">All Time</option>
+            <option value="3d">New 3 Days</option>
+            <option value="7d">New 7 Days</option>
+          </select>
+          <button v-if="searchText || selectedRole || selectedBranch || selectedRecent" 
+                  @click="clearFilters" class="btn-clear-compact">
+            <i class="fas fa-times"></i>
+            Clear
+          </button>
         </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ staffStats.new3Days }}</div>
-          <div class="stat-label">New 3 Days</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background: #FEF3C7; color: #D97706;">
-          <i class="fas fa-calendar-week"></i>
-        </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ staffStats.new7Days }}</div>
-          <div class="stat-label">New 7 Days</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background: #E0E7FF; color: #6366F1;">
-          <i class="fas fa-filter"></i>
-        </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ filteredUsers.length }}</div>
-          <div class="stat-label">Displaying</div>
-        </div>
-      </div>
-    </div>
-    <!-- Filters Section -->
-    <div class="filters-card">
-      <div class="filters-header">
-        <h3>Filters</h3>
-        <button v-if="searchText || selectedRole || selectedBranch || selectedRecent" 
-                @click="clearFilters" class="btn-clear-filters">
-          <i class="fas fa-times"></i>
-          Clear Filters
-        </button>
-      </div>
-      <div class="filters-grid">
-        <div class="filter-group">
-          <label>Search</label>
-        <input
-          v-model="searchText"
-          @keyup.enter="handleSearch"
-            class="filter-input"
-          placeholder="Search staff..."
-        />
-        </div>
-        <div class="filter-group">
-          <label>Role</label>
-        <select v-model="selectedRole" @change="handleRoleFilter" class="filter-select">
-          <option value="">All Roles</option>
-          <option :value="USER_ROLES.ADMIN">Admin</option>
-          <option :value="USER_ROLES.MANAGER">Manager</option>
-          <option :value="USER_ROLES.STAFF">Staff</option>
-          <option :value="USER_ROLES.KITCHEN_STAFF">Kitchen Staff</option>
-          <option :value="USER_ROLES.CASHIER">Cashier & Receptionist</option>
-          <option :value="USER_ROLES.DELIVERY_STAFF">Delivery Staff</option>
-        </select>
-        </div>
-        <div v-if="!hideBranchFilter" class="filter-group">
-          <label>Branch</label>
-        <select v-model="selectedBranch" @change="handleBranchFilter" class="filter-select">
-          <option value="">All Branches</option>
-          <option value="none">Not Assigned</option>
-          <option v-for="branch in branches" :key="branch.id" :value="branch.id">
-            {{ branch.name }}
-          </option>
-        </select>
-        </div>
-        <div class="filter-group">
-          <label>Time</label>
-        <select v-model="selectedRecent" @change="handleRecentFilter" class="filter-select">
-          <option value="">All Time</option>
-          <option value="3d">New 3 Days</option>
-          <option value="7d">New 7 Days</option>
-        </select>
       </div>
     </div>
-      </div>
     <div class="content-area">
         <div v-if="isLoading" class="loading">
           <LoadingSpinner />
@@ -926,11 +958,89 @@ retrieveUsers(currentPage.value);
   background: #10B981;
   color: white;
 }
+.stats-filters-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 24px;
+}
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
-  margin-bottom: 24px;
+}
+.compact-filters {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #E2E8F0;
+}
+.filter-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.filter-input-compact {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 14px;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #FAFAFA;
+  color: #1a1a1a;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.filter-input-compact:focus {
+  outline: none;
+  border-color: #FF8C42;
+  box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.1);
+  background: white;
+}
+.filter-input-compact::placeholder {
+  color: #9CA3AF;
+  font-weight: 400;
+}
+.filter-select-compact {
+  padding: 10px 14px;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #FAFAFA;
+  color: #1a1a1a;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  min-width: 150px;
+}
+.filter-select-compact:focus {
+  outline: none;
+  border-color: #FF8C42;
+  box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.1);
+  background: white;
+}
+.btn-clear-compact {
+  padding: 10px 16px;
+  border: 1px solid #E5E5E5;
+  background: white;
+  color: #666;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-clear-compact:hover {
+  border-color: #FF8C42;
+  color: #FF8C42;
+  background: #FFF9F5;
 }
 .stat-card {
   background: white;
@@ -1123,78 +1233,98 @@ retrieveUsers(currentPage.value);
   opacity: 0.5;
 }
 .bulk-assign-bar {
-  background: linear-gradient(135deg, #FFF3E0, #FFE8CC);
-  border: 2px solid #FF8C42;
-  border-radius: 20px;
-  padding: 20px 28px;
-  margin-bottom: 28px;
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-left: 4px solid #FF8C42;
+  border-radius: 12px;
+  padding: 16px 24px;
+  margin-bottom: 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 15px;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 .bulk-info {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 15px;
-  color: #D35400;
+  font-size: 14px;
+  color: #1E293B;
   font-weight: 600;
 }
 .bulk-info i {
-  font-size: 20px;
+  font-size: 18px;
   color: #FF8C42;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFF5E6;
+  border-radius: 8px;
+}
+.bulk-info strong {
+  color: #FF8C42;
+  font-weight: 700;
 }
 .bulk-actions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
 }
 .bulk-branch-select {
-  padding: 12px 18px;
-  border: 2px solid #FF8C42;
-  border-radius: 16px;
+  padding: 10px 16px;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
   font-size: 14px;
-  min-width: 220px;
-  background: white;
-  color: #333;
+  min-width: 200px;
+  background: #FAFAFA;
+  color: #1a1a1a;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 .bulk-branch-select:focus {
   outline: none;
+  border-color: #FF8C42;
+  box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.1);
+  background: white;
 }
 .btn-bulk-assign {
-  padding: 12px 24px;
-  background: linear-gradient(135deg, #FF8C42, #E67E22);
+  padding: 10px 20px;
+  background: #FF8C42;
   color: white;
   border: none;
-  border-radius: 16px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(255, 140, 66, 0.2);
 }
 .btn-bulk-assign:hover:not(:disabled) {
-  background: linear-gradient(135deg, #E67E22, #D35400);
+  background: #E67E22;
+  box-shadow: 0 4px 8px rgba(255, 140, 66, 0.3);
+  transform: translateY(-1px);
 }
 .btn-bulk-assign:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 .btn-clear-selection {
-  padding: 12px 20px;
+  padding: 10px 18px;
   background: white;
-  color: #666;
-  border: 2px solid #F0E6D9;
-  border-radius: 16px;
+  color: #64748B;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
@@ -1202,6 +1332,11 @@ retrieveUsers(currentPage.value);
   align-items: center;
   gap: 6px;
   transition: all 0.2s ease;
+}
+.btn-clear-selection:hover {
+  background: #F8F9FA;
+  border-color: #D1D5DB;
+  color: #475569;
 }
 .btn-clear-selection:hover {
   background: #FFF3E0;

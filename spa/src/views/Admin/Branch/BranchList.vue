@@ -406,6 +406,7 @@ import BranchForm from '@/components/Admin/Branch/BranchForm.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import BranchService from '@/services/BranchService';
 import AuthService from '@/services/AuthService';
+import SocketService from '@/services/SocketService';
 export default {
   name: 'BranchList',
   components: {
@@ -481,8 +482,47 @@ export default {
   async mounted() {
     await this.loadBranches();
     this.totalPages = Math.ceil(this.filteredBranches.length / this.itemsPerPage);
+    
+    // Setup real-time listeners
+    SocketService.on('branch-created', this.handleBranchCreated);
+    SocketService.on('branch-updated', this.handleBranchUpdated);
+    SocketService.on('branch-deleted', this.handleBranchDeleted);
+    SocketService.on('branch-status-updated', this.handleBranchStatusUpdated);
+  },
+  beforeUnmount() {
+    // Cleanup listeners
+    SocketService.off('branch-created', this.handleBranchCreated);
+    SocketService.off('branch-updated', this.handleBranchUpdated);
+    SocketService.off('branch-deleted', this.handleBranchDeleted);
+    SocketService.off('branch-status-updated', this.handleBranchStatusUpdated);
   },
   methods: {
+    handleBranchCreated(data) {
+      this.toast.success(`Chi nhánh "${data.branch.name}" đã được tạo`);
+      this.loadBranches();
+    },
+    handleBranchUpdated(data) {
+      const index = this.branches.findIndex(b => b.id === data.branchId);
+      if (index !== -1) {
+        this.branches[index] = { ...this.branches[index], ...data.branch };
+        this.branches = [...this.branches];
+        this.toast.info(`Chi nhánh "${data.branch.name}" đã được cập nhật`);
+      } else {
+        this.loadBranches();
+      }
+    },
+    handleBranchDeleted(data) {
+      this.branches = this.branches.filter(b => b.id !== data.branchId);
+      this.toast.warning(`Chi nhánh "${data.branch.name}" đã bị xóa`);
+    },
+    handleBranchStatusUpdated(data) {
+      const index = this.branches.findIndex(b => b.id === data.branchId);
+      if (index !== -1) {
+        this.branches[index].status = data.newStatus;
+        this.branches = [...this.branches];
+        this.toast.info(`Trạng thái chi nhánh đã thay đổi: ${data.newStatus}`);
+      }
+    },
     async loadBranches() {
       this.loading = true;
       this.error = null;

@@ -12,6 +12,7 @@ import '../../services/ProductOptionService.dart';
 import '../../utils/image_utils.dart';
 import '../../services/CartService.dart';
 import '../../services/AuthService.dart';
+import '../../services/NotificationService.dart';
 import '../../ui/cart/CartProvider.dart';
 import '../../ui/cart/CartScreen.dart';
 import '../../constants/app_constants.dart';
@@ -180,28 +181,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
     
     _favoriteAnimationController.forward(from: 0.0);
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              _isFavorite ? Symbols.favorite : Symbols.heart_broken,
-              color: Colors.white,
-              size: 20,
-            ),
-            SizedBox(width: 12),
-            Text(
-              _isFavorite ? 'Đã thêm vào yêu thích' : 'Đã xóa khỏi yêu thích',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-        backgroundColor: _isFavorite ? Colors.red.shade600 : Colors.grey[700],
-        duration: Duration(milliseconds: 1500),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: EdgeInsets.all(16),
-      ),
+    NotificationService().showInfo(
+      context: context,
+      message: _isFavorite ? 'Đã thêm vào yêu thích' : 'Đã xóa khỏi yêu thích',
     );
   }
 
@@ -303,11 +285,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                       child: ElevatedButton(
                         onPressed: () {
                           if (commentController.text.trim().isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Vui lòng nhập nội dung đánh giá'),
-                                backgroundColor: Colors.red,
-                              ),
+                            NotificationService().showWarning(
+                              context: context,
+                              message: 'Vui lòng nhập nội dung đánh giá',
                             );
                             return;
                           }
@@ -327,20 +307,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                           });
                           
                           Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content: Row(
-                                  children: [
-                                    Icon(Symbols.check_circle, color: Colors.white, fill: 1),
-                                    SizedBox(width: 12),
-                                    Text('Cảm ơn bạn đã đánh giá!'),
-                                  ],
-                                ),
-                              backgroundColor: Colors.green,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                margin: EdgeInsets.all(16),
-                            ),
+                          NotificationService().showSuccess(
+                            context: context,
+                            message: 'Cảm ơn bạn đã đánh giá!',
                           );
                         },
                         style: ElevatedButton.styleFrom(
@@ -441,11 +410,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                           try {
                             final authProvider = Provider.of<AuthProvider>(context, listen: false);
                             if (!authProvider.isAuth) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Please log in to add items to cart.'),
-                                  backgroundColor: Colors.red,
-                                ),
+                              NotificationService().showWarning(
+                                context: context,
+                                message: 'Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng',
                               );
                               return;
                             }
@@ -453,11 +420,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                             final token = AuthService().token;
                             
                             if (token == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Authentication token not found. Please log in again.'),
-                                  backgroundColor: Colors.red,
-                                ),
+                              NotificationService().showError(
+                                context: context,
+                                message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại',
                               );
                               return;
                             }
@@ -477,27 +442,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                               await cartProvider.clearCartForBranchSwitch();
                             }
                             
+                            // Get orderType from existing cart, or default to 'delivery' (dine_in and takeaway only for Quick Dine In and Chatbot)
+                            final orderType = cartProvider.cart?.orderType ?? 'delivery';
+                            
                             await cartProvider.addToCart(
                               branchId,
                               product.id,
                               quantity: 1,
-                              orderType: 'dine_in',
+                              orderType: orderType,
                               selectedOptions: [],
                             );
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Added ${product.name} to cart\nTotal: ${_formatPrice(cartProvider.currentCart?.total ?? 0.0)}'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 2),
-          ),
+        NotificationService().showSuccess(
+          context: context,
+          message: 'Đã thêm ${product.name} vào giỏ hàng\nTổng: ${_formatPrice(cartProvider.currentCart?.total ?? 0.0)}',
         );
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to add to cart: $e'),
-            backgroundColor: Colors.red,
-          ),
+        NotificationService().showError(
+          context: context,
+          message: 'Không thể thêm vào giỏ hàng: $e',
         );
       }
       return;
@@ -1029,24 +992,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                           child: ElevatedButton(
                             onPressed: () async {
                               if (!_optionService.validateRequiredOptions(_productOptions, _selectedOptions)) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Row(
-                                                children: [
-                                                  Icon(Symbols.warning, color: Colors.white, fill: 1),
-                                                  SizedBox(width: 12),
-                                                  Expanded(
-                                                    child: Text('Please select all required options'),
-                                                  ),
-                                                ],
-                                              ),
-                                              backgroundColor: Colors.red,
-                                              behavior: SnackBarBehavior.floating,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              margin: EdgeInsets.all(16),
-                                            ),
+                                NotificationService().showWarning(
+                                  context: context,
+                                  message: 'Vui lòng chọn tất cả các tùy chọn bắt buộc',
                                 );
                                 return;
                               }
@@ -1054,11 +1002,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                               try {
                                 final authProvider = Provider.of<AuthProvider>(context, listen: false);
                                 if (!authProvider.isAuth) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Please log in to add items to cart.'),
-                                      backgroundColor: Colors.red,
-                                    ),
+                                  NotificationService().showWarning(
+                                    context: context,
+                                    message: 'Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng',
                                   );
                                   return;
                                 }
@@ -1066,11 +1012,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                                 final token = AuthService().token;
                                 
                                 if (token == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Authentication token not found. Please log in again.'),
-                                      backgroundColor: Colors.red,
-                                    ),
+                                  NotificationService().showError(
+                                    context: context,
+                                    message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại',
                                   );
                                   return;
                                 }
@@ -1092,39 +1036,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                                 
                                 Navigator.pop(ctx);
                                 
+                                // Get orderType from existing cart, or default to 'delivery' (dine_in and takeaway only for Quick Dine In and Chatbot)
+                                final orderType = cartProvider.cart?.orderType ?? 'delivery';
+                                
                                 await cartProvider.addToCart(
                                   branchId,
                                   product.id,
                                   quantity: sheetQuantity,
-                                  orderType: 'dine_in',
+                                  orderType: orderType,
                                   selectedOptions: _selectedOptions,
                                 );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Row(
-                                      children: [
-                                        Icon(Symbols.check_circle, color: Colors.white, fill: 1),
-                                        SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text('Added ${product.name} x$sheetQuantity to cart\nTotal: ${_formatPrice(_calculateTotalPrice(product) * sheetQuantity)}'),
-                                        ),
-                                      ],
-                                    ),
-                                    backgroundColor: Colors.green,
-                                    behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    margin: EdgeInsets.all(16),
-                                  ),
+                                NotificationService().showSuccess(
+                                  context: context,
+                                  message: 'Đã thêm ${product.name} x$sheetQuantity vào giỏ hàng\nTổng: ${_formatPrice(_calculateTotalPrice(product) * sheetQuantity)}',
                                 );
                               } catch (e) {
                                 Navigator.pop(ctx);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Failed to add to cart: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
+                                NotificationService().showError(
+                                  context: context,
+                                  message: 'Không thể thêm vào giỏ hàng: $e',
                                 );
                               }
                             },
@@ -1329,8 +1259,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
       child: Scaffold(
         backgroundColor: Colors.white,
         bottomNavigationBar: _buildBottomBar(product, branchId, branch.name),
-        body: SafeArea(
-        child: SingleChildScrollView(
+        body: SingleChildScrollView(
           physics: BouncingScrollPhysics(),
           child: Column(
             children: [
@@ -1460,21 +1389,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
                             Container(
                               width: 320,
                               height: 320,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(175),
-                                child: Image.network(
-                                  _getImageUrl(product.image),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: Colors.grey[200],
-                                      child: Icon(Symbols.fastfood, size: 100, color: Colors.grey, fill: 1),
-                                    );
-                                  },
-                                ),
+                              child: Image.network(
+                                _getImageUrl(product.image),
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey[200],
+                                    child: Icon(Symbols.fastfood, size: 100, color: Colors.grey, fill: 1),
+                                  );
+                                },
                               ),
                             ),
                           ],
@@ -1561,7 +1484,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with TickerPr
             ],
           ),
         ),
-      ),
       ),
     );
   }

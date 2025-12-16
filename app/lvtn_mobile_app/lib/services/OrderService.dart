@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../models/order.dart';
 import '../models/reservation.dart';
 import '../constants/api_constants.dart';
+import '../constants/app_constants.dart';
 
 class OrderService {
   final Dio _dio = Dio();
@@ -244,6 +245,70 @@ class OrderService {
         return reservationsData.map((json) => Reservation.fromJson(json)).toList();
       } else {
         throw Exception('Failed to load reservations: ${response.data['message']}');
+      }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw Exception('Server error: ${e.response?.data['message'] ?? e.message}');
+      } else {
+        throw Exception('Network error: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  Future<List<Order>> getDeliveryOrders({required String token, String? status}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (status != null) {
+        queryParams['status'] = status;
+      }
+      
+      final response = await _dio.get(
+        '/delivery/orders',
+        queryParameters: queryParams.isEmpty ? null : queryParams,
+        options: Options(
+          headers: ApiConstants.authHeaders(token),
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data['status'] == 'success') {
+        final List<dynamic> ordersData = response.data['data'] ?? [];
+        return ordersData.map((json) => Order.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to load delivery orders: ${response.data['message']}');
+      }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw Exception('Server error: ${e.response?.data['message'] ?? e.message}');
+      } else {
+        throw Exception('Network error: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  Future<bool> updateOrderStatus({
+    required int orderId,
+    required String status,
+    required String token,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/delivery/orders/$orderId/status',
+        data: {
+          'status': status,
+        },
+        options: Options(
+          headers: ApiConstants.authHeaders(token),
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data['status'] == 'success') {
+        return true;
+      } else {
+        throw Exception('Failed to update order status: ${response.data['message']}');
       }
     } on DioException catch (e) {
       if (e.response != null) {

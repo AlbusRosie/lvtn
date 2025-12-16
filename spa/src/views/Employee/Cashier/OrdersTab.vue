@@ -36,6 +36,13 @@
             <span v-if="deliveryOrdersCount > 0" class="tab-badge">{{ deliveryOrdersCount }}</span>
           </button>
           <button 
+            :class="['order-type-tab-btn', { active: activeOrderTypeTab === 'takeaway' }]"
+            @click="activeOrderTypeTab = 'takeaway'"
+          >
+            <i class="fas fa-shopping-bag"></i> Takeaway
+            <span v-if="takeawayOrdersCount > 0" class="tab-badge">{{ takeawayOrdersCount }}</span>
+          </button>
+          <button 
             :class="['order-type-tab-btn', { active: activeOrderTypeTab === 'reservation' }]"
             @click="activeOrderTypeTab = 'reservation'"
           >
@@ -112,6 +119,9 @@
                 </p>
                 <p v-else-if="order.order_type === 'delivery' && order.delivery_address">
                   <i class="fas fa-map-marker-alt"></i> {{ order.delivery_address }}
+                </p>
+                <p v-else-if="order.order_type === 'takeaway'">
+                  <i class="fas fa-shopping-bag"></i> Takeaway order
                 </p>
                 <p><i class="fas fa-calendar"></i> {{ formatDate(order.created_at) }}</p>
                 <p><i class="fas fa-money-bill"></i> {{ formatCurrency(order.total) }}</p>
@@ -455,11 +465,12 @@
     </div>
   </template>
   <script setup>
-  import { ref, reactive, computed, onMounted, watch } from 'vue';
+  import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
   import { useToast } from 'vue-toastification';
   import AuthService from '@/services/AuthService';
   import OrderService from '@/services/OrderService';
   import ReservationService from '@/services/ReservationService';
+  import SocketService from '@/services/SocketService';
   import OrderDetailView from '@/components/Cashier/OrderDetailView.vue';
   import InvoiceView from '@/components/Cashier/InvoiceView.vue';
   const toast = useToast();
@@ -477,6 +488,8 @@
       result = result.filter(o => o.order_type === 'dine_in');
     } else if (activeOrderTypeTab.value === 'delivery') {
       result = result.filter(o => o.order_type === 'delivery');
+    } else if (activeOrderTypeTab.value === 'takeaway') {
+      result = result.filter(o => o.order_type === 'takeaway');
     }
     else if (activeOrderTypeTab.value === 'reservation') {
       return [];
@@ -501,6 +514,9 @@
   });
   const deliveryOrdersCount = computed(() => {
     return orders.value.filter(o => o.order_type === 'delivery').length;
+  });
+  const takeawayOrdersCount = computed(() => {
+    return orders.value.filter(o => o.order_type === 'takeaway').length;
   });
   const reservations = ref([]);
   const reservationsLoading = ref(false);
@@ -1105,11 +1121,81 @@
     loadOrders();
     loadReservations();
     loadOverdueReservations();
-    setInterval(() => {
-      if (activeOrderTypeTab.value === 'reservation') {
+    
+    // ✅ Ensure socket is connected before setting up listeners
+    if (!SocketService.getConnectionStatus()) {
+      SocketService.connect();
+      // Wait for connection with timeout
+      const connected = await SocketService.waitForConnection(3000);
+      console.log('[Cashier OrdersTab] Socket connected:', connected);
+    }
+    
+    // ✅ SETUP SOCKET.IO LISTENERS
+    // Note: new-order listener is handled globally in Employee Dashboard to show notifications
+    // We only listen here for order status and payment updates
+    console.log('[Cashier OrdersTab] Setting up socket listeners for order updates...');
+    console.log('[Cashier OrdersTab] Socket connection status:', SocketService.getConnectionStatus());
+    
+    // Note: new-order notification is handled by Employee Dashboard globally
+    // No need to register here to avoid duplicate notifications
+    
+    // Test listener registration
+    setTimeout(() => {
+      if (SocketService.getConnectionStatus()) {
+        console.log('[Cashier OrdersTab] ✅ Socket is connected, listener should be active');
+        const socket = SocketService.getSocket();
+        if (socket) {
+          console.log('[Cashier OrdersTab] Socket ID:', socket.id);
+          console.log('[Cashier OrdersTab] Socket connected:', socket.connected);
+          const listenerCount = SocketService.testListener('new-order');
+          console.log('[Cashier OrdersTab] new-order listener count:', listenerCount);
+        }
+      } else {
+        console.warn('[Cashier OrdersTab] ⚠️ Socket is NOT connected, listener may not work');
+      }
+    }, 1000);
+    
+    // Listen for order status updates
+    SocketService.on('order-status-updated', (data) => {
+      const branchId = getCurrentBranchId();
+      if (data.branchId === parseInt(branchId)) {
+        loadOrders(); // Refresh order list
+      }
+    });
+    
+    // Listen for payment status updates
+    SocketService.on('payment-status-updated', (data) => {
+      const branchId = getCurrentBranchId();
+      if (data.branchId === parseInt(branchId)) {
+        loadOrders(); // Refresh order list
+      }
+    });
+    
+    // Listen for reservation overdue notifications
+    SocketService.on('reservation-overdue', (data) => {
+      const branchId = getCurrentBranchId();
+      if (data.branchId === parseInt(branchId)) {
+        toast.warning(data.title, {
+          timeout: 8000,
+          onClick: () => {
+            if (activeOrderTypeTab.value !== 'reservation') {
+              activeOrderTypeTab.value = 'reservation';
+            }
+            loadOverdueReservations();
+            loadReservations();
+          }
+        });
+        // Refresh overdue reservations list
         loadOverdueReservations();
       }
-    }, 5 * 60 * 1000); 
+    });
+  });
+  
+  onUnmounted(() => {
+    // Clean up socket listeners (new-order is handled by Dashboard, don't off it here)
+    SocketService.off('order-status-updated');
+    SocketService.off('payment-status-updated');
+    SocketService.off('reservation-overdue');
   });
   </script>
   <style scoped>

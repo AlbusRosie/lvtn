@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/CategoryProvider.dart';
 import '../../providers/ProductProvider.dart';
@@ -10,6 +11,7 @@ import '../cart/CartProvider.dart';
 import '../../utils/image_utils.dart';
 import '../../services/CartService.dart';
 import '../../services/AuthService.dart';
+import '../../services/NotificationService.dart';
 import '../products/ProductOptionEditDialog.dart';
 import '../../models/cart.dart';
 import '../../models/product_option.dart';
@@ -39,19 +41,41 @@ class _ReservationMenuScreenState extends State<ReservationMenuScreen> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final productProvider = Provider.of<ProductProvider>(context, listen: false);
       final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
       
-      categoryProvider.loadCategories();
+      // Load categories đầy đủ trước
+      await categoryProvider.loadCategories();
       
       productProvider.resetPagination();
       await productProvider.loadProducts(branchId: widget.branch.id, loadAll: true);
       
       await cartProvider.loadCart(widget.branch.id);
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
   }
 
   @override
@@ -992,22 +1016,16 @@ class _ReservationMenuScreenState extends State<ReservationMenuScreen> {
       );
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã thêm $quantity x ${product.name} vào giỏ hàng'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
+        NotificationService().showSuccess(
+          context: context,
+          message: 'Đã thêm $quantity x ${product.name} vào giỏ hàng',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
+        NotificationService().showError(
+          context: context,
+          message: 'Lỗi: ${e.toString()}',
         );
       }
     }
@@ -1017,11 +1035,9 @@ class _ReservationMenuScreenState extends State<ReservationMenuScreen> {
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
     
     if (cartProvider.cart == null || cartProvider.itemCount == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Vui lòng chọn ít nhất một món'),
-          backgroundColor: Colors.orange,
-        ),
+      NotificationService().showWarning(
+        context: context,
+        message: 'Vui lòng chọn ít nhất một món',
       );
       return;
     }
@@ -1072,11 +1088,9 @@ class _ReservationMenuScreenState extends State<ReservationMenuScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi đặt món: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+        NotificationService().showError(
+          context: context,
+          message: 'Lỗi khi đặt món: ${e.toString()}',
         );
       }
     } finally {
@@ -1266,11 +1280,19 @@ class _ReservationMenuScreenState extends State<ReservationMenuScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios, color: Colors.grey[600]),
           onPressed: () => Navigator.pop(context),
@@ -1336,9 +1358,8 @@ class _ReservationMenuScreenState extends State<ReservationMenuScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Consumer2<CategoryProvider, ProductProvider>(
-          builder: (context, categoryProvider, productProvider, child) {
+      body: Consumer2<CategoryProvider, ProductProvider>(
+        builder: (context, categoryProvider, productProvider, child) {
             List<CategoryModel.Category> availableCategories = [];
             if (!productProvider.isLoading && productProvider.allProducts.isNotEmpty) {
               Set<int> categoryIds = productProvider.allProducts
@@ -1530,7 +1551,6 @@ class _ReservationMenuScreenState extends State<ReservationMenuScreen> {
             );
           },
         ),
-      ),
       floatingActionButton: Consumer<CartProvider>(
         builder: (context, cartProvider, child) {
           if (cartProvider.itemCount == 0) {
@@ -1549,6 +1569,7 @@ class _ReservationMenuScreenState extends State<ReservationMenuScreen> {
             ),
           );
         },
+      ),
       ),
     );
   }

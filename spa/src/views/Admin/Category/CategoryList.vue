@@ -257,6 +257,7 @@ import CategoryForm from '@/components/Admin/Category/CategoryForm.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import CategoryService from '@/services/CategoryService';
 import AuthService from '@/services/AuthService';
+import SocketService from '@/services/SocketService';
 import { DEFAULT_PRODUCT_IMAGE } from '@/constants';
 const DEFAULT_CATEGORY_IMAGE = DEFAULT_PRODUCT_IMAGE;
 export default {
@@ -319,8 +320,37 @@ export default {
   },
   async mounted() {
     await this.loadCategories();
+    
+    // Setup real-time listeners
+    SocketService.on('category-created', this.handleCategoryCreated);
+    SocketService.on('category-updated', this.handleCategoryUpdated);
+    SocketService.on('category-deleted', this.handleCategoryDeleted);
+  },
+  beforeUnmount() {
+    // Cleanup listeners
+    SocketService.off('category-created', this.handleCategoryCreated);
+    SocketService.off('category-updated', this.handleCategoryUpdated);
+    SocketService.off('category-deleted', this.handleCategoryDeleted);
   },
   methods: {
+    handleCategoryCreated(data) {
+      this.toast.success(`Danh mục "${data.category.name}" đã được tạo`);
+      this.loadCategories();
+    },
+    handleCategoryUpdated(data) {
+      const index = this.categories.findIndex(c => c.id === data.categoryId);
+      if (index !== -1) {
+        this.categories[index] = { ...this.categories[index], ...data.category };
+        this.categories = [...this.categories];
+        this.toast.info(`Danh mục "${data.category.name}" đã được cập nhật`);
+      } else {
+        this.loadCategories();
+      }
+    },
+    handleCategoryDeleted(data) {
+      this.categories = this.categories.filter(c => c.id !== data.categoryId);
+      this.toast.warning(`Danh mục "${data.category.name}" đã bị xóa`);
+    },
     async loadCategories() {
       this.loading = true;
       this.error = null;

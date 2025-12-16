@@ -90,16 +90,11 @@ class Cart {
   final int branchId;
   final String sessionId;
   final String orderType;
-  final int? tableId;
-  final String? reservationDate;
-  final String? reservationTime;
-  final int? guestCount;
   final String? status;
   final DateTime? expiresAt;
   final String? specialRequests;
   final String? note;
   final DateTime createdAt;
-  final DateTime updatedAt;
   final int? tableIdDisplay;
   final int? tableCapacity;
   final String? branchName;
@@ -112,16 +107,11 @@ class Cart {
     required this.branchId,
     required this.sessionId,
     required this.orderType,
-    this.tableId,
-    this.reservationDate,
-    this.reservationTime,
-    this.guestCount,
     this.status,
     this.expiresAt,
     this.specialRequests,
     this.note,
     required this.createdAt,
-    required this.updatedAt,
     this.tableIdDisplay,
     this.tableCapacity,
     this.branchName,
@@ -136,16 +126,11 @@ class Cart {
       branchId: json['branch_id'],
       sessionId: json['session_id'],
       orderType: json['order_type'],
-      tableId: json['table_id'],
-      reservationDate: json['reservation_date'],
-      reservationTime: json['reservation_time'],
-      guestCount: json['guest_count'],
       status: json['status'],
       expiresAt: json['expires_at'] != null ? DateTime.parse(json['expires_at']) : null,
       specialRequests: json['special_requests'],
       note: json['note'],
       createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
       tableIdDisplay: json['table_id'],
       tableCapacity: json['capacity'],
       branchName: json['branch_name'],
@@ -163,16 +148,11 @@ class Cart {
       'branch_id': branchId,
       'session_id': sessionId,
       'order_type': orderType,
-      'table_id': tableId,
-      'reservation_date': reservationDate,
-      'reservation_time': reservationTime,
-      'guest_count': guestCount,
       'status': status,
       'expires_at': expiresAt?.toIso8601String(),
       'special_requests': specialRequests,
       'note': note,
       'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
       'table_id': tableIdDisplay,
       'capacity': tableCapacity,
       'branch_name': branchName,
@@ -187,16 +167,11 @@ class Cart {
     int? branchId,
     String? sessionId,
     String? orderType,
-    int? tableId,
-    String? reservationDate,
-    String? reservationTime,
-    int? guestCount,
     String? status,
     DateTime? expiresAt,
     String? specialRequests,
     String? note,
     DateTime? createdAt,
-    DateTime? updatedAt,
     int? tableIdDisplay,
     int? tableCapacity,
     String? branchName,
@@ -209,16 +184,11 @@ class Cart {
       branchId: branchId ?? this.branchId,
       sessionId: sessionId ?? this.sessionId,
       orderType: orderType ?? this.orderType,
-      tableId: tableId ?? this.tableId,
-      reservationDate: reservationDate ?? this.reservationDate,
-      reservationTime: reservationTime ?? this.reservationTime,
-      guestCount: guestCount ?? this.guestCount,
       status: status ?? this.status,
       expiresAt: expiresAt ?? this.expiresAt,
       specialRequests: specialRequests ?? this.specialRequests,
       note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
       tableIdDisplay: tableIdDisplay ?? this.tableIdDisplay,
       tableCapacity: tableCapacity ?? this.tableCapacity,
       branchName: branchName ?? this.branchName,
@@ -229,7 +199,7 @@ class Cart {
 
   bool get isExpired => false;
   bool get isEmpty => items.isEmpty;
-  bool get hasTableReservation => tableId != null;
+  bool get hasTableReservation => tableIdDisplay != null;
   bool get isDineIn => orderType == 'dine_in';
   bool get isDelivery => orderType == 'delivery';
 }

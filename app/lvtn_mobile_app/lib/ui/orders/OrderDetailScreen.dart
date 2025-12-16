@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
 import '../../models/order.dart';
+import '../../models/order_detail.dart';
 import '../../constants/app_constants.dart';
 import '../../utils/image_utils.dart';
 import '../../services/OrderService.dart';
+import '../../services/NotificationService.dart';
 import '../../providers/AuthProvider.dart';
 import '../../services/AuthService.dart';
 
@@ -86,8 +90,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (!_isInitialized) {
-      return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Builder(
+        builder: (context) {
+          if (!_isInitialized) {
+            return Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
         body: Center(
           child: CircularProgressIndicator(
@@ -195,6 +208,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
         ],
       ),
       bottomNavigationBar: _buildBottomActions(order),
+    );
+        },
+      ),
     );
   }
   
@@ -458,14 +474,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-              Text(
-                order.branchName ?? 'Restaurant',
-                style: const TextStyle(
-                  fontSize: 16,
+              Expanded(
+                child: Text(
+                  order.branchName ?? 'Restaurant',
+                  style: const TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF2D3436),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -486,17 +507,69 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildInfoItem(
-                Icons.receipt_outlined,
-                '${order.itemsCount ?? 0} items',
+              Expanded(
+                child: _buildInfoItem(
+                  Icons.receipt_outlined,
+                  '${order.itemsCount ?? 0} items',
+                ),
               ),
               const SizedBox(width: 24),
-              _buildInfoItem(
-                Icons.credit_card,
-                _getPaymentMethodText(order.paymentMethod),
+              Expanded(
+                child: _buildInfoItem(
+                  Icons.credit_card,
+                  _getPaymentMethodText(order.paymentMethod),
+                ),
               ),
             ],
           ),
+          if (order.customerName != null && order.customerName!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildInfoItem(
+              Icons.person_outline,
+              order.customerName!,
+            ),
+          ],
+          if (order.customerPhone != null && order.customerPhone!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildInfoItem(
+              Icons.phone_outlined,
+              order.customerPhone!,
+            ),
+          ],
+          if (order.notes != null && order.notes!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 24),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.note_outlined, size: 18, color: Color(0xFF95A5A6)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Ghi chú',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF95A5A6),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        order.notes!,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF2D3436),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
           const Divider(height: 24),
           Row(
@@ -526,14 +599,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
 
   Widget _buildInfoItem(IconData icon, String text) {
     return Row(
-        children: [
+      mainAxisSize: MainAxisSize.min,
+      children: [
         Icon(icon, size: 18, color: const Color(0xFF95A5A6)),
         const SizedBox(width: 6),
-        Text(
-          text,
-          style: const TextStyle(
-            fontSize: 13,
-                color: Color(0xFF95A5A6),
+        Flexible(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF95A5A6),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -541,6 +619,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   }
   
   Widget _buildLocationCard(Order order) {
+    // Chỉ hiển thị location card cho delivery và dine_in
+    if (order.orderType.toLowerCase() != AppConstants.delivery && 
+        order.orderType.toLowerCase() != AppConstants.dineIn) {
+      return const SizedBox.shrink();
+    }
+    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(20),
@@ -560,7 +644,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           _buildLocationItem(
             const Color(0xFFFF8C00),
             order.branchName ?? 'Restaurant',
-            'Restaurant • ${_formatTime(order.createdAt)}',
+            'Restaurant • ${_formatDateTime(order.createdAt)}',
             true,
           ),
           Container(
@@ -612,8 +696,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                color: Color(0xFF2D3436),
+                  color: Color(0xFF2D3436),
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
               Text(
@@ -621,8 +707,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF95A5A6),
-            ),
-          ),
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
         ],
       ),
         ),
@@ -812,11 +900,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
           ),
           const SizedBox(height: 16),
           if (order.items != null && order.items!.isNotEmpty)
-            ...order.items!.map((item) => _buildOrderItem(
-              item.productName ?? 'Unknown Item',
-              item.quantity,
-              item.price,
-            )).toList()
+            ...order.items!.map((item) => _buildOrderItem(item)).toList()
           else
             Center(
               child: Padding(
@@ -853,54 +937,131 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     );
   }
   
-  Widget _buildOrderItem(String name, int quantity, double price) {
+  Widget _buildOrderItem(OrderDetail item) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           Container(
-            width: 50,
-            height: 50,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               color: const Color(0xFFF5F5F5),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
-              Icons.fastfood,
-              color: Color(0xFFFF8C00),
-              size: 24,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: item.productImage != null && item.productImage!.isNotEmpty
+                  ? Image.network(
+                      ImageUtils.getImageUrl(item.productImage),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: const Color(0xFFF5F5F5),
+                          child: const Icon(
+                            Icons.fastfood,
+                            color: Color(0xFFFF8C00),
+                            size: 24,
+                          ),
+                        );
+                      },
+                    )
+                  : const Icon(
+                      Icons.fastfood,
+                      color: Color(0xFFFF8C00),
+                      size: 24,
+                    ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                  name,
+              children: [
+                Text(
+                  item.productName ?? 'Unknown Item',
                   style: const TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2D3436),
+                  ),
+                ),
+                if (item.productDescription != null && item.productDescription!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    item.productDescription!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF95A5A6),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      'x${item.quantity}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF95A5A6),
+                      ),
+                    ),
+                    Builder(
+                      builder: (context) {
+                        final formattedInstructions = _formatSpecialInstructions(item.specialInstructions);
+                        if (formattedInstructions != null && formattedInstructions.isNotEmpty) {
+                          return Expanded(
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 8),
+                                const Icon(Icons.info_outline, size: 14, color: Color(0xFF95A5A6)),
+                                const SizedBox(width: 2),
+                                Flexible(
+                                  child: Text(
+                                    formattedInstructions,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF95A5A6),
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _formatPrice(item.price * item.quantity),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                   color: Color(0xFF2D3436),
                 ),
               ),
-              Text(
-                  'x$quantity',
+              if (item.quantity > 1)
+                Text(
+                  '${_formatPrice(item.price)} × ${item.quantity}',
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: Color(0xFF95A5A6),
+                  ),
                 ),
-              ),
             ],
-            ),
-          ),
-          Text(
-            _formatPrice(price),
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF2D3436),
-            ),
           ),
         ],
       ),
@@ -908,8 +1069,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   }
 
   Widget _buildBottomActions(Order order) {
-    final canCancel = order.status.toLowerCase() == AppConstants.pending || 
-                      order.status.toLowerCase() == AppConstants.preparing;
+    final canCancel = order.status.toLowerCase() == AppConstants.pending;
     
     if (order.status.toLowerCase() == AppConstants.cancelled || 
         order.status.toLowerCase() == AppConstants.completed) {
@@ -998,11 +1158,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     final token = authService.token;
     
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bạn cần đăng nhập để hủy đơn hàng'),
-          backgroundColor: Color(0xFFEF5350),
-        ),
+      NotificationService().showWarning(
+        context: context,
+        message: 'Bạn cần đăng nhập để hủy đơn hàng',
       );
       return;
     }
@@ -1055,11 +1213,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
         await _loadOrderDetails();
         
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đơn hàng đã được hủy thành công'),
-              backgroundColor: Color(0xFF4CAF50),
-            ),
+          NotificationService().showSuccess(
+            context: context,
+            message: 'Đơn hàng đã được hủy thành công',
           );
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
@@ -1074,11 +1230,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
       });
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Không thể hủy đơn hàng: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: const Color(0xFFEF5350),
-          ),
+        NotificationService().showError(
+          context: context,
+          message: 'Không thể hủy đơn hàng: ${e.toString().replaceAll('Exception: ', '')}',
         );
       }
     }
@@ -1088,7 +1242,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     return [
       {
         'title': 'Order Placed',
-        'time': _formatTime(order.createdAt),
+        'time': _formatDateTime(order.createdAt),
         'icon': Icons.receipt_long,
       },
       {
@@ -1097,7 +1251,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 order.status == AppConstants.ready || 
                 order.status == AppConstants.outForDelivery ||
                 order.status == AppConstants.completed
-            ? _formatTime(order.createdAt.add(const Duration(minutes: 2)))
+            ? _formatDateTime(order.createdAt.add(const Duration(minutes: 2)))
             : null,
         'icon': Icons.restaurant_menu,
       },
@@ -1108,7 +1262,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
         'time': order.status == AppConstants.outForDelivery || 
                 order.status == AppConstants.ready ||
                 order.status == AppConstants.completed
-            ? _formatTime(order.createdAt.add(const Duration(minutes: 15)))
+            ? _formatDateTime(order.createdAt.add(const Duration(minutes: 15)))
             : null,
         'icon': order.orderType.toLowerCase() == AppConstants.delivery 
             ? Icons.delivery_dining 
@@ -1119,7 +1273,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
             ? 'Delivered' 
             : 'Completed',
         'time': order.status == AppConstants.completed
-            ? _formatTime(order.createdAt.add(const Duration(minutes: 30)))
+            ? _formatDateTime(order.createdAt.add(const Duration(minutes: 30)))
             : null,
         'icon': order.orderType.toLowerCase() == AppConstants.delivery 
             ? Icons.home 
@@ -1206,6 +1360,41 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     }
   }
 
+  String? _formatSpecialInstructions(String? instructions) {
+    if (instructions == null || instructions.isEmpty) {
+      return null;
+    }
+    
+    // Kiểm tra xem có phải là JSON string không
+    try {
+      // Nếu bắt đầu bằng [ hoặc {, có thể là JSON
+      final trimmed = instructions.trim();
+      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+        final decoded = jsonDecode(instructions);
+        // Nếu là array, format thành text đẹp hơn
+        if (decoded is List) {
+          final List<String> options = [];
+          for (var item in decoded) {
+            if (item is Map) {
+              final optionName = item['option_name']?.toString();
+              if (optionName != null && optionName.isNotEmpty) {
+                options.add(optionName);
+              }
+            }
+          }
+          return options.isNotEmpty ? options.join(', ') : null;
+        }
+        // Nếu là object, bỏ qua
+        return null;
+      }
+    } catch (e) {
+      // Không phải JSON hợp lệ, trả về text gốc
+    }
+    
+    // Nếu không phải JSON, trả về text gốc
+    return instructions;
+  }
+
   String _formatPrice(double price) {
     return '${price.toStringAsFixed(0).replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
@@ -1217,19 +1406,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
     return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${_formatTime(dateTime)}';
+  }
+
   String _getPaymentMethodText(String? paymentMethod) {
-    if (paymentMethod == null) return 'Not specified';
-    
-    switch (paymentMethod.toLowerCase()) {
-      case 'cash':
-        return 'Cash';
-      case 'card':
-        return 'Credit/Debit Card';
-      case 'online':
-        return 'Online Payment';
-      default:
-        return paymentMethod;
-    }
+    // Tất cả đơn chỉ hỗ trợ cash, mặc định là cash
+    return 'Cash';
   }
 
   String _getOrderHeaderTitle(Order order) {
@@ -1246,9 +1429,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   String _getOrderHeaderSubtitle(Order order) {
     switch (order.orderType.toLowerCase()) {
       case AppConstants.dineIn:
-        return order.tableIdDisplay != null 
-            ? 'Table #${order.tableIdDisplay}' 
-            : 'Please wait for table assignment';
+        if (order.tableName != null && order.tableName!.isNotEmpty) {
+          return order.tableName!;
+        } else if (order.tableIdDisplay != null) {
+          return 'Table #${order.tableIdDisplay}';
+        } else {
+          return 'Please wait for table assignment';
+        }
       case AppConstants.delivery:
         return 'Coming within 30 minutes';
       default:
@@ -1259,9 +1446,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   String _getDestinationTitle(Order order) {
     switch (order.orderType.toLowerCase()) {
       case AppConstants.dineIn:
-        return order.tableIdDisplay != null 
-            ? 'Table #${order.tableIdDisplay}' 
-            : 'Table N/A';
+        if (order.tableName != null && order.tableName!.isNotEmpty) {
+          return order.tableName!;
+        } else if (order.tableIdDisplay != null) {
+          return 'Table #${order.tableIdDisplay}';
+        } else {
+          return 'Table N/A';
+        }
       case AppConstants.delivery:
         return order.deliveryAddress ?? 'Your Location';
       default:
@@ -1270,14 +1461,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   }
 
   String _getDestinationSubtitle(Order order) {
-    final estimatedTime = _formatTime(order.createdAt.add(const Duration(minutes: 30)));
+    final estimatedTime = _formatDateTime(order.createdAt.add(const Duration(minutes: 30)));
     
     switch (order.orderType.toLowerCase()) {
       case AppConstants.dineIn:
-        return 'Dine In • $estimatedTime';
+        return 'Dine In • ${_formatDateTime(order.createdAt)}';
       case AppConstants.delivery:
         return order.deliveryPhone != null 
-            ? 'Home • ${order.deliveryPhone}' 
+            ? '${order.deliveryPhone} • $estimatedTime' 
             : 'Delivery • $estimatedTime';
       default:
         return estimatedTime;

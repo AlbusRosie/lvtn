@@ -92,7 +92,7 @@ class AuthService {
     required String password,
     required String email,
     required String name,
-    String? phone,
+    required String phone,
     String? address,
   }) async {
     try {
@@ -121,17 +121,49 @@ class AuthService {
   }
 
   Future<void> logout() async {
-    _currentUser = null;
-    _token = null;
-    
-    final storageService = StorageService();
-    await storageService.ensureInitialized();
-    
-    await storageService.remove(AppConstants.authTokenKey);
-    await storageService.remove(AppConstants.userDataKey);
-    ApiService().clearAuthToken();
-    
-    print('AuthService: Đã xóa token và user data khỏi storage');
+    try {
+      // Clear in-memory data first
+      _currentUser = null;
+      _token = null;
+      ApiService().clearAuthToken();
+      
+      // Then clear storage (with timeout to prevent hanging)
+      try {
+        final storageService = StorageService();
+        await storageService.ensureInitialized().timeout(
+          Duration(seconds: 2),
+          onTimeout: () {
+            print('AuthService: ensureInitialized timeout, continuing...');
+          },
+        );
+        
+        await storageService.remove(AppConstants.authTokenKey).timeout(
+          Duration(seconds: 2),
+          onTimeout: () {
+            print('AuthService: remove token timeout, continuing...');
+          },
+        );
+        
+        await storageService.remove(AppConstants.userDataKey).timeout(
+          Duration(seconds: 2),
+          onTimeout: () {
+            print('AuthService: remove userData timeout, continuing...');
+          },
+        );
+      } catch (e) {
+        print('AuthService: Error clearing storage: $e');
+        // Continue even if storage clearing fails
+      }
+      
+      print('AuthService: Đã xóa token và user data khỏi storage');
+    } catch (e) {
+      print('AuthService: Error in logout: $e');
+      // Ensure in-memory data is cleared even if storage fails
+      _currentUser = null;
+      _token = null;
+      ApiService().clearAuthToken();
+      rethrow;
+    }
   }
 
   Future<bool> tryAutoLogin() async {

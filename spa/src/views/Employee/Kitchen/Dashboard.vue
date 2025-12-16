@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import OrderService from '@/services/OrderService';
 import AuthService from '@/services/AuthService';
+import SocketService from '@/services/SocketService';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 const router = useRouter();
@@ -11,7 +12,6 @@ const orders = ref([]);
 const isLoading = ref(true);
 const error = ref(null);
 const updatingItems = ref(new Set());
-const refreshInterval = ref(null);
 const SLA_WARNING_MINUTES = 30; 
 const user = AuthService.getUser();
 const userBranchId = user?.branch_id;
@@ -27,6 +27,9 @@ const showConfirmModal = ref(false);
 const confirmMessage = ref('');
 const confirmCallback = ref(null);
 const soundEnabled = ref(true);
+const showSpecialNoteModal = ref(false);
+const specialNoteContent = ref('');
+const specialNoteProductName = ref('');
 const newOrderSound = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGa77+eeTBALUqfj8LVjHAY4kdnyz3ksBSV3x/Dej0AKFGCz6euoVhQKRp7g8r5sIQUrgc7y2Ik2CBhmu+/nnkwQC1Kn4/C1YxwGOJHZ8s95LAUld8fw3o9AChRgs+nrqFYUCkae4PK+bCEFK4HO8tiJNggYZrvv555MEAtSp+PwtWMcBjiR2fLPeSwFJXfH8N6PQAoUYLPp66hWFApGnuDyvmwhBSuBzvLYiTYIGGa77+eeTBALUqfj8LVjHAY4kdnyz3ksBSV3x/Dej0AKFGCz6euoVhQKRp7g8r5sIQUrgc7y2Ik2CBhmu+/nnkwQC1Kn4/C1YxwGOJHZ8s95LAUld8fw3o9AChRgs+nrqFYUCkae4PK+bCEFK4HO8tiJNggYZrvv555MEAtSp+PwtWMcBjiR2fLPeSwFJXfH8N6PQAoUYLPp66hWFApGnuDyvmwhBSuBzvLYiTYIGGa77+eeTBALUqfj8LVjHAY4kdnyz3ksBSV3x/Dej0A=');
 function playNewOrderSound() {
   if (soundEnabled.value && newOrderSound) {
@@ -214,17 +217,28 @@ function clearFilters() {
 onMounted(async () => {
   if (userBranchId) {
     await loadKitchenOrders();
-    refreshInterval.value = setInterval(() => {
-      loadKitchenOrders();
-    }, 10000);
+    // ✅ SETUP SOCKET.IO LISTENERS
+    SocketService.on('new-order', (data) => {
+      if (data.branchId === userBranchId) {
+        toast.info(`New order #${data.orderId} received!`);
+        playNewOrderSound();
+        loadKitchenOrders(); // Refresh
+      }
+    });
+    
+    SocketService.on('order-status-updated', (data) => {
+      if (data.branchId === userBranchId) {
+        loadKitchenOrders(); // Refresh
+      }
+    });
   } else {
     isLoading.value = false;
   }
 });
 onUnmounted(() => {
-  if (refreshInterval.value) {
-    clearInterval(refreshInterval.value);
-  }
+  // Clean up socket listeners
+  SocketService.off('new-order');
+  SocketService.off('order-status-updated');
 });
 function showConfirm(message, callback) {
   confirmMessage.value = message;
@@ -242,6 +256,16 @@ function closeConfirmModal() {
   confirmMessage.value = '';
   confirmCallback.value = null;
 }
+function showSpecialInstructions(instructions, productName) {
+  specialNoteContent.value = formatSpecialInstructions(instructions);
+  specialNoteProductName.value = productName;
+  showSpecialNoteModal.value = true;
+}
+function closeSpecialNoteModal() {
+  showSpecialNoteModal.value = false;
+  specialNoteContent.value = '';
+  specialNoteProductName.value = '';
+}
 function handleLogout() {
   showConfirm('Are you sure you want to logout?', () => {
     AuthService.logout();
@@ -252,42 +276,8 @@ function handleLogout() {
 </script>
 <template>
   <div class="kitchen-dashboard">
-    <!-- Statistics and Filters Section -->
-    <div class="stats-filters-container">
-      <!-- Statistics Section -->
-      <div class="stats-section">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon" style="background: #DBEAFE; color: #2563EB;">
-              <i class="fas fa-fire"></i>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ filteredOrders.preparing.length }}</div>
-              <div class="stat-label">Preparing</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon" style="background: #FEE2E2; color: #DC2626;">
-              <i class="fas fa-exclamation-triangle"></i>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ filteredOrders.pending.filter(o => isSLAWarning(o)).length + filteredOrders.preparing.filter(o => isSLAWarning(o)).length }}</div>
-              <div class="stat-label">Time Warnings</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon" style="background: #ECFDF5; color: #10B981;">
-              <i class="fas fa-shopping-cart"></i>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ orders.length }}</div>
-              <div class="stat-label">Total Orders</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- Filters Section -->
-      <div v-if="orders.length > 0" class="filters-section">
+    <!-- Filters Section -->
+    <div v-if="orders.length > 0" class="filters-section">
         <div class="filters-card">
           <div v-if="filters.orderType !== 'all' || filters.timeRange !== 'all'" class="filters-header">
             <button 
@@ -335,7 +325,6 @@ function handleLogout() {
             </div>
           </div>
         </div>
-      </div>
     </div>
     <div v-if="error" class="error-message">
       <i class="fas fa-exclamation-triangle"></i>
@@ -356,105 +345,96 @@ function handleLogout() {
       <h3>No Orders</h3>
       <p>There are currently no orders to process.</p>
     </div>
-    <div v-else class="orders-container">
+    <div v-else class="content-area">
       <!-- Pending Orders -->
-      <div v-if="filteredOrders.pending.length > 0" class="orders-section">
-        <div class="section-header">
-        <h2 class="section-title">
-            <i class="fas fa-clock"></i>
-            Pending Orders
-            <span class="section-badge">{{ filteredOrders.pending.length }}</span>
-        </h2>
+      <div v-if="filteredOrders.pending.length > 0" class="orders-card">
+        <div class="table-header-section">
+          <div class="table-title">
+            <h3>
+              <i class="fas fa-clock"></i>
+              Pending Orders
+            </h3>
+            <span class="table-count">{{ filteredOrders.pending.length }} {{ filteredOrders.pending.length === 1 ? 'order' : 'orders' }} pending</span>
+          </div>
+          <div class="header-actions-wrapper">
+            <div class="header-actions">
+              <button @click="loadKitchenOrders" class="btn-refresh" :disabled="isLoading">
+                <i class="fas fa-sync" :class="{ 'fa-spin': isLoading }"></i>
+                Refresh
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="orders-grid">
+        <div v-if="filteredOrders.pending.length === 0" class="empty-state">
+          <i class="fas fa-check-circle"></i>
+          <h3>No pending orders</h3>
+          <p>All orders are being processed or there are no pending orders.</p>
+        </div>
+        <div v-else class="orders-grid">
           <div 
             v-for="order in filteredOrders.pending" 
             :key="order.id" 
             class="order-card"
-            :class="{ 'sla-warning': isSLAWarning(order) }"
           >
-            <!-- Order Header Info Card -->
-            <div class="info-card">
-              <div class="card-header">
-                <i class="fas fa-receipt"></i>
-                <h3>Order #{{ order.id }}</h3>
-                <span class="status-badge status-pending">Pending</span>
-                <span v-if="isSLAWarning(order)" class="priority-badge">
-                  <i class="fas fa-exclamation-triangle"></i>
-                  Priority
-                </span>
-              </div>
-              <div class="card-content">
-                <div class="info-item">
-                  <span class="info-label">Order Type</span>
-                  <span class="info-value">
+            <div class="order-header">
+              <div class="order-header-content">
+                <div class="order-title-row">
+                  <div class="order-type-badge">
                     <i v-if="order.table_id" class="fas fa-table"></i>
                     <i v-else-if="order.order_type === 'delivery'" class="fas fa-truck"></i>
                     <i v-else class="fas fa-shopping-bag"></i>
-                    {{ order.table_id ? `Table #${order.table_id}` : (order.order_type === 'delivery' ? 'Delivery' : 'Takeaway') }}
-                  </span>
+                    <span>{{ order.table_id ? `Table #${order.table_id}` : (order.order_type === 'delivery' ? 'Delivery' : 'Takeaway') }}</span>
+                  </div>
+                  <div v-if="isSLAWarning(order)" class="priority-badge">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Priority Order</span>
+                  </div>
                 </div>
-                <div class="info-item" v-if="order.customer_name">
-                  <span class="info-label">Customer</span>
-                  <span class="info-value">
-                    <i class="fas fa-user"></i>
-                    {{ order.customer_name }}
-                  </span>
-                </div>
-                <div class="info-item" v-if="order.delivery_address">
-                  <span class="info-label">Delivery Address</span>
-                  <span class="info-value">
-                    <i class="fas fa-map-marker-alt"></i>
-                    {{ order.delivery_address }}
-                  </span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Time Elapsed</span>
-                  <span class="info-value" :class="{ 'warning-text': isSLAWarning(order) }">
+                <div class="order-id-row">
+                  <span class="order-id-text">Order #{{ order.id }}</span>
+                  <span class="order-time-text" :class="{ 'warning-text': isSLAWarning(order) }">
                     <i class="fas fa-clock"></i>
                     {{ formatTime(order.elapsed_minutes) }}
                   </span>
                 </div>
-                <div class="info-item">
-                  <span class="info-label">Created At</span>
-                  <span class="info-value">
-                    <i class="fas fa-calendar-alt"></i>
-                    {{ formatDate(order.created_at) }} {{ formatDateTime(order.created_at) }}
-                  </span>
-                </div>
               </div>
             </div>
-            
             <!-- Order Items Section -->
             <div class="order-items-section">
               <div class="section-header">
-                <i class="fas fa-list"></i>
-                <h3>Order Items</h3>
+                <i class="fas fa-shopping-bag"></i>
+                <span>Order Items ({{ order.items_count }})</span>
               </div>
               <div class="items-list">
                 <div 
                   v-for="item in order.items" 
                   :key="item.id"
-                  class="order-item"
+                  class="order-item-card"
                 >
-                  <div class="item-info">
-                    <div class="item-image">
-                      <img :src="item.product_image || '/default-product.jpg'" :alt="item.product_name" />
-                    </div>
-                    <div class="item-details">
-                      <div class="item-name">{{ item.product_name }}</div>
-                      <div class="item-details-row">
-                        <span class="item-quantity">Qty: {{ item.quantity }}</span>
-                        <span v-if="item.price" class="item-price">@ {{ formatCurrency(item.price) }}</span>
-                      </div>
-                      <p v-if="item.special_instructions" class="item-note">
-                        <i class="fas fa-sticky-note"></i>
-                        {{ formatSpecialInstructions(item.special_instructions) }}
-                      </p>
-                    </div>
+                  <div class="item-image-wrapper">
+                    <img 
+                      :src="item.product_image || '/default-product.jpg'" 
+                      :alt="item.product_name"
+                      class="item-image"
+                      @error="$event.target.src='/default-product.jpg'"
+                    />
                   </div>
-                  <div v-if="item.price" class="item-total">
-                    {{ formatCurrency(item.price * item.quantity) }}
+                  <div class="item-content">
+                    <div class="item-name-row">
+                      <span class="item-name">{{ item.product_name }}</span>
+                      <span v-if="item.price" class="item-price">{{ formatCurrency(item.price * item.quantity) }}</span>
+                    </div>
+                    <div class="item-meta">
+                      <span class="item-quantity">x{{ item.quantity }}</span>
+                      <span v-if="item.price" class="item-unit-price">{{ formatCurrency(item.price) }}</span>
+                    </div>
+                    <div 
+                      v-if="item.special_instructions" 
+                      class="special-note-display"
+                    >
+                      <i class="fas fa-sticky-note"></i>
+                      <span>{{ formatSpecialInstructions(item.special_instructions) }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -462,16 +442,6 @@ function handleLogout() {
             
             <!-- Order Footer -->
             <div class="order-footer">
-              <div class="order-summary">
-                <div class="summary-row">
-                  <span class="summary-label">Total Items</span>
-                  <span class="summary-value">{{ order.items_count }}</span>
-                </div>
-                <div v-if="order.total" class="summary-row total-row">
-                  <span class="summary-label">Total Amount</span>
-                  <span class="summary-value total-amount">{{ formatCurrency(order.total) }}</span>
-                </div>
-              </div>
               <button 
                 @click="markOrderReady(order.id)" 
                 class="btn-mark-ready"
@@ -480,127 +450,105 @@ function handleLogout() {
               >
                 <i v-if="updatingItems.has(`order-${order.id}`)" class="fas fa-spinner fa-spin"></i>
                 <i v-else class="fas fa-check-circle"></i>
-                {{ order.status === 'ready' ? 'Ready' : 'Mark as Ready' }}
+                {{ order.status === 'ready' ? 'Order Ready' : 'Mark as Ready' }}
               </button>
             </div>
           </div>
         </div>
       </div>
       <!-- Preparing Orders -->
-      <div v-if="filteredOrders.preparing.length > 0" class="orders-section">
-        <div class="section-header">
-        <h2 class="section-title">
-            <i class="fas fa-fire"></i>
-            Preparing
-            <span class="section-badge">{{ filteredOrders.preparing.length }}</span>
-        </h2>
+      <div v-if="filteredOrders.preparing.length > 0" class="orders-card">
+        <div class="table-header-section">
+          <div class="table-title">
+            <h3>
+              <i class="fas fa-fire"></i>
+              Preparing Orders
+            </h3>
+            <span class="table-count">{{ filteredOrders.preparing.length }} {{ filteredOrders.preparing.length === 1 ? 'order' : 'orders' }} preparing</span>
+          </div>
+          <div class="header-actions-wrapper">
+            <div class="header-actions">
+              <button @click="loadKitchenOrders" class="btn-refresh" :disabled="isLoading">
+                <i class="fas fa-sync" :class="{ 'fa-spin': isLoading }"></i>
+                Refresh
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="orders-grid">
+        <div v-if="filteredOrders.preparing.length === 0" class="empty-state">
+          <i class="fas fa-check-circle"></i>
+          <h3>No preparing orders</h3>
+          <p>All orders are ready or there are no preparing orders.</p>
+        </div>
+        <div v-else class="orders-grid">
           <div 
             v-for="order in filteredOrders.preparing" 
             :key="order.id" 
             class="order-card"
-            :class="{ 'sla-warning': isSLAWarning(order) }"
           >
-            <!-- Order Header Info Card -->
-            <div class="info-card">
-              <div class="card-header">
-                <i class="fas fa-receipt"></i>
-                <h3>Order #{{ order.id }}</h3>
-                <span class="status-badge status-preparing">Preparing</span>
-                <span v-if="isSLAWarning(order)" class="priority-badge">
-                  <i class="fas fa-exclamation-triangle"></i>
-                  Priority
-                </span>
-              </div>
-              <div class="card-content">
-                <div class="info-item">
-                  <span class="info-label">Order Type</span>
-                  <span class="info-value">
+            <div class="order-header">
+              <div class="order-header-content">
+                <div class="order-title-row">
+                  <div class="order-type-badge">
                     <i v-if="order.table_id" class="fas fa-table"></i>
                     <i v-else-if="order.order_type === 'delivery'" class="fas fa-truck"></i>
                     <i v-else class="fas fa-shopping-bag"></i>
-                    {{ order.table_id ? `Table #${order.table_id}` : (order.order_type === 'delivery' ? 'Delivery' : 'Takeaway') }}
-                  </span>
+                    <span>{{ order.table_id ? `Table #${order.table_id}` : (order.order_type === 'delivery' ? 'Delivery' : 'Takeaway') }}</span>
+                  </div>
+                  <div v-if="isSLAWarning(order)" class="priority-badge">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Priority Order</span>
+                  </div>
                 </div>
-                <div class="info-item" v-if="order.customer_name">
-                  <span class="info-label">Customer</span>
-                  <span class="info-value">
-                    <i class="fas fa-user"></i>
-                    {{ order.customer_name }}
-                  </span>
-                </div>
-                <div class="info-item" v-if="order.delivery_address">
-                  <span class="info-label">Delivery Address</span>
-                  <span class="info-value">
-                    <i class="fas fa-map-marker-alt"></i>
-                    {{ order.delivery_address }}
-                  </span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Time Elapsed</span>
-                  <span class="info-value" :class="{ 'warning-text': isSLAWarning(order) }">
+                <div class="order-id-row">
+                  <span class="order-id-text">Order #{{ order.id }}</span>
+                  <span class="order-time-text" :class="{ 'warning-text': isSLAWarning(order) }">
                     <i class="fas fa-clock"></i>
                     {{ formatTime(order.elapsed_minutes) }}
                   </span>
                 </div>
-                <div class="info-item">
-                  <span class="info-label">Created At</span>
-                  <span class="info-value">
-                    <i class="fas fa-calendar-alt"></i>
-                    {{ formatDate(order.created_at) }} {{ formatDateTime(order.created_at) }}
-                  </span>
-                </div>
               </div>
             </div>
-            
-            <!-- Order Items Section -->
             <div class="order-items-section">
               <div class="section-header">
-                <i class="fas fa-list"></i>
-                <h3>Order Items</h3>
+                <i class="fas fa-shopping-bag"></i>
+                <span>Order Items ({{ order.items_count }})</span>
               </div>
               <div class="items-list">
                 <div 
                   v-for="item in order.items" 
                   :key="item.id"
-                  class="order-item"
+                  class="order-item-card"
                 >
-                  <div class="item-info">
-                    <div class="item-image">
-                      <img :src="item.product_image || '/default-product.jpg'" :alt="item.product_name" />
-                    </div>
-                    <div class="item-details">
-                      <div class="item-name">{{ item.product_name }}</div>
-                      <div class="item-details-row">
-                        <span class="item-quantity">Qty: {{ item.quantity }}</span>
-                        <span v-if="item.price" class="item-price">@ {{ formatCurrency(item.price) }}</span>
-                      </div>
-                      <p v-if="item.special_instructions" class="item-note">
-                        <i class="fas fa-sticky-note"></i>
-                        {{ formatSpecialInstructions(item.special_instructions) }}
-                      </p>
-                    </div>
+                  <div class="item-image-wrapper">
+                    <img 
+                      :src="item.product_image || '/default-product.jpg'" 
+                      :alt="item.product_name"
+                      class="item-image"
+                      @error="$event.target.src='/default-product.jpg'"
+                    />
                   </div>
-                  <div v-if="item.price" class="item-total">
-                    {{ formatCurrency(item.price * item.quantity) }}
+                  <div class="item-content">
+                    <div class="item-name-row">
+                      <span class="item-name">{{ item.product_name }}</span>
+                      <span v-if="item.price" class="item-price">{{ formatCurrency(item.price * item.quantity) }}</span>
+                    </div>
+                    <div class="item-meta">
+                      <span class="item-quantity">x{{ item.quantity }}</span>
+                      <span v-if="item.price" class="item-unit-price">{{ formatCurrency(item.price) }}</span>
+                    </div>
+                    <div 
+                      v-if="item.special_instructions" 
+                      class="special-note-display"
+                    >
+                      <i class="fas fa-sticky-note"></i>
+                      <span>{{ formatSpecialInstructions(item.special_instructions) }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-            
-            <!-- Order Footer -->
             <div class="order-footer">
-              <div class="order-summary">
-                <div class="summary-row">
-                  <span class="summary-label">Total Items</span>
-                  <span class="summary-value">{{ order.items_count }}</span>
-                </div>
-                <div v-if="order.total" class="summary-row total-row">
-                  <span class="summary-label">Total Amount</span>
-                  <span class="summary-value total-amount">{{ formatCurrency(order.total) }}</span>
-                </div>
-              </div>
               <button 
                 @click="markOrderReady(order.id)" 
                 class="btn-mark-ready"
@@ -609,10 +557,34 @@ function handleLogout() {
               >
                 <i v-if="updatingItems.has(`order-${order.id}`)" class="fas fa-spinner fa-spin"></i>
                 <i v-else class="fas fa-check-circle"></i>
-                {{ order.status === 'ready' ? 'Ready' : 'Mark as Ready' }}
+                {{ order.status === 'ready' ? 'Order Ready' : 'Mark as Ready' }}
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+    <!-- Special Note Modal -->
+    <div v-if="showSpecialNoteModal" class="modal-overlay" @click.self="closeSpecialNoteModal">
+      <div class="modal-content special-note-modal">
+        <div class="modal-header">
+          <h3>
+            <i class="fas fa-sticky-note"></i>
+            Special Note - {{ specialNoteProductName }}
+          </h3>
+          <button class="modal-close" @click="closeSpecialNoteModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="special-note-content">
+            <p>{{ specialNoteContent }}</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" @click="closeSpecialNoteModal">
+            Close
+          </button>
         </div>
       </div>
     </div>
@@ -659,82 +631,6 @@ function handleLogout() {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   padding: 20px;
 }
-.stats-filters-container {
-  display: grid;
-  grid-template-columns: 1fr 1.5fr;
-  gap: 20px;
-  margin-bottom: 24px;
-  align-items: stretch;
-}
-@media (max-width: 1024px) {
-  .stats-filters-container {
-    grid-template-columns: 1fr;
-  }
-}
-.stats-section {
-  min-width: 0;
-  display: flex;
-  align-items: stretch;
-  height: 100%;
-}
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  width: 100%;
-  align-items: stretch;
-  height: 100%;
-}
-@media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-}
-.stat-card {
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-}
-.stat-card:hover {
-  border-color: #FF8C42;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
-}
-.stat-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  background: #FFF9F5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  color: #FF8C42;
-  flex-shrink: 0;
-}
-.stat-info {
-  flex: 1;
-  min-width: 0;
-}
-.stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1a1a1a;
-  letter-spacing: -0.5px;
-  line-height: 1.2;
-}
-.stat-label {
-  font-size: 13px;
-  color: #6B7280;
-  font-weight: 500;
-  margin-top: 4px;
-}
 .error-message {
   background: #FEE2E2;
   color: #DC2626;
@@ -757,11 +653,12 @@ function handleLogout() {
   text-align: center;
 }
 .empty-state {
-  background: white;
-  border-radius: 8px;
-  padding: 60px 20px;
   text-align: center;
-  border: 1px solid #E2E8F0;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 12px;
+  border: 2px dashed #E5E5E5;
+  margin-top: 20px;
 }
 .empty-state i {
   font-size: 48px;
@@ -775,316 +672,490 @@ function handleLogout() {
   font-weight: 700;
 }
 .empty-state p {
-  margin: 8px 0;
   color: #6B7280;
+  margin: 8px 0;
   font-size: 14px;
+  font-weight: 500;
 }
-.orders-container {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  overflow-x: hidden;
+.content-area {
+  min-height: 400px;
 }
-.orders-section {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
+.orders-card {
+  background: #FAFBFC;
+  border-radius: 14px;
+  padding: 18px;
   border: 1px solid #E2E8F0;
-  margin-bottom: 24px;
-  width: 100%;
+  margin-bottom: 20px;
   max-width: 100%;
   box-sizing: border-box;
-  overflow-x: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
-.section-header {
+.table-header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0;
+  background: transparent;
+  gap: 16px;
+  flex-wrap: wrap;
   margin-bottom: 20px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #E2E8F0;
+  border-bottom: 2px solid #E2E8F0;
 }
-.section-title {
+.table-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.table-title h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1E293B;
+  letter-spacing: -0.2px;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0;
-  font-size: 18px;
-  color: #1E293B;
-  font-weight: 700;
-  letter-spacing: -0.3px;
 }
-.section-title i {
+.table-title h3 i {
   color: #FF8C42;
-  font-size: 18px;
+  font-size: 20px;
 }
-.section-badge {
-  padding: 4px 10px;
+.table-count {
+  padding: 4px 12px;
   background: #F3F4F6;
   border: 1px solid #E5E7EB;
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 600;
   color: #6B7280;
-  margin-left: auto;
+  margin-left: 12px;
+}
+.header-actions-wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.header-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.btn-refresh {
+  padding: 10px 18px;
+  border: none;
+  background: white;
+  cursor: pointer;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #E2E8F0;
+  color: #475569;
+}
+.btn-refresh:hover:not(:disabled) {
+  background: #F8F9FA;
+  border-color: #FF8C42;
+  color: #FF8C42;
+}
+.btn-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .orders-grid {
-  display: grid !important;
-  grid-template-columns: repeat(2, 1fr) !important;
-  grid-auto-rows: auto !important;
-  gap: 20px !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-  overflow-x: hidden !important;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
 }
-@media (max-width: 1024px) {
+@media (max-width: 1200px) {
   .orders-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 16px;
+  }
+}
+@media (max-width: 768px) {
+  .orders-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 }
 .order-card {
-  border: 1px solid #E2E8F0;
-  border-radius: 10px;
-  padding: 0;
-  background: white;
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  overflow: hidden;
-}
-.order-card.sla-warning {
-  border-color: #F59E0B;
-  background: #FFF7ED;
-}
-.info-card {
-  background: #FAFBFC;
   border: none;
-  border-bottom: 1px solid #E2E8F0;
-  border-radius: 0;
+  border-radius: 16px;
+  padding: 0;
+  background: #FFFFFF;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  position: relative;
   overflow: hidden;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
 }
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  background: #FFF7ED;
-  border-bottom: 1px solid #FED7AA;
+.order-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
 }
-.card-header i {
-  color: #F59E0B;
-  font-size: 14px;
+.order-header {
+  padding: 16px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #F0F0F0;
 }
-.card-header h3 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: #1E293B;
-  letter-spacing: -0.2px;
-  flex: 1;
-}
-.card-content {
-  padding: 14px 16px;
+.order-header-content {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-.info-item {
+.order-title-row {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
-.info-item .info-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #64748B;
-  letter-spacing: 0;
-  text-transform: none;
-}
-.info-item .info-value {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1E293B;
+.order-type-badge {
   display: flex;
   align-items: center;
   gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666666;
 }
-.info-item .info-value i {
-  color: #F59E0B;
-  font-size: 12px;
-}
-.info-item .info-value.warning-text {
-  color: #F59E0B;
-  font-weight: 700;
+.order-type-badge i {
+  font-size: 14px;
+  color: #666666;
 }
 .status-badge {
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
   font-weight: 600;
-  margin-left: auto;
+  display: inline-block;
+  letter-spacing: 0.2px;
+  border: 1px solid;
 }
 .status-badge.status-pending {
   background: #FEF3C7;
   color: #92400E;
-  border: 1px solid #FCD34D;
+  border-color: #FDE68A;
 }
 .status-badge.status-preparing {
   background: #DBEAFE;
   color: #1E40AF;
-  border: 1px solid #60A5FA;
+  border-color: #93C5FD;
 }
 .status-badge.status-ready {
   background: #D1FAE5;
   color: #065F46;
-  border: 1px solid #34D399;
+  border-color: #A7F3D0;
+}
+.order-id-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.order-id-text {
+  font-size: 12px;
+  color: #95A5A6;
+  font-weight: 400;
+}
+.order-time-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #95A5A6;
+  font-weight: 400;
+}
+.order-time-text.warning-text {
+  color: #DC2626;
+  font-weight: 600;
+}
+.order-time-text i {
+  font-size: 11px;
+}
+.priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #FEE2E2;
+  border: 1px solid #FECACA;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #991B1B;
+  margin-top: 4px;
+}
+.priority-badge i {
+  font-size: 12px;
+  color: #991B1B;
+}
+.badge {
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.badge-warning {
+  background: #FEF3C7;
+  color: #B45309;
+  border: 1px solid #FCD34D;
+  box-shadow: none;
+}
+.badge-info {
+  background: #DBEAFE;
+  color: #1E40AF;
+  border: 1px solid #60A5FA;
+  box-shadow: none;
+}
+.badge-danger {
+  background: #FEE2E2;
+  color: #B91C1C;
+  border: 1px solid #FCA5A5;
+  box-shadow: none;
+}
+.badge i {
+  font-size: 11px;
+}
+.order-body {
+  padding: 16px;
+  border-bottom: 1px solid #F0F0F0;
+}
+.customer-info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.customer-info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.customer-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #F5F5F5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.customer-icon i {
+  color: #95A5A6;
+  font-size: 18px;
+}
+.customer-icon.delivery-icon {
+  background: #FFF0E6;
+}
+.customer-icon.delivery-icon i {
+  color: #FF8C00;
+}
+.customer-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.customer-label {
+  font-size: 12px;
+  color: #95A5A6;
+  font-weight: 400;
+}
+.customer-name {
+  font-size: 14px;
+  color: #2D3436;
+  font-weight: 500;
+  word-break: break-word;
+  line-height: 1.4;
+}
+.amount-value {
+  color: #1E293B;
+  font-size: 16px;
+  font-weight: 600;
 }
 .btn-mark-ready {
-  padding: 10px 20px;
-  background: #FF8C42;
+  width: 100%;
+  padding: 16px;
+  background: #FF8C00;
   color: white;
   border: none;
-  border-radius: 10px;
-  font-size: 14px;
+  border-radius: 12px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   transition: all 0.2s ease;
-  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(255, 140, 0, 0.3);
 }
 .btn-mark-ready:hover:not(:disabled) {
   background: #E67E22;
+  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.4);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 140, 66, 0.3);
 }
 .btn-mark-ready:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 .btn-mark-ready.all-ready {
-  background: #10B981;
+  background: #4CAF50;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
 }
 .btn-mark-ready.all-ready:hover:not(:disabled) {
-  background: #059669;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  background: #45A049;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+.btn-mark-ready i {
+  font-size: 16px;
 }
 .order-items-section {
-  margin-bottom: 0;
-  background: #FAFBFC;
-  border: none;
-  border-bottom: 1px solid #E2E8F0;
-  border-radius: 0;
-  overflow: hidden;
+  padding: 16px;
+  background: #FFFFFF;
 }
-.order-items-section .section-header {
+.section-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  background: #FFF7ED;
-  border-bottom: 1px solid #FED7AA;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #2D3436;
 }
-.order-items-section .section-header i {
-  color: #F59E0B;
-  font-size: 14px;
-}
-.order-items-section .section-header h3 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: #1E293B;
-  letter-spacing: -0.2px;
+.section-header i {
+  color: #FF8C00;
+  font-size: 18px;
+  flex-shrink: 0;
 }
 .items-list {
-  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-.order-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  background: white;
-  border: 1px solid #E2E8F0;
-  border-radius: 8px;
-}
-.item-info {
-  flex: 1;
-  display: flex;
   gap: 12px;
-  align-items: flex-start;
 }
-.item-image {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
+.order-item-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0;
+}
+.item-image-wrapper {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
-  background: #FFF7ED;
-  border: 1px solid #FED7AA;
+  background: #F5F5F5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.item-image img {
+.item-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.item-details {
+.item-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
+}
+.item-name-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
 }
 .item-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1E293B;
-  margin: 0;
-}
-.item-details-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12px;
-  color: #64748B;
-}
-.item-quantity {
+  font-size: 14px;
   font-weight: 500;
+  color: #2D3436;
+  line-height: 1.4;
+  flex: 1;
 }
 .item-price {
-  color: #94A3B8;
-  font-size: 11px;
-}
-.item-total {
   font-size: 14px;
   font-weight: 600;
-  color: #1E293B;
-  min-width: 100px;
-  text-align: right;
+  color: #2D3436;
+  white-space: nowrap;
 }
-.item-note {
-  margin: 6px 0 0 0;
+.item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
-  color: #D97706;
-  font-style: italic;
-  background: #FFF7ED;
-  padding: 6px 10px;
-  border-radius: 6px;
-  display: inline-block;
-  border: 1px solid #FED7AA;
+  color: #95A5A6;
 }
-.item-note i {
-  color: #F59E0B;
-  margin-right: 6px;
+.item-quantity {
+  font-weight: 400;
+}
+.item-unit-price {
+  color: #95A5A6;
+  font-size: 12px;
+}
+.special-note-display {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #FFF4E6;
+  color: #B45309;
+  border: 1px solid #FED7AA;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.5;
+}
+.special-note-display i {
+  font-size: 12px;
+  color: #B45309;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.special-note-display span {
+  flex: 1;
+  word-break: break-word;
+}
+.special-note-modal {
+  max-width: 500px;
+  width: 100%;
+}
+.special-note-content {
+  padding: 16px;
+  background: #FFF7ED;
+  border: 1px solid #FED7AA;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1E293B;
+}
+.special-note-content p {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .item-actions {
   display: flex;
@@ -1144,80 +1215,9 @@ function handleLogout() {
   font-weight: 600;
 }
 .order-footer {
-  padding: 14px 16px;
-  background: #FAFBFC;
-  border-top: 1px solid #E2E8F0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.order-summary {
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  margin-bottom: 0;
-}
-.summary-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid #E2E8F0;
-}
-.summary-row:last-child {
-  border-bottom: none;
-}
-.summary-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: #64748B;
-}
-.summary-value {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1E293B;
-}
-.summary-value.total-amount {
-  font-size: 16px;
-  font-weight: 700;
-  color: #FF8C42;
-}
-.priority-badge {
-  padding: 4px 10px;
-  background: #FEE2E2;
-  color: #DC2626;
-  border: 1px solid #FCA5A5;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.priority-badge i {
-  font-size: 10px;
-}
-.priority-badge {
-  padding: 4px 10px;
-  background: #FEE2E2;
-  color: #DC2626;
-  border: 1px solid #FCA5A5;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.priority-badge i {
-  font-size: 10px;
-}
-.order-footer .btn-mark-ready {
-  width: 100%;
-  justify-content: center;
+  padding: 16px;
+  background: #FFFFFF;
+  border-top: 1px solid #F0F0F0;
 }
 @media (max-width: 768px) {
   .orders-grid {
@@ -1225,24 +1225,19 @@ function handleLogout() {
   }
 }
 .filters-section {
-  min-width: 0;
-  display: flex;
-  align-items: stretch;
-  height: 100%;
+  margin-bottom: 24px;
 }
 .filters-card {
   background: white;
   border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  box-shadow: none;
+  border: 1px solid #E2E8F0;
   overflow-x: hidden;
   max-width: 100%;
   width: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  border: 1px solid transparent;
 }
 .filters-header {
   display: flex;
@@ -1288,9 +1283,9 @@ function handleLogout() {
 .filter-select:focus,
 .filter-input:focus {
   outline: none;
-  border-color: #FF8C42;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.1);
+  border-color: #CBD5E1;
+  background: #FFFFFF;
+  box-shadow: none;
 }
 .btn-clear-filters {
   padding: 8px 16px;
@@ -1400,8 +1395,23 @@ function handleLogout() {
     width: 100%;
     justify-content: center;
   }
-  .orders-grid {
-    grid-template-columns: 1fr !important;
+  .order-header {
+    padding: 12px;
+  }
+  .order-body {
+    padding: 12px;
+  }
+  .order-items-section {
+    padding: 12px;
+  }
+  .order-footer {
+    padding: 12px;
+  }
+  .order-title-row {
+    flex-wrap: wrap;
+  }
+  .order-id-row {
+    flex-wrap: wrap;
   }
 }
 .modal-overlay {

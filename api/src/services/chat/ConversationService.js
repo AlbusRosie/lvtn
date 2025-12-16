@@ -19,8 +19,7 @@ class ConversationService {
                     context_data: JSON.stringify({}), 
                     status: 'active',
                     expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
-                    created_at: new Date(),
-                    updated_at: new Date()
+                    created_at: new Date()
                 });
                 conversation = await knex('chat_conversations')
                     .where({ id })
@@ -34,7 +33,6 @@ class ConversationService {
                     updates.branch_id = branchId;
                 }
                 updates.expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
-                updates.updated_at = new Date();
                 if (Object.keys(updates).length > 0) {
                     await knex('chat_conversations')
                         .where({ id: conversation.id, user_id: userId })
@@ -49,14 +47,13 @@ class ConversationService {
     async getAllUserConversations(userId) {
             const conversations = await knex('chat_conversations')
                 .where('user_id', userId)
-                .orderBy('updated_at', 'desc')
+                .orderBy('created_at', 'desc')
                 .limit(50)
                 .select(
                     'id',
                     'session_id',
                     'branch_id',
                     'created_at',
-                    'updated_at',
                     'context_data'
                 );
             const conversationsWithLastMessage = await Promise.all(
@@ -73,7 +70,6 @@ class ConversationService {
                         session_id: conv.session_id,
                         branch_id: conv.branch_id,
                         created_at: conv.created_at,
-                        updated_at: conv.updated_at,
                         last_message: lastMessage ? {
                             content: lastMessage.message_type === 'bot' 
                                 ? this.cleanMessage(lastMessage.message_content) 
@@ -119,8 +115,7 @@ class ConversationService {
             await knex('chat_conversations')
                 .where({ id: conversationId, user_id: userId })
                 .update({
-                    context_data: JSON.stringify({}),
-                    updated_at: new Date()
+                    context_data: JSON.stringify({})
                 });
             if (deleteMessages) {
                 await knex('chat_messages')
@@ -164,8 +159,7 @@ class ConversationService {
             await knex('chat_conversations')
                 .where(whereClause)
                 .update({ 
-                    context_data: contextString,
-                    updated_at: new Date()
+                    context_data: contextString
                 });
         } catch {
         }

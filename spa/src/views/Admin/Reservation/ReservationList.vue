@@ -602,6 +602,7 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import ReservationService from '@/services/ReservationService';
 import BranchService from '@/services/BranchService';
 import AuthService from '@/services/AuthService';
+import SocketService from '@/services/SocketService';
 export default {
   name: 'ReservationList',
   components: {
@@ -764,8 +765,39 @@ export default {
       this.loadReservations(),
       this.loadBranches()
     ]);
+    
+    // Setup real-time listeners
+    SocketService.on('reservation-created', this.handleReservationCreated);
+    SocketService.on('reservation-updated', this.handleReservationUpdated);
+    SocketService.on('reservation-deleted', this.handleReservationDeleted);
+  },
+  beforeUnmount() {
+    // Cleanup listeners
+    SocketService.off('reservation-created', this.handleReservationCreated);
+    SocketService.off('reservation-updated', this.handleReservationUpdated);
+    SocketService.off('reservation-deleted', this.handleReservationDeleted);
   },
   methods: {
+    handleReservationCreated(data) {
+      this.toast.success('Đặt bàn mới đã được tạo');
+      this.loadReservations();
+    },
+    handleReservationUpdated(data) {
+      const index = this.reservations.findIndex(r => r.id === data.reservationId);
+      if (index !== -1) {
+        this.reservations[index] = { ...this.reservations[index], ...data.reservation };
+        this.reservations = [...this.reservations];
+        this.calculateStats();
+        this.toast.info(`Đặt bàn #${data.reservationId} đã được cập nhật: ${data.newStatus}`);
+      } else {
+        this.loadReservations();
+      }
+    },
+    handleReservationDeleted(data) {
+      this.reservations = this.reservations.filter(r => r.id !== data.reservationId);
+      this.calculateStats();
+      this.toast.warning('Đặt bàn đã bị xóa');
+    },
     async loadReservations(page = 1) {
       this.loading = true;
       this.error = null;

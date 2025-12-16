@@ -19,6 +19,9 @@ class Order {
   final int? tableIdDisplay;
   final int? itemsCount;
   final List<OrderDetail>? items;
+  final String? customerName;
+  final String? customerPhone;
+  final String? tableName;
 
   Order({
     required this.id,
@@ -39,14 +42,20 @@ class Order {
     this.tableIdDisplay,
     this.itemsCount,
     this.items,
+    this.customerName,
+    this.customerPhone,
+    this.tableName,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
+    // table_id có thể đến từ reservation join trong API response
+    // Nếu không có, sẽ là null
+    final tableId = json['table_id'] ?? json['reservation']?['table_id'];
     return Order(
       id: json['id'],
       userId: json['user_id'],
       branchId: json['branch_id'],
-      tableId: json['table_id'],
+      tableId: tableId,
       orderType: json['order_type'],
       total: double.parse(json['total'].toString()),
       status: json['status'],
@@ -58,11 +67,14 @@ class Order {
       createdAt: DateTime.parse(json['created_at']),
       branchName: json['branch_name'],
       branchImage: json['branch_image'],
-      tableIdDisplay: json['table_id'],
+      tableIdDisplay: tableId,
       itemsCount: json['items_count'],
       items: (json['items'] as List<dynamic>?)
           ?.map((item) => OrderDetail.fromJson(item))
           .toList(),
+      customerName: json['customer_name'],
+      customerPhone: json['customer_phone'],
+      tableName: json['table_name'],
     );
   }
 
@@ -86,6 +98,9 @@ class Order {
       'table_id': tableIdDisplay,
       'items_count': itemsCount,
       'items': items?.map((item) => item.toJson()).toList(),
+      'customer_name': customerName,
+      'customer_phone': customerPhone,
+      'table_name': tableName,
     };
   }
 }

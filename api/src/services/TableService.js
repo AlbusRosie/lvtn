@@ -1,5 +1,11 @@
 const knex = require('../database/knex');
-const Paginator = require('./Paginator');
+// const Paginator = require('./Paginator'); // REMOVED: not used
+let io = null;
+
+// Function to set io instance (called from server.js)
+function setSocketIO(socketIO) {
+    io = socketIO;
+}
 
 function tableRepository() {
     return knex('tables');
@@ -37,22 +43,45 @@ async function createTable(payload) {
 
     const table = readTable(payload);
     const [id] = await tableRepository().insert(table);
-    return { id, ...table };
+    const newTable = { id, ...table };
+    
+    // Get branch_id from floor (already fetched above)
+    const branchId = floor?.branch_id;
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION
+    if (io && branchId) {
+        io.to('admin').emit('table-created', {
+            tableId: id,
+            table: newTable,
+            branchId: branchId,
+            timestamp: new Date().toISOString()
+        });
+        
+        io.to(`branch:${branchId}`).emit('table-created', {
+            tableId: id,
+            table: newTable,
+            branchId: branchId,
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    return newTable;
 }
 
 async function getAllTables(filters = {}) {
     let query = tableRepository()
         .select(
             'tables.*',
+            'branches.id as branch_id',
             'branches.name as branch_name',
             'floors.name as floor_name',
             'floors.floor_number'
         )
-        .join('branches', 'tables.branch_id', 'branches.id')
-        .join('floors', 'tables.floor_id', 'floors.id');
+        .join('floors', 'tables.floor_id', 'floors.id')
+        .join('branches', 'floors.branch_id', 'branches.id');
     
     if (filters.branch_id) {
-        query = query.where('tables.branch_id', parseInt(filters.branch_id));
+        query = query.where('floors.branch_id', parseInt(filters.branch_id));
     }
     
     if (filters.floor_id) {
@@ -76,6 +105,7 @@ async function updateTable(id, payload) {
     }
 
 
+    let floor = null;
     if (payload.branch_id || payload.floor_id) {
         const branchId = payload.branch_id || updatedTable.branch_id;
         const floorId = payload.floor_id || updatedTable.floor_id;
@@ -85,7 +115,7 @@ async function updateTable(id, payload) {
             throw new Error('Branch not found');
         }
 
-        const floor = await knex('floors').where('id', floorId).first();
+        floor = await knex('floors').where('id', floorId).first();
         if (!floor) {
             throw new Error('Floor not found');
         }
@@ -97,12 +127,42 @@ async function updateTable(id, payload) {
 
     const update = readTable(payload);
     await tableRepository().where('id', id).update(update);
-    return { ...updatedTable, ...update };
+    const updated = { ...updatedTable, ...update };
+    
+    // Get branch_id from floor
+    const floorId = update.floor_id || updatedTable.floor_id;
+    let branchId;
+    if (floor) {
+        // Use the floor we already fetched
+        branchId = floor.branch_id;
+    } else {
+        // Need to fetch floor if floor_id wasn't updated
+        const floorData = await knex('floors').where('id', floorId).first();
+        branchId = floorData?.branch_id;
+    }
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION
+    if (io && branchId) {
+        io.to('admin').emit('table-updated', {
+            tableId: id,
+            table: updated,
+            branchId: branchId,
+            timestamp: new Date().toISOString()
+        });
+        
+        io.to(`branch:${branchId}`).emit('table-updated', {
+            tableId: id,
+            table: updated,
+            branchId: branchId,
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    return updated;
 }
 
-async function updateTableStatus(id, status) {
-    throw new Error('updateTableStatus is deprecated. Use table schedule functions to manage table schedules.');
-}
+// updateTableStatus - REMOVED: This function is deprecated.
+// Use table schedule functions to manage table schedules instead.
 
 async function deleteTable(id) {
     const deletedTable = await tableRepository()
@@ -124,6 +184,28 @@ async function deleteTable(id) {
     }
 
     await tableRepository().where('id', id).del();
+    
+    // Get branch_id from floor
+    const floor = await knex('floors').where('id', deletedTable.floor_id).first();
+    const branchId = floor?.branch_id;
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION
+    if (io && branchId) {
+        io.to('admin').emit('table-deleted', {
+            tableId: id,
+            table: deletedTable,
+            branchId: branchId,
+            timestamp: new Date().toISOString()
+        });
+        
+        io.to(`branch:${branchId}`).emit('table-deleted', {
+            tableId: id,
+            table: deletedTable,
+            branchId: branchId,
+            timestamp: new Date().toISOString()
+        });
+    }
+    
     return { ...deletedTable, message: 'Table deleted successfully' };
 }
 
@@ -137,14 +219,19 @@ function tableScheduleRepository() {
  * @param {string} date - Date in YYYY-MM-DD format
  * @param {string} time - Time in HH:MM:SS format
  * @param {number} durationMinutes - Duration in minutes (default: 120)
+ * @param {Object} trx - Optional transaction object for locking
  * @returns {Promise<boolean>} - True if available, false if conflict
  */
-async function isTableAvailable(tableId, date, time, durationMinutes = 120) {
+async function isTableAvailable(tableId, date, time, durationMinutes = 120, trx = null) {
     const startDateTime = new Date(`${date} ${time}`);
     const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60000);
     const endTime = endDateTime.toTimeString().split(' ')[0].substring(0, 5) + ':00';
     
-    const scheduleConflicts = await tableScheduleRepository()
+    // Use transaction if provided, otherwise use default connection
+    const scheduleRepo = trx ? trx('table_schedules') : tableScheduleRepository();
+    const reservationRepo = trx ? trx('reservations') : knex('reservations');
+    
+    const scheduleConflicts = await scheduleRepo
         .where('table_id', tableId)
         .where('schedule_date', date)
         .where(function() {
@@ -174,10 +261,13 @@ async function isTableAvailable(tableId, date, time, durationMinutes = 120) {
         return false;
     }
     
-    const reservationConflicts = await knex('reservations')
+    const reservationConflicts = await reservationRepo
         .where('table_id', tableId)
         .where('reservation_date', date)
-        .where('status', '!=', 'cancelled')
+        .where(function() {
+            this.where('status', '!=', 'cancelled')
+                .where('status', '!=', 'completed');
+        })
         .where(function() {
             this.whereRaw('TIME(reservation_time) <= TIME(?)', [time])
                 .whereRaw('ADDTIME(TIME(reservation_time), "02:00:00") > TIME(?)', [time])
@@ -239,8 +329,7 @@ async function createTableSchedule(payload, trx = null) {
         end_time: endTime || null,
         status: payload.status || 'reserved',
         notes: payload.notes || null,
-        created_at: new Date(),
-        updated_at: new Date()
+        created_at: new Date()
     };
 
     // Use transaction if provided, otherwise use default connection
@@ -300,8 +389,7 @@ async function updateTableScheduleStatus(scheduleId, status) {
     await tableScheduleRepository()
         .where('id', scheduleId)
         .update({
-            status,
-            updated_at: new Date()
+            status
         });
 
     return { ...schedule, status };
@@ -396,13 +484,14 @@ module.exports = {
     createTable,
     getAllTables,
     updateTable,
-    updateTableStatus,
+    // updateTableStatus - deprecated, removed from exports
     deleteTable,
     isTableAvailable,
     createTableSchedule,
     getTableSchedules,
     getTableScheduleByReservation,
     updateTableScheduleStatus,
+    setSocketIO,
     cancelTableScheduleByReservation,
     checkInTableSchedule,
     checkOutTableSchedule,

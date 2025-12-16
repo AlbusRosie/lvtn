@@ -3,7 +3,7 @@
     <div class="header">
       <div class="header-title">
         <i class="fas fa-list-ul"></i>
-        <h4>Tùy chọn sản phẩm</h4>
+        <h4>Product Options</h4>
       </div>
       <button 
         type="button" 
@@ -12,13 +12,13 @@
         :disabled="loading"
       >
         <i class="fas fa-plus"></i>
-        <span>Thêm tùy chọn</span>
+        <span>Add Option</span>
       </button>
     </div>
     <div v-if="options.length === 0" class="empty">
       <i class="fas fa-inbox"></i>
-      <p>Chưa có tùy chọn nào</p>
-      <span>Nhấn "Thêm tùy chọn" để bắt đầu</span>
+      <p>No options yet</p>
+      <span>Click "Add Option" to get started</span>
     </div>
     <div v-else class="options">
       <div 
@@ -32,7 +32,7 @@
             <div class="input-group">
               <label class="input-label">
                 <i class="fas fa-tag"></i>
-                Tên tùy chọn <span class="required">*</span>
+                Option Name <span class="required">*</span>
               </label>
               <div class="input-wrapper">
                 <i class="fas fa-tag input-icon"></i>
@@ -41,30 +41,38 @@
                   type="text"
                   class="name-input"
                   :name="`option_${index}_name`"
-                  placeholder="Tên tùy chọn (VD: Size, Gia vị)"
+                  placeholder="Option name (e.g.: Size, Flavor)"
                   @blur="validateOption(index)"
                 />
               </div>
             </div>
             <div class="select-group">
+              <label class="select-label">
               <i class="fas fa-list"></i>
+                Type
+              </label>
+              <div class="select-wrapper">
+                <i class="fas fa-list select-icon"></i>
               <select v-model="option.type" class="type-select">
-                <option value="select">Chọn 1</option>
-                <option value="checkbox">Chọn nhiều</option>
+                  <option value="select">Select One</option>
+                  <option value="checkbox">Select Multiple</option>
               </select>
+              </div>
             </div>
+            <div class="checkbox-group">
             <label class="required-label">
               <input v-model="option.required" type="checkbox" class="checkbox-input" />
               <i class="fas fa-asterisk"></i>
-              <span>Bắt buộc</span>
+                <span>Required</span>
             </label>
+            </div>
           </div>
           <div class="option-buttons">
             <button 
               type="button" 
               @click="toggleOptionExpanded(index)"
               class="btn-toggle"
-              :title="option.expanded ? 'Thu gọn' : 'Mở rộng'"
+              :title="option.expanded ? 'Collapse' : 'Expand'"
             >
               <i class="fas" :class="option.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
             </button>
@@ -73,7 +81,7 @@
               @click="removeOption(index)"
               class="btn-delete"
               :disabled="loading"
-              title="Xóa tùy chọn"
+              title="Delete Option"
             >
               <i class="fas fa-trash"></i>
             </button>
@@ -84,7 +92,7 @@
           <div class="details-header">
             <div class="details-title">
               <i class="fas fa-list-check"></i>
-              <span>Các lựa chọn:</span>
+              <span>Options:</span>
             </div>
             <button 
               type="button" 
@@ -92,7 +100,7 @@
               class="btn-add-value"
             >
               <i class="fas fa-plus"></i>
-              <span>Thêm giá trị</span>
+              <span>Add Value</span>
             </button>
           </div>
           <div class="values">
@@ -104,7 +112,7 @@
               <div class="value-input-group">
                 <label class="value-label">
                   <i class="fas fa-tag"></i>
-                  Giá trị <span class="required">*</span>
+                  Value <span class="required">*</span>
                 </label>
                 <div class="value-wrapper">
                   <i class="fas fa-tag value-icon"></i>
@@ -113,13 +121,18 @@
                     type="text"
                     class="value-input"
                     :name="`option_${index}_value_${valueIndex}`"
-                    placeholder="Giá trị (VD: S, M, L)"
+                    placeholder="Value (e.g.: S, M, L)"
                     @blur="validateOption(index)"
                   />
                 </div>
               </div>
               <div class="price-input-group">
+                <label class="price-label">
                 <i class="fas fa-dollar-sign"></i>
+                  Price
+                </label>
+                <div class="price-wrapper">
+                  <i class="fas fa-dollar-sign price-icon"></i>
                 <input
                   v-model.number="value.price_modifier"
                   type="number"
@@ -129,12 +142,13 @@
                   step="1000"
                   min="0"
                 />
+                </div>
               </div>
               <button 
                 type="button" 
                 @click="removeOptionValue(index, valueIndex)"
                 class="btn-delete-value"
-                title="Xóa giá trị"
+                title="Delete Value"
               >
                 <i class="fas fa-times"></i>
               </button>
@@ -352,7 +366,7 @@ watch(() => props.options, (opts) => {
 .option-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 16px;
   gap: 12px;
   background: white;
@@ -360,10 +374,10 @@ watch(() => props.options, (opts) => {
 }
 .option-info {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   flex: 1;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .input-group {
   flex: 1;
@@ -372,6 +386,52 @@ watch(() => props.options, (opts) => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.select-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+.select-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B7280;
+  margin: 0;
+  height: 20px;
+}
+.select-label i {
+  color: #FF8C42;
+  font-size: 11px;
+}
+.select-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.select-icon {
+  position: absolute;
+  left: 12px;
+  color: #FF8C42;
+  font-size: 12px;
+  z-index: 1;
+  pointer-events: none;
+}
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 120px;
+}
+.checkbox-group::before {
+  content: '';
+  display: block;
+  height: 20px;
 }
 .input-label {
   display: flex;
@@ -427,25 +487,13 @@ watch(() => props.options, (opts) => {
   color: #9CA3AF;
   font-weight: 400;
 }
-.select-group {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.select-group i {
-  position: absolute;
-  left: 12px;
-  color: #FF8C42;
-  font-size: 12px;
-  z-index: 1;
-}
 .type-select {
+  width: 100%;
   border: 1px solid #E5E5E5;
   border-radius: 10px;
   padding: 10px 12px 10px 36px;
   font-size: 13px;
   font-weight: 500;
-  min-width: 140px;
   background: white;
   color: #1a1a1a;
   cursor: pointer;
@@ -465,11 +513,13 @@ watch(() => props.options, (opts) => {
   color: #1a1a1a;
   cursor: pointer;
   white-space: nowrap;
-  padding: 8px 12px;
+  padding: 10px 12px;
   background: #FFF9F5;
-  border: 2px solid #F0E6D9;
+  border: 1px solid #E5E5E5;
   border-radius: 10px;
   transition: all 0.2s ease;
+  height: 40px;
+  box-sizing: border-box;
 }
 .required-label:hover {
   background: #FFF5ED;
@@ -488,13 +538,15 @@ watch(() => props.options, (opts) => {
 .option-buttons {
   display: flex;
   gap: 8px;
+  align-items: flex-start;
+  padding-top: 20px;
 }
 .btn-toggle, .btn-delete {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border: 1px solid #E5E5E5;
   background: white;
-  border-radius: 8px;
+  border-radius: 10px;
   color: #6B7280;
   cursor: pointer;
   display: flex;
@@ -502,6 +554,7 @@ watch(() => props.options, (opts) => {
   justify-content: center;
   transition: all 0.2s ease;
   font-size: 14px;
+  flex-shrink: 0;
 }
 .btn-toggle:hover {
   background: #F9FAFB;
@@ -568,8 +621,8 @@ watch(() => props.options, (opts) => {
 }
 .value-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 12px;
   padding: 12px;
   background: #FFF9F5;
   border-radius: 10px;
@@ -637,17 +690,40 @@ watch(() => props.options, (opts) => {
 .price-input-group {
   position: relative;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
 }
-.price-input-group i {
+.price-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B7280;
+  margin: 0;
+  height: 20px;
+}
+.price-label i {
+  color: #FF8C42;
+  font-size: 11px;
+}
+.price-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.price-icon {
   position: absolute;
   left: 12px;
   color: #FF8C42;
   font-size: 12px;
   z-index: 1;
+  pointer-events: none;
 }
 .price-input {
-  width: 120px;
+  width: 100%;
   border: 1px solid #E5E5E5;
   border-radius: 10px;
   padding: 10px 12px 10px 36px;
@@ -668,7 +744,7 @@ watch(() => props.options, (opts) => {
 }
 .btn-delete-value {
   width: 36px;
-  height: 36px;
+  height: 40px;
   border: 1px solid #E5E5E5;
   background: white;
   border-radius: 8px;
@@ -680,6 +756,7 @@ watch(() => props.options, (opts) => {
   transition: all 0.2s ease;
   font-size: 14px;
   flex-shrink: 0;
+  margin-top: 20px;
 }
 .btn-delete-value:hover {
   background: #FEF2F2;

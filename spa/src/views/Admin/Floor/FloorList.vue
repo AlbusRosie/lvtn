@@ -20,7 +20,7 @@
             class="filter-input"
           />
         </div>
-        <div class="filter-group">
+        <div v-if="!hideBranchFilter" class="filter-group">
           <label>Branch</label>
           <select v-model="branchFilter" class="filter-select">
             <option value="">All Branches</option>
@@ -329,6 +329,8 @@
           <FloorForm
             :floor="editingFloor"
             :loading="formLoading"
+            :manager-branch-id="isManagerView ? managerBranchId : null"
+            :is-manager-view="isManagerView"
             @submit="handleFormSubmit"
             @cancel="closeModal"
           />
@@ -388,12 +390,27 @@ import FloorForm from '@/components/Admin/Floor/FloorForm.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import FloorService from '@/services/FloorService';
 import AuthService from '@/services/AuthService';
+import SocketService from '@/services/SocketService';
 export default {
   name: 'FloorList',
   components: {
     FloorCard,
     FloorForm,
     LoadingSpinner
+  },
+  props: {
+    isManagerView: {
+      type: Boolean,
+      default: false
+    },
+    managerBranchId: {
+      type: Number,
+      default: null
+    },
+    hideBranchFilter: {
+      type: Boolean,
+      default: false
+    }
   },
   setup() {
     const toast = inject('toast');
@@ -413,7 +430,7 @@ export default {
       deleteLoading: false,
       searchTerm: '',
       statusFilter: '',
-      branchFilter: '',
+      branchFilter: this.isManagerView && this.managerBranchId ? String(this.managerBranchId) : '',
       viewMode: 'table', 
       selectedFloors: [], 
       currentPage: 1,
@@ -471,14 +488,49 @@ export default {
       this.loadBranches()
     ]);
     this.totalPages = Math.ceil(this.filteredFloors.length / this.itemsPerPage);
+    
+    // Setup real-time listeners
+    SocketService.on('floor-created', this.handleFloorCreated);
+    SocketService.on('floor-updated', this.handleFloorUpdated);
+    SocketService.on('floor-deleted', this.handleFloorDeleted);
+  },
+  beforeUnmount() {
+    // Cleanup listeners
+    SocketService.off('floor-created', this.handleFloorCreated);
+    SocketService.off('floor-updated', this.handleFloorUpdated);
+    SocketService.off('floor-deleted', this.handleFloorDeleted);
   },
   methods: {
+    handleFloorCreated(data) {
+      this.toast.success(`Tầng "${data.floor.name}" đã được tạo`);
+      if (!this.branchFilter || String(data.branchId) === this.branchFilter) {
+        this.loadFloors();
+      }
+    },
+    handleFloorUpdated(data) {
+      const index = this.floors.findIndex(f => f.id === data.floorId);
+      if (index !== -1) {
+        this.floors[index] = { ...this.floors[index], ...data.floor };
+        this.floors = [...this.floors];
+        this.toast.info(`Tầng "${data.floor.name}" đã được cập nhật`);
+      } else if (!this.branchFilter || String(data.branchId) === this.branchFilter) {
+        this.loadFloors();
+      }
+    },
+    handleFloorDeleted(data) {
+      this.floors = this.floors.filter(f => f.id !== data.floorId);
+      this.toast.warning(`Tầng "${data.floor.name}" đã bị xóa`);
+    },
     async loadFloors() {
       this.loading = true;
       this.error = null;
       try {
-        const floors = await FloorService.getAllFloors();
-        this.floors = floors;
+        const params = {};
+        if (this.isManagerView && this.managerBranchId) {
+          params.branch_id = this.managerBranchId;
+        }
+        const floors = await FloorService.getAllFloors(params);
+        this.floors = Array.isArray(floors) ? floors : (floors.data || floors.floors || []);
       } catch (error) {
         const errorMessage = error.message || 'An error occurred while loading floors';
         this.error = errorMessage;
@@ -522,7 +574,11 @@ export default {
             alert('Floor updated successfully!');
           }
         } else {
-          await FloorService.createFloor(formData);
+          const floorData = { ...formData };
+          if (this.isManagerView && this.managerBranchId) {
+            floorData.branch_id = this.managerBranchId;
+          }
+          await FloorService.createFloor(floorData);
           if (this.toast) {
             this.toast.success('Floor created successfully!');
           } else {

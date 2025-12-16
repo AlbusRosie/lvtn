@@ -650,6 +650,7 @@ import TableService from '@/services/TableService';
 import BranchService from '@/services/BranchService';
 import ReservationService from '@/services/ReservationService';
 import AuthService from '@/services/AuthService';
+import SocketService from '@/services/SocketService';
 export default {
   name: 'TableList',
   components: {
@@ -738,30 +739,78 @@ export default {
     },
     filteredTables() {
       let filtered = [...this.tables];
+      console.log('filteredTables - Starting with', filtered.length, 'tables');
+      
+      // Reset hasCheckedAvailability if time filters are incomplete
+      if (this.hasCheckedAvailability && (!this.timeFilterDate || !this.timeFilterTime || !this.timeFilterDuration || !this.timeFilterGuestCount)) {
+        console.warn('hasCheckedAvailability is true but time filters are incomplete, resetting...');
+        this.hasCheckedAvailability = false;
+        this.tableAvailabilityMap.clear();
+        this.availableTablesCount = 0;
+      }
+      
       if (this.searchTerm) {
         const term = this.searchTerm.toLowerCase();
+        const beforeCount = filtered.length;
         filtered = filtered.filter(table =>
           (table.location && table.location.toLowerCase().includes(term)) ||
           (table.branch_name && table.branch_name.toLowerCase().includes(term)) ||
           (table.floor_name && table.floor_name.toLowerCase().includes(term))
         );
+        console.log(`Search filter ("${this.searchTerm}"): ${beforeCount} -> ${filtered.length} tables`);
       }
-      if (this.branchFilter) {
-        filtered = filtered.filter(table => table.branch_id == this.branchFilter);
+      // Only filter by branch if not already filtered by backend (manager view)
+      // When isManagerView and managerBranchId is set, backend already filtered, so skip frontend filter
+      if (this.branchFilter && !(this.isManagerView && this.managerBranchId)) {
+        const beforeCount = filtered.length;
+        const branchFilterNum = parseInt(this.branchFilter);
+        // Debug: Check what branch_id values tables have
+        const sampleTables = filtered.slice(0, 3);
+        console.log('Sample tables before branch filter:', sampleTables.map(t => ({
+          id: t.id,
+          branch_id: t.branch_id,
+          branch_name: t.branch_name,
+          floor_id: t.floor_id,
+          floor_name: t.floor_name
+        })));
+        filtered = filtered.filter(table => {
+          // Tables should have branch_id from API now
+          const tableBranchId = table.branch_id ? parseInt(table.branch_id) : null;
+          // If no branch_id, skip this table when filtering
+          if (tableBranchId === null) {
+            console.warn('Table has no branch_id:', table.id, table);
+            return false;
+          }
+          return tableBranchId === branchFilterNum;
+        });
+        console.log(`Branch filter (${this.branchFilter}): ${beforeCount} -> ${filtered.length} tables`, {
+          branchFilterNum,
+          sampleTableBranchIds: filtered.slice(0, 3).map(t => t.branch_id)
+        });
+      } else if (this.isManagerView && this.managerBranchId) {
+        console.log('Skipping branch filter - already filtered by backend for manager view');
       }
       if (this.floorFilter) {
+        const beforeCount = filtered.length;
         filtered = filtered.filter(table => table.floor_id == this.floorFilter);
+        console.log(`Floor filter (${this.floorFilter}): ${beforeCount} -> ${filtered.length} tables`);
       }
-      if (this.hasCheckedAvailability) {
+      // Only apply availability filter if time filter is actually set
+      if (this.hasCheckedAvailability && this.timeFilterDate && this.timeFilterTime && this.timeFilterDuration && this.timeFilterGuestCount) {
+        const beforeCount = filtered.length;
         filtered = filtered.filter(table => {
           const availability = this.tableAvailabilityMap.get(table.id);
           return availability === true;
         });
+        console.log(`Availability filter: ${beforeCount} -> ${filtered.length} tables`);
         if (this.timeFilterGuestCount && this.timeFilterGuestCount > 0) {
+          const beforeCapacity = filtered.length;
           filtered = filtered.filter(table => table.capacity >= this.timeFilterGuestCount);
+          console.log(`Capacity filter (>=${this.timeFilterGuestCount}): ${beforeCapacity} -> ${filtered.length} tables`);
         }
       }
       if (this.capacityFilter) {
+        const beforeCount = filtered.length;
         filtered = filtered.filter(table => {
           const capacity = table.capacity;
           switch (this.capacityFilter) {
@@ -772,7 +821,9 @@ export default {
             default: return true;
           }
         });
+        console.log(`Capacity filter (${this.capacityFilter}): ${beforeCount} -> ${filtered.length} tables`);
       }
+      console.log('filteredTables - Final result:', filtered.length, 'tables');
       return filtered;
     },
     paginatedTables() {
@@ -788,29 +839,122 @@ export default {
       if (this.currentPage > this.totalPages && this.totalPages > 0) {
         this.currentPage = this.totalPages;
       }
+    },
+    managerBranchId(newVal, oldVal) {
+      console.log('managerBranchId watch triggered:', oldVal, '->', newVal, 'isManagerView:', this.isManagerView);
+      if (this.isManagerView && newVal) {
+        this.branchFilter = String(newVal);
+        console.log('Setting branchFilter to:', this.branchFilter);
+        this.loadTables();
+      } else if (this.isManagerView && !newVal) {
+        console.warn('Manager view but managerBranchId is null/undefined');
+      }
+    },
+    // Reset availability filter when time filters are cleared
+    timeFilterDate(newVal) {
+      if (!newVal && !this.timeFilterTime && !this.timeFilterDuration && !this.timeFilterGuestCount) {
+        this.hasCheckedAvailability = false;
+        this.tableAvailabilityMap.clear();
+        this.availableTablesCount = 0;
+      }
+    },
+    timeFilterTime(newVal) {
+      if (!newVal && !this.timeFilterDate && !this.timeFilterDuration && !this.timeFilterGuestCount) {
+        this.hasCheckedAvailability = false;
+        this.tableAvailabilityMap.clear();
+        this.availableTablesCount = 0;
+      }
+    },
+    timeFilterDuration(newVal) {
+      if (!newVal && !this.timeFilterDate && !this.timeFilterTime && !this.timeFilterGuestCount) {
+        this.hasCheckedAvailability = false;
+        this.tableAvailabilityMap.clear();
+        this.availableTablesCount = 0;
+      }
+    },
+    timeFilterGuestCount(newVal) {
+      if (!newVal && !this.timeFilterDate && !this.timeFilterTime && !this.timeFilterDuration) {
+        this.hasCheckedAvailability = false;
+        this.tableAvailabilityMap.clear();
+        this.availableTablesCount = 0;
+      }
     }
   },
   async mounted() {
     this.timeFilterTime = this.getCurrentTime();
+    // Set branchFilter for manager view
+    if (this.isManagerView && this.managerBranchId) {
+      this.branchFilter = String(this.managerBranchId);
+      console.log('Mounted - Manager view, managerBranchId:', this.managerBranchId, 'branchFilter:', this.branchFilter);
+    }
+    // Reset availability filter if no time filters are set
+    if (!this.timeFilterDate || !this.timeFilterTime || !this.timeFilterDuration || !this.timeFilterGuestCount) {
+      this.hasCheckedAvailability = false;
+      this.tableAvailabilityMap.clear();
+      this.availableTablesCount = 0;
+    }
+    // For manager view, wait a bit to ensure managerBranchId is set
+    if (this.isManagerView && !this.managerBranchId) {
+      console.warn('Manager view but managerBranchId is not set yet, waiting...');
+      // Wait for next tick to ensure props are set
+      await this.$nextTick();
+      if (this.managerBranchId) {
+        this.branchFilter = String(this.managerBranchId);
+        console.log('After nextTick - managerBranchId:', this.managerBranchId, 'branchFilter:', this.branchFilter);
+      }
+    }
     await Promise.all([
       this.loadTables(),
       this.loadBranches(),
       this.loadFloors()
     ]);
+    
+    // Setup real-time listeners
+    SocketService.on('table-created', this.handleTableCreated);
+    SocketService.on('table-updated', this.handleTableUpdated);
+    SocketService.on('table-deleted', this.handleTableDeleted);
+  },
+  beforeUnmount() {
+    // Cleanup listeners
+    SocketService.off('table-created', this.handleTableCreated);
+    SocketService.off('table-updated', this.handleTableUpdated);
+    SocketService.off('table-deleted', this.handleTableDeleted);
   },
   methods: {
+    handleTableCreated(data) {
+      this.toast.success('Bàn đã được tạo');
+      if (!this.branchFilter || String(data.branchId) === this.branchFilter) {
+        this.loadTables();
+      }
+    },
+    handleTableUpdated(data) {
+      const index = this.tables.findIndex(t => t.id === data.tableId);
+      if (index !== -1) {
+        this.tables[index] = { ...this.tables[index], ...data.table };
+        this.tables = [...this.tables];
+        this.toast.info('Bàn đã được cập nhật');
+      } else if (!this.branchFilter || String(data.branchId) === this.branchFilter) {
+        this.loadTables();
+      }
+    },
+    handleTableDeleted(data) {
+      this.tables = this.tables.filter(t => t.id !== data.tableId);
+      this.toast.warning('Bàn đã bị xóa');
+    },
     async loadTables(page = 1) {
       this.loading = true;
       this.error = null;
       try {
-        const filters = {
-          page,
-          limit: this.itemsPerPage
-        };
+        const filters = {};
+        // Priority: managerBranchId > branchFilter
         if (this.isManagerView && this.managerBranchId) {
-          filters.branch_id = this.managerBranchId;
+          filters.branch_id = parseInt(this.managerBranchId);
+          console.log('Manager view - Using managerBranchId:', this.managerBranchId, 'filters:', filters);
         } else if (this.branchFilter) {
-          filters.branch_id = this.branchFilter;
+          filters.branch_id = parseInt(this.branchFilter);
+          console.log('Using branchFilter:', this.branchFilter, 'filters:', filters);
+        } else {
+          console.log('No branch filter - loading all tables');
         }
         if (this.floorFilter) filters.floor_id = this.floorFilter;
         if (this.capacityFilter) {
@@ -822,16 +966,49 @@ export default {
             filters.max_capacity = parseInt(max);
           }
         }
-        const allTables = await TableService.getAllTables(filters);
+        console.log('Loading tables with filters:', filters);
+        const response = await TableService.getAllTables(filters);
+        console.log('Tables received from API:', response);
+        // Handle different response formats
+        let allTables = [];
+        if (Array.isArray(response)) {
+          allTables = response;
+        } else if (response && Array.isArray(response.data)) {
+          allTables = response.data;
+        } else if (response && Array.isArray(response.tables)) {
+          allTables = response.tables;
+        } else if (response && response.data && Array.isArray(response.data)) {
+          allTables = response.data;
+        }
+        console.log('Tables after processing:', allTables.length, 'tables', allTables);
         this.tables = allTables;
         this.calculateStats();
+        // Debug filteredTables
+        console.log('Filter state:', {
+          searchTerm: this.searchTerm,
+          branchFilter: this.branchFilter,
+          floorFilter: this.floorFilter,
+          capacityFilter: this.capacityFilter,
+          hasCheckedAvailability: this.hasCheckedAvailability,
+          timeFilterDate: this.timeFilterDate,
+          timeFilterTime: this.timeFilterTime,
+          timeFilterDuration: this.timeFilterDuration,
+          timeFilterGuestCount: this.timeFilterGuestCount,
+          tableAvailabilityMapSize: this.tableAvailabilityMap.size
+        });
         let filtered = this.filteredTables;
+        console.log('Filtered tables:', filtered.length, 'tables', filtered);
         this.totalCount = filtered.length;
         this.totalPages = Math.ceil(this.totalCount / this.itemsPerPage);
         this.currentPage = page;
       } catch (error) {
+        console.error('Error loading tables:', error);
         const errorMessage = error.message || 'An error occurred while loading the table list';
         this.error = errorMessage;
+        this.tables = [];
+        if (this.toast) {
+          this.toast.error(errorMessage);
+        }
       } finally {
         this.loading = false;
       }

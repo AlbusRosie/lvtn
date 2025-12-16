@@ -54,7 +54,33 @@ class BranchService {
       final url = '${ApiConstants.branches}/nearby?$queryString';
 
       final response = await ApiService().get(url);
-      return (response as List).map((json) => Branch.fromJson(json)).toList();
+      
+      // Handle different response structures
+      List<dynamic> branchesList = [];
+      if (response is List) {
+        branchesList = response;
+      } else if (response is Map) {
+        if (response.containsKey('data')) {
+          branchesList = response['data'] is List ? response['data'] : [];
+        } else if (response.containsKey('branches')) {
+          branchesList = response['branches'] is List ? response['branches'] : [];
+        }
+      }
+      
+      final branches = branchesList.map((json) {
+        final branch = Branch.fromJson(json);
+        print('BranchService: Branch ${branch.name} - distance: ${branch.distanceKm} km');
+        return branch;
+      }).toList();
+      print('BranchService: Loaded ${branches.length} nearby branches with distances');
+      if (branches.isNotEmpty) {
+        final withDistance = branches.where((b) => b.distanceKm != null).length;
+        print('BranchService: Branches with distance: $withDistance/${branches.length}');
+        if (branches.first.distanceKm != null) {
+          print('BranchService: First branch distance: ${branches.first.distanceKm!.toStringAsFixed(2)} km');
+        }
+      }
+      return branches;
     } catch (error) {
       throw Exception('Không thể tải danh sách chi nhánh gần bạn: ${error.toString()}');
     }

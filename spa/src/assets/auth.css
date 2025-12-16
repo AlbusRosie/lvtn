@@ -110,4 +110,50 @@ select:focus {
 
 .shake {
   animation: shake 0.5s ease-in-out;
-} 
+}
+
+/* Hide pagination on auth pages */
+.auth-layout .pagination,
+.auth-layout .pagination-section,
+.auth-layout .pagination-nav,
+.auth-layout .pagination-controls,
+.auth-layout .pagination-buttons,
+.auth-layout .pagination-info,
+.auth-layout .pagination-label,
+.auth-layout .pagination-select,
+.auth-content .pagination,
+.auth-content .pagination-section,
+.auth-content .pagination-nav,
+.auth-content .pagination-controls,
+.auth-content .pagination-buttons,
+.auth-content .pagination-info,
+.auth-content .pagination-label,
+.auth-content .pagination-select,
+.auth-container .pagination,
+.auth-container .pagination-section,
+.auth-container .pagination-nav,
+.auth-container .pagination-controls,
+.auth-container .pagination-buttons,
+.auth-container .pagination-info,
+.auth-container .pagination-label,
+.auth-container .pagination-select,
+body.auth-page .pagination,
+body.auth-page .pagination-section,
+body.auth-page .pagination-nav,
+body.auth-page .pagination-controls,
+body.auth-page .pagination-buttons,
+html.auth-page .pagination,
+html.auth-page .pagination-section,
+html.auth-page .pagination-nav {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
+  pointer-events: none !important;
+}

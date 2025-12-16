@@ -209,15 +209,6 @@ async function updatePaymentStatus(req, res, next) {
         next(error);
     }
 }
-async function getOrderLogs(req, res, next) {
-    try {
-        const { id } = req.params;
-        const logs = await OrderService.getOrderLogs(parseInt(id));
-        res.json(success(logs));
-    } catch (error) {
-        next(error);
-    }
-}
 async function updateInternalNotes(req, res, next) {
     try {
         const { id } = req.params;
@@ -311,6 +302,23 @@ async function deleteOrder(req, res, next) {
         next(error);
     }
 }
+async function getDeliveryOrders(req, res, next) {
+    try {
+        const { status } = req.query;
+        const deliveryStaffId = req.user?.id; // Lấy ID của delivery staff từ token
+        const filters = {};
+        if (status) {
+            filters.status = status;
+        }
+        if (deliveryStaffId) {
+            filters.delivery_staff_id = deliveryStaffId;
+        }
+        const orders = await OrderService.getDeliveryOrders(filters);
+        res.json(success(orders));
+    } catch (error) {
+        next(error);
+    }
+}
 async function getTopProducts(req, res, next) {
     try {
         const { branch_id, date_from, date_to, limit = 10 } = req.query;
@@ -349,8 +357,8 @@ module.exports = {
     assignDeliveryStaff,
     updatePaymentStatus,
     updateInternalNotes,
-    getOrderLogs,
     deleteOrder,
     getKitchenOrders,
     markOrderReady,
+    getDeliveryOrders,
 };

@@ -38,6 +38,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final chatProvider = Provider.of<ChatProvider>(context, listen: false);
       
@@ -95,15 +104,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             final orderMessage = ChatMessage(
               id: uuid.v4(),
               content: isDelivery
-                  ? '✅ **Đơn hàng giao hàng của bạn đã được tạo thành công!**\n\n'
-                      '📋 **Mã đơn hàng:** #${result['orderId'] ?? 'N/A'}\n'
-                      '📍 **Địa chỉ giao hàng:** ${result['deliveryAddress'] ?? deliveryAddress ?? 'N/A'}\n'
-                      '💰 **Tổng tiền:** ${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(result['total'] ?? 0)}\n\n'
-                      '📦 Đơn hàng sẽ được chuẩn bị tại chi nhánh ${result['branchName'] ?? branch.name} và giao đến địa chỉ của bạn.'
-                  : '✅ **Đơn hàng mang về của bạn đã được tạo thành công!**\n\n'
-                      '📋 **Mã đơn hàng:** #${result['orderId'] ?? 'N/A'}\n'
-                      '💰 **Tổng tiền:** ${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(result['total'] ?? 0)}\n\n'
-                      '📦 Đơn hàng sẽ được chuẩn bị tại chi nhánh ${result['branchName'] ?? branch.name} và sẵn sàng để bạn đến lấy.',
+                  ? '**Đơn hàng giao hàng của bạn đã được tạo thành công!**\n\n'
+                      '**Mã đơn hàng:** #${result['orderId'] ?? 'N/A'}\n'
+                      '**Địa chỉ giao hàng:** ${result['deliveryAddress'] ?? deliveryAddress ?? 'N/A'}\n'
+                      '**Tổng tiền:** ${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(result['total'] ?? 0)}\n\n'
+                      'Đơn hàng sẽ được chuẩn bị tại chi nhánh ${result['branchName'] ?? branch.name} và giao đến địa chỉ của bạn.'
+                  : '**Đơn hàng mang về của bạn đã được tạo thành công!**\n\n'
+                      '**Mã đơn hàng:** #${result['orderId'] ?? 'N/A'}\n'
+                      '**Tổng tiền:** ${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(result['total'] ?? 0)}\n\n'
+                      'Đơn hàng sẽ được chuẩn bị tại chi nhánh ${result['branchName'] ?? branch.name} và sẵn sàng để bạn đến lấy.',
               isUser: false,
               timestamp: DateTime.now(),
               type: ChatMessageType.text,
@@ -233,6 +242,46 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
+  IconData? _getSuggestionIcon(String? action) {
+    if (action == null) return null;
+    
+    switch (action) {
+      case 'view_menu':
+      case 'navigate_menu':
+      case 'order_food':
+        return Icons.restaurant_menu_rounded;
+      case 'book_table':
+      case 'confirm_booking':
+        return Icons.table_restaurant_rounded;
+      case 'view_branches':
+      case 'find_branch':
+      case 'select_branch':
+        return Icons.location_on_rounded;
+      case 'view_orders':
+      case 'navigate_orders':
+      case 'check_order_status':
+        return Icons.shopping_bag_outlined;
+      case 'order_takeaway':
+      case 'select_branch_for_takeaway':
+        return Icons.shopping_bag_rounded;
+      case 'select_branch_for_delivery':
+        return Icons.delivery_dining_rounded;
+      case 'search_food':
+        return Icons.search_rounded;
+      default:
+        return null;
+    }
+  }
+
+  String _removeEmojiFromText(String text) {
+    // Remove common emojis
+    return text
+        .replaceAll(RegExp(r'[\u{1F300}-\u{1F9FF}]', unicode: true), '')
+        .replaceAll(RegExp(r'[\u{2600}-\u{26FF}]', unicode: true), '')
+        .replaceAll(RegExp(r'[\u{2700}-\u{27BF}]', unicode: true), '')
+        .trim();
+  }
+
   void _showChatHistory() {
     final chatProvider = Provider.of<ChatProvider>(context, listen: false);
     
@@ -269,11 +318,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       color: Color(0xFFFF8A00).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
-                      Icons.history_rounded,
-                      color: Color(0xFFFF8A00),
-                      size: 24,
-                    ),
                   ),
                   SizedBox(width: 12),
                   Expanded(
@@ -294,10 +338,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
                         padding: EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.close_rounded,
-                          color: Colors.grey[600],
-                          size: 22,
+                        child: Text(
+                          '✕',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 22,
+                            fontWeight: FontWeight.w300,
+                          ),
                         ),
                       ),
                     ),
@@ -320,8 +367,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
-                          SizedBox(height: 16),
                           Text(
                             'Chưa có cuộc trò chuyện nào',
                             style: TextStyle(
@@ -373,11 +418,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                     color: Color(0xFFFF8A00).withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Icon(
-                                    Icons.chat_bubble_outline_rounded,
-                                    size: 16,
-                                    color: Color(0xFFFF8A00),
-                                  ),
                                 ),
                                 SizedBox(width: 10),
                                 Expanded(
@@ -422,15 +462,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                             : Colors.grey[200],
                                         shape: BoxShape.circle,
                                       ),
-                                      child: Icon(
-                                        lastMessage['is_user'] 
-                                            ? Icons.person_rounded 
-                                            : Icons.smart_toy_rounded,
-                                        size: 16,
-                                        color: lastMessage['is_user'] 
-                                            ? Color(0xFFFF8A00) 
-                                            : Colors.grey[600],
-                                      ),
                                     ),
                                     SizedBox(width: 10),
                                     Expanded(
@@ -466,19 +497,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: Colors.white,
-        systemNavigationBarIconBrightness: Brightness.dark,
-      ),
-      child: WillPopScope(
-        onWillPop: () async {
-          _handleBackNavigation();
-          return false;
-        },
-        child: Scaffold(
+    return WillPopScope(
+      onWillPop: () async {
+        _handleBackNavigation();
+        return false;
+      },
+      child: Scaffold(
         backgroundColor: Colors.white,
         appBar: PreferredSize(
           preferredSize: Size.fromHeight(100),
@@ -514,9 +538,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         ],
                       ),
                       child: Icon(
-                        Icons.smart_toy_rounded,
+                        Icons.restaurant,
                         color: Colors.white,
-                        size: 24,
+                        size: 20,
                       ),
                     ),
                     SizedBox(width: 12),
@@ -559,11 +583,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                           decoration: BoxDecoration(
                             color: Colors.grey[50],
                             borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.history_rounded,
-                            color: Colors.grey[700],
-                            size: 20,
                           ),
                         ),
                       ),
@@ -613,9 +632,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
-                                    Icons.chat_bubble_outline_rounded,
-                                    size: 40,
+                                    Icons.restaurant,
                                     color: Color(0xFFFF8A00),
+                                    size: 36,
                                   ),
                                 ),
                                 SizedBox(height: 20),
@@ -685,6 +704,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: chatProvider.suggestions.map((suggestion) {
+                        final cleanText = _removeEmojiFromText(suggestion.text);
+                        final icon = _getSuggestionIcon(suggestion.action);
                         return Padding(
                           padding: EdgeInsets.only(right: 10),
                           child: Material(
@@ -709,14 +730,27 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                     ),
                                   ],
                                 ),
-                                child: Text(
-                                  suggestion.text,
-                                  style: TextStyle(
-                                    color: Color(0xFFFF8A00),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: -0.2,
-                                  ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (icon != null) ...[
+                                      Icon(
+                                        icon,
+                                        size: 16,
+                                        color: Color(0xFFFF8A00),
+                                      ),
+                                      SizedBox(width: 6),
+                                    ],
+                                    Text(
+                                      cleanText,
+                                      style: TextStyle(
+                                        color: Color(0xFFFF8A00),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -827,7 +861,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         currentIndex: 2,
       ),
         ),
-      ),
     );
   }
 }

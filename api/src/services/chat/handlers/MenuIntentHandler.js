@@ -65,11 +65,11 @@ class MenuIntentHandler extends BaseIntentHandler {
                                     if (menuResult.success && menuResult.data) {
                                         const menu = menuResult.data.menu || {};
                                         const categories = Object.keys(menu);
-                                        let response = `📋 Menu của ${foundBranch.name}:\n\n`;
+                                        let response = `Menu của ${foundBranch.name}:\n\n`;
                                         categories.forEach(category => {
                                             const items = menu[category] || [];
                                             if (items.length > 0) {
-                                                response += `🍽️ ${category}\n`;
+                                                response += `${category}\n`;
                                                 items.forEach(item => {
                                                     response += `• ${item.name} - ${item.price?.toLocaleString() || 'N/A'}đ\n`;
                                                     if (item.description) {
@@ -81,7 +81,7 @@ class MenuIntentHandler extends BaseIntentHandler {
                                         });
                                         response += `Bạn muốn đặt món nào?`;
                                         suggestions = [{
-                                            text: `🍽️ Xem menu ${foundBranch.name}`,
+                                            text: `Xem menu ${foundBranch.name}`,
                                             action: 'navigate_menu',
                                             data: {
                                                 branch_id: foundBranch.id,

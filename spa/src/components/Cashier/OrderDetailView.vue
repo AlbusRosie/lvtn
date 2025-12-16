@@ -5,6 +5,23 @@
       <p>Loading...</p>
     </div>
     <div v-else-if="order" class="order-content">
+      <!-- Order Header -->
+      <div class="order-header-section">
+        <div class="order-id-display">
+          <i class="fas fa-receipt"></i>
+          <h2>Order #{{ order.id }}</h2>
+        </div>
+        <div class="order-status-badges">
+          <span :class="['status-badge', getStatusClass(order.status)]">
+            <i :class="getStatusIcon(order.status)"></i>
+            {{ getStatusLabel(order.status) }}
+          </span>
+          <span :class="['payment-status-badge', order.payment_status === 'paid' ? 'paid' : 'unpaid']">
+            <i :class="order.payment_status === 'paid' ? 'fas fa-check-circle' : 'fas fa-clock'"></i>
+            {{ order.payment_status === 'paid' ? 'Paid' : 'Unpaid' }}
+          </span>
+        </div>
+      </div>
       <!-- Order Info Cards -->
       <div class="order-info-grid">
         <!-- Customer Info Card -->
@@ -22,9 +39,21 @@
               <span class="info-label">Phone Number</span>
               <span class="info-value">{{ order.customer_phone }}</span>
             </div>
-            <div v-if="order.table_id" class="info-item">
+            <div v-if="order.order_type === 'dine_in' && order.table_id" class="info-item">
               <span class="info-label">Table</span>
-              <span class="info-value">#{{ order.table_id }}</span>
+              <span class="info-value">#{{ order.table_id }}<span v-if="order.floor_name" class="floor-info"> ({{ order.floor_name }})</span></span>
+            </div>
+            <div v-else-if="order.order_type === 'dine_in' && !order.table_id" class="info-item">
+              <span class="info-label">Table</span>
+              <span class="info-value" style="color: #94A3B8; font-style: italic;">Not assigned</span>
+            </div>
+            <div v-if="order.order_type === 'delivery' && order.delivery_address" class="info-item">
+              <span class="info-label">Delivery Address</span>
+              <span class="info-value">{{ order.delivery_address }}</span>
+            </div>
+            <div v-if="order.order_type === 'delivery' && order.delivery_phone" class="info-item">
+              <span class="info-label">Delivery Phone</span>
+              <span class="info-value">{{ order.delivery_phone }}</span>
             </div>
           </div>
         </div>
@@ -38,14 +67,27 @@
             <div class="info-item">
               <span class="info-label">Order Type</span>
               <span class="info-value">
-                <span class="badge small-badge" :class="order.order_type === 'dine_in' ? 'badge-primary' : 'badge-info'">
+                <span class="badge small-badge" :class="getOrderTypeBadgeClass(order.order_type)">
+                  <i :class="getOrderTypeIcon(order.order_type)"></i>
                   {{ getOrderTypeLabel(order.order_type) }}
                 </span>
-                </span>
+              </span>
+            </div>
+            <div v-if="order.branch_name" class="info-item">
+              <span class="info-label">Branch</span>
+              <span class="info-value">{{ order.branch_name }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">Created Date</span>
               <span class="info-value">{{ formatDate(order.created_at) }}</span>
+            </div>
+            <div v-if="order.updated_at && order.updated_at !== order.created_at" class="info-item">
+              <span class="info-label">Updated Date</span>
+              <span class="info-value">{{ formatDate(order.updated_at) }}</span>
+            </div>
+            <div v-if="order.payment_method" class="info-item">
+              <span class="info-label">Payment Method</span>
+              <span class="info-value">{{ getPaymentMethodLabel(order.payment_method) }}</span>
             </div>
           </div>
         </div>
@@ -327,6 +369,14 @@ function getStatusClass(status) {
     };
     return labels[type] || type;
   }
+  function getOrderTypeBadgeClass(type) {
+    const classes = {
+      dine_in: 'badge-primary',
+      takeaway: 'badge-warning',
+      delivery: 'badge-info'
+    };
+    return classes[type] || 'badge-info';
+  }
 function isJsonString(str) {
   if (typeof str !== 'string') return false;
   try {
@@ -480,6 +530,11 @@ onMounted(() => {
   color: #721C24;
   border-color: #F5C6CB;
 }
+.status-delivering {
+  background: #E0E7FF;
+  color: #6366F1;
+  border-color: #A5B4FC;
+}
 .order-info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -552,6 +607,55 @@ onMounted(() => {
   background: #D1FAE5;
   color: #065F46;
   border: 1px solid #A7F3D0;
+}
+.badge-warning {
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+.order-header-section {
+  background: #FAFBFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.order-id-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.order-id-display i {
+  color: #F59E0B;
+  font-size: 24px;
+}
+.order-id-display h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1E293B;
+  letter-spacing: -0.3px;
+}
+.order-status-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.floor-info {
+  color: #94A3B8;
+  font-size: 12px;
+  font-weight: normal;
+  margin-left: 4px;
+}
+.badge i {
+  margin-right: 4px;
+  font-size: 10px;
 }
 .payment-status-controls {
   display: flex;

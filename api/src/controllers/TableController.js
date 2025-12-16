@@ -85,21 +85,8 @@ async function updateTable(req, res, next) {
   }
 }
 
-async function updateTableStatus(req, res, next) {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    if (!status || !['available', 'occupied', 'reserved', 'maintenance'].includes(status)) {
-      throw new ApiError(400, 'Valid status is required');
-    }
-
-    const table = await TableService.updateTableStatus(id, status);
-    res.json(success(table, 'Table status updated successfully'));
-  } catch (error) {
-    next(error);
-  }
-}
+// updateTableStatus - REMOVED: This function is deprecated.
+// Use table schedule functions to manage table schedules instead.
 
 async function deleteTable(req, res, next) {
   try {
@@ -151,7 +138,7 @@ module.exports = {
   getAllTables,
   createTable,
   updateTable,
-  updateTableStatus,
+  // updateTableStatus - REMOVED: deprecated
   deleteTable,
   checkTableAvailability
 };

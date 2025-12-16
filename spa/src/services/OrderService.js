@@ -116,10 +116,6 @@ function makeOrderService() {
         });
         return data;
     }
-    async function getOrderLogs(orderId) {
-        const data = await efetch(`${baseUrl}/admin/orders/${orderId}/logs`);
-        return data;
-    }
     async function deleteOrder(orderId) {
         const data = await efetch(`${baseUrl}/admin/orders/${orderId}`, {
             method: 'DELETE',
@@ -150,7 +146,6 @@ function makeOrderService() {
         assignDeliveryStaff,
         updatePaymentStatus,
         updateInternalNotes,
-        getOrderLogs,
         deleteOrder,
     };
 }

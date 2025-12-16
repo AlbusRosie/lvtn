@@ -125,9 +125,9 @@ class BranchHandler {
                 const closeHours = b.close_hours ? `${b.close_hours}h` : '';
                 const hours = openingHours && closeHours ? `${openingHours} - ${closeHours}` : (openingHours || closeHours || '');
                 let branchInfo = `${idx + 1}. ${b.name}`;
-                if (address) branchInfo += `\n   📍 ${address}`;
-                if (phone) branchInfo += `\n   📞 ${phone}`;
-                if (hours) branchInfo += `\n   🕐 ${hours}`;
+                if (address) branchInfo += `\n   ${address}`;
+                if (phone) branchInfo += `\n   ${phone}`;
+                if (hours) branchInfo += `\n   ${hours}`;
                 return branchInfo;
             }).join('\n\n');
         } else {
@@ -145,11 +145,11 @@ class BranchHandler {
             const address = branch.address_detail ? branch.address_detail.trim() : 'Địa chỉ chưa cập nhật';
             const phone = branch.phone ? branch.phone.trim() : '';
             const hours = this.formatOperatingHours(branch) || 'Giờ làm việc chưa cập nhật';
-            let buttonText = `📍 ${branch.name}`;
+            let buttonText = `${branch.name}`;
             buttonText += `\n${address}`;
-            buttonText += `\n🕐 ${hours}`;
+            buttonText += `\n${hours}`;
             if (phone) {
-                buttonText += `\n📞 ${phone}`;
+                buttonText += `\n${phone}`;
             }
             if (bookingContext) {
                 const intent = bookingContext.intent;

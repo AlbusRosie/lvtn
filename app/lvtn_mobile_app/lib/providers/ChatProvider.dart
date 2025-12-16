@@ -50,11 +50,13 @@ class ChatProvider with ChangeNotifier {
       final welcomeMessage = ChatMessage(
         id: _uuid.v4(),
         content: 'Xin chào! Tôi là trợ lý ảo của Beast Bite. Tôi có thể giúp bạn:\n\n'
-            '🍽️ Xem menu - Xem menu theo từng chi nhánh\n'
-            '🪑 Đặt bàn - Đặt bàn tại nhà hàng\n'
-            '🔍 Tìm món - Tìm kiếm món ăn theo từng chi nhánh\n'
-            '📍 Thông tin chi nhánh - Xem giờ làm việc, địa chỉ, số điện thoại theo từng chi nhánh\n'
-            '📦 Kiểm tra đơn hàng - Xem đơn hàng của bạn\n\n'
+            '- Xem menu: Xem menu theo từng chi nhánh\n'
+            '- Đặt bàn: Đặt bàn tại nhà hàng\n'
+            '- Đặt đơn giao hàng: Đặt đơn giao hàng từ nhà hàng\n'
+            '- Đặt đơn mang về: Đặt đơn mang về từ nhà hàng\n'
+            '- Tìm món: Tìm kiếm món ăn theo từng chi nhánh\n'
+            '- Thông tin chi nhánh: Xem giờ làm việc, địa chỉ, số điện thoại theo từng chi nhánh\n'
+            '- Kiểm tra đơn hàng: Xem đơn hàng của bạn\n\n'
             'Bạn cần tôi giúp gì?',
         isUser: false,
         timestamp: DateTime.now(),
@@ -109,11 +111,13 @@ class ChatProvider with ChangeNotifier {
       final welcomeMessage = ChatMessage(
         id: _uuid.v4(),
         content: 'Xin chào! Tôi là trợ lý ảo của Beast Bite. Tôi có thể giúp bạn:\n\n'
-            '🍽️ Xem menu - Xem menu theo từng chi nhánh\n'
-            '🪑 Đặt bàn - Đặt bàn tại nhà hàng\n'
-            '🔍 Tìm món - Tìm kiếm món ăn theo từng chi nhánh\n'
-            '📍 Thông tin chi nhánh - Xem giờ làm việc, địa chỉ, số điện thoại theo từng chi nhánh\n'
-            '📦 Kiểm tra đơn hàng - Xem đơn hàng của bạn\n\n'
+            '- Xem menu: Xem menu theo từng chi nhánh\n'
+            '- Đặt bàn: Đặt bàn tại nhà hàng\n'
+            '- Đặt đơn giao hàng: Đặt đơn giao hàng từ nhà hàng\n'
+            '- Đặt đơn mang về: Đặt đơn mang về từ nhà hàng\n'
+            '- Tìm món: Tìm kiếm món ăn theo từng chi nhánh\n'
+            '- Thông tin chi nhánh: Xem giờ làm việc, địa chỉ, số điện thoại theo từng chi nhánh\n'
+            '- Kiểm tra đơn hàng: Xem đơn hàng của bạn\n\n'
             'Bạn cần tôi giúp gì?',
         isUser: false,
         timestamp: DateTime.now(),
@@ -232,22 +236,22 @@ class ChatProvider with ChangeNotifier {
   List<ChatSuggestion> _getDefaultSuggestions() {
     return [
       ChatSuggestion(
-        text: '🍽️ Xem menu',
+        text: 'Xem menu',
         action: 'view_menu',
         data: {'branch_id': _currentBranchId},
       ),
       ChatSuggestion(
-        text: '🪑 Đặt bàn',
+        text: 'Đặt bàn',
         action: 'book_table',
         data: {'branch_id': _currentBranchId},
       ),
       ChatSuggestion(
-        text: '📍 Xem chi nhánh',
+        text: 'Xem chi nhánh',
         action: 'view_branches',
         data: {},
       ),
       ChatSuggestion(
-        text: '📦 Đơn hàng của tôi',
+        text: 'Đơn hàng của tôi',
         action: 'view_orders',
         data: {},
       ),
@@ -493,7 +497,7 @@ class ChatProvider with ChangeNotifier {
         } else if (suggestion.action == 'select_branch') {
           if (result['data'] != null && result['data']['suggestions'] != null) {
           } else {
-            sendMessage('📍 Xem danh sách chi nhánh');
+            sendMessage('Xem danh sách chi nhánh');
             return;
           }
         } else if (suggestion.action == 'modify_booking') {

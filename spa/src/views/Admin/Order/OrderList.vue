@@ -3,6 +3,8 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import OrderService from '@/services/OrderService';
 import BranchService from '@/services/BranchService';
 import UserService from '@/services/UserService';
+import SocketService from '@/services/SocketService';
+import AuthService from '@/services/AuthService';
 import RevenueChart from '@/components/Charts/RevenueChart.vue';
 import { useToast } from 'vue-toastification';
 import { USER_ROLES, PAYMENT_STATUS } from '@/constants';
@@ -79,9 +81,6 @@ const showQuickModal = ref(false);
 const quickViewOrder = ref(null);
 const isLoadingOrderDetails = ref(false);
 const isUpdatingPayment = ref(false);
-const orderLogs = ref([]);
-const isLoadingLogs = ref(false);
-const showLogsModal = ref(false);
 const topProducts = ref([]);
 const showDeleteModal = ref(false);
 const orderToDelete = ref(null);
@@ -96,10 +95,7 @@ const editForm = reactive({
     payment_method: ''
 });
 const isUpdatingOrder = ref(false);
-const lastOrderCount = ref(0);
 const newOrdersCount = ref(0);
-const pollingInterval = ref(null);
-const isPollingEnabled = ref(true);
 function initializeChartDateRange() {
     const today = new Date();
     const thirtyDaysAgo = new Date(today);
@@ -193,25 +189,25 @@ const statusOptions = computed(() => {
 });
 const orderTypeOptions = computed(() => {
     const baseOptions = [
-        { value: '', label: props.isManagerView ? 'All Order Types' : 'Tất cả loại đơn' },
-        { value: 'dine_in', label: props.isManagerView ? 'Dine In' : 'Tại quán' },
-        { value: 'delivery', label: props.isManagerView ? 'Delivery' : 'Giao hàng' }
+        { value: '', label: 'All Order Types' },
+        { value: 'dine_in', label: 'Dine In' },
+        { value: 'delivery', label: 'Delivery' }
     ];
     return baseOptions;
 });
 const paymentStatusOptions = computed(() => {
     const baseOptions = [
-        { value: '', label: props.isManagerView ? 'All Payment Status' : 'Tất cả trạng thái thanh toán' },
-        { value: 'pending', label: props.isManagerView ? 'Pending Payment' : 'Chờ thanh toán' },
-        { value: 'paid', label: props.isManagerView ? 'Paid' : 'Đã thanh toán' },
-        { value: 'failed', label: props.isManagerView ? 'Payment Failed' : 'Thanh toán thất bại' }
+        { value: '', label: 'All Payment Status' },
+        { value: 'pending', label: 'Pending Payment' },
+        { value: 'paid', label: 'Paid' },
+        { value: 'failed', label: 'Payment Failed' }
     ];
     return baseOptions;
 });
 const paymentMethodOptions = computed(() => {
     const baseOptions = [
-        { value: '', label: props.isManagerView ? 'All Payment Methods' : 'Tất cả phương thức' },
-        { value: 'cash', label: props.isManagerView ? 'Cash' : 'Tiền mặt' }
+        { value: '', label: 'All Payment Methods' },
+        { value: 'cash', label: 'Cash' }
     ];
     return baseOptions;
 });
@@ -888,23 +884,21 @@ function selectAllOrders() {
 }
 async function bulkUpdateStatus(status) {
     if (selectedOrders.value.length === 0) {
-        showToast('warning', props.isManagerView ? 'Please select at least one order' : 'Vui lòng chọn ít nhất một đơn hàng', props.isManagerView ? 'Vui lòng chọn ít nhất một đơn hàng' : 'Please select at least one order');
+        showToast('warning', 'Please select at least one order', 'Please select at least one order');
         return;
     }
     if (!canBulkUpdateToStatus(status)) {
-        toast.warning(props.isManagerView ? 'Cannot update status backwards. Please select orders that can be updated to this status.' : 'Không thể cập nhật trạng thái lùi. Vui lòng chọn đơn hàng có thể cập nhật sang trạng thái này.');
+        toast.warning('Cannot update status backwards. Please select orders that can be updated to this status.');
         return;
     }
-    const confirmMessage = props.isManagerView 
-        ? `Are you sure you want to update ${selectedOrders.value.length} order(s) status to "${getStatusLabel(status)}"?`
-        : `Bạn có chắc muốn cập nhật trạng thái ${selectedOrders.value.length} đơn hàng thành "${getStatusLabel(status)}"?`;
+    const confirmMessage = `Are you sure you want to update ${selectedOrders.value.length} order(s) status to "${getStatusLabel(status)}"?`;
     if (confirm(confirmMessage)) {
         try {
             const promises = selectedOrders.value.map(orderId => 
                 OrderService.updateOrderStatus(orderId, status)
             );
             await Promise.all(promises);
-            showToast('success', props.isManagerView ? `Updated ${selectedOrders.value.length} order(s) status successfully` : `Đã cập nhật trạng thái ${selectedOrders.value.length} đơn hàng thành công`, props.isManagerView ? `Đã cập nhật trạng thái ${selectedOrders.value.length} đơn hàng thành công` : `Updated ${selectedOrders.value.length} order(s) status successfully`);
+            showToast('success', `Updated ${selectedOrders.value.length} order(s) status successfully`, `Updated ${selectedOrders.value.length} order(s) status successfully`);
             selectedOrders.value = [];
             await loadOrders(currentPage.value);
             await loadStatistics();
@@ -929,9 +923,7 @@ async function confirmBulkDelete() {
             OrderService.deleteOrder(orderId)
         );
         await Promise.all(promises);
-        const successMsg = props.isManagerView 
-            ? `Deleted ${selectedOrders.value.length} order(s) successfully`
-            : `Đã xóa ${selectedOrders.value.length} đơn hàng thành công`;
+        const successMsg = `Deleted ${selectedOrders.value.length} order(s) successfully`;
         toast.success(successMsg);
         selectedOrders.value = [];
         showBulkDeleteModal.value = false;
@@ -939,7 +931,7 @@ async function confirmBulkDelete() {
         await loadStatistics();
         await generateRevenueChartData();
     } catch (err) {
-        showToast('error', props.isManagerView ? 'Unable to delete order' : 'Không thể xóa đơn hàng', props.isManagerView ? 'Không thể xóa đơn hàng' : 'Unable to delete order');
+        showToast('error', 'Unable to delete order', 'Unable to delete order');
     } finally {
         bulkDeleteLoading.value = false;
     }
@@ -960,36 +952,6 @@ async function showQuickDetails(order) {
     } finally {
         isLoadingOrderDetails.value = false;
     }
-}
-async function loadOrderLogs(orderId) {
-    isLoadingLogs.value = true;
-    try {
-        const logs = await OrderService.getOrderLogs(orderId);
-        orderLogs.value = logs || [];
-        showLogsModal.value = true;
-    } catch (err) {
-        showToast('error', 'Unable to load change history', 'Unable to load change history');
-    } finally {
-        isLoadingLogs.value = false;
-    }
-}
-function getActionLabel(action) {
-    const labels = {
-        status_change: 'Status Changed',
-        payment_status_change: 'Payment Status Changed',
-        note_update: 'Note Updated',
-        delivery_assigned: 'Delivery Assigned'
-    };
-    return labels[action] || action;
-}
-function getLogActionClass(action) {
-    const classes = {
-        status_change: 'log-status',
-        payment_status_change: 'log-payment',
-        note_update: 'log-note',
-        delivery_assigned: 'log-delivery'
-    };
-    return classes[action] || '';
 }
 const statusOrder = {
     'pending': 1,
@@ -1034,25 +996,23 @@ function isStatusDisabled(statusValue, currentStatus) {
 function getStatusButtonTitle(statusValue, currentStatus) {
     if (isStatusDisabled(statusValue, currentStatus)) {
         if (currentStatus === 'completed' || currentStatus === 'cancelled') {
-            return props.isManagerView ? 'Cannot change status of completed/cancelled orders' : 'Không thể thay đổi trạng thái của đơn hàng đã hoàn thành/hủy';
+            return 'Cannot change status of completed/cancelled orders';
         }
-        return props.isManagerView ? 'Cannot revert to previous status' : 'Không thể quay lại trạng thái trước đó';
+        return 'Cannot revert to previous status';
     }
-    return props.isManagerView ? `Thay đổi trạng thái thành: ${getStatusLabel(statusValue)}` : `Change status to: ${getStatusLabel(statusValue)}`;
+    return `Change status to: ${getStatusLabel(statusValue)}`;
 }
 async function updateQuickOrderStatus(newStatus) {
     if (!quickViewOrder.value || isUpdatingPayment.value) return;
     if (isStatusDisabled(newStatus, quickViewOrder.value.status)) {
-        showToast('warning', props.isManagerView ? 'Cannot change to this status' : 'Không thể thay đổi sang trạng thái này', props.isManagerView ? 'Không thể thay đổi sang trạng thái này' : 'Cannot change to this status');
+        showToast('warning', 'Cannot change to this status', 'Cannot change to this status');
         return;
     }
     isUpdatingPayment.value = true;
     try {
         await OrderService.updateOrderStatus(quickViewOrder.value.id, newStatus);
         quickViewOrder.value.status = newStatus;
-        const successMsg = props.isManagerView 
-            ? `Order status updated to "${getStatusLabel(newStatus)}" successfully`
-            : `Đã cập nhật trạng thái đơn hàng thành "${getStatusLabel(newStatus)}" thành công`;
+        const successMsg = `Order status updated to "${getStatusLabel(newStatus)}" successfully`;
         toast.success(successMsg);
         await loadOrders(currentPage.value);
         await loadStatistics();
@@ -1308,7 +1268,7 @@ function getStatusBadgeClass(status) {
         pending: 'badge-warning',
         preparing: 'badge-info',
         ready: 'badge-primary',
-        out_for_delivery: 'badge-secondary',
+        out_for_delivery: 'badge-delivering',
         completed: 'badge-success',
         cancelled: 'badge-danger'
     };
@@ -1370,7 +1330,7 @@ function openExportModal() {
 }
 async function exportOrders(format = 'csv') {
     if (!exportFilters.dateFrom && !exportFilters.dateTo) {
-        showToast('warning', props.isManagerView ? 'Please select at least one date (From Date or To Date) to export' : 'Vui lòng chọn ít nhất một ngày (Từ ngày hoặc Đến ngày) để xuất', props.isManagerView ? 'Vui lòng chọn ít nhất một ngày (Từ ngày hoặc Đến ngày) để xuất' : 'Please select at least one date (From Date or To Date) to export');
+        showToast('warning', 'Please select at least one date (From Date or To Date) to export', 'Please select at least one date (From Date or To Date) to export');
         return;
     }
     isExporting.value = true;
@@ -1408,7 +1368,7 @@ async function exportOrders(format = 'csv') {
             const fromDate = new Date(filters.date_from);
             const toDate = new Date(filters.date_to);
             if (toDate < fromDate) {
-                showToast('warning', props.isManagerView ? '"To Date" must be greater than or equal to "From Date"' : '"Đến ngày" phải lớn hơn hoặc bằng "Từ ngày"', props.isManagerView ? '"Đến ngày" phải lớn hơn hoặc bằng "Từ ngày"' : '"To Date" must be greater than or equal to "From Date"');
+                showToast('warning', '"To Date" must be greater than or equal to "From Date"', '"To Date" must be greater than or equal to "From Date"');
                 return;
             }
         }
@@ -1657,55 +1617,73 @@ onMounted(async () => {
     await loadStatistics();
     await loadTopProducts();
     generateRevenueChartData();
-    startOrderPolling();
-});
-function startOrderPolling() {
-    if (!isPollingEnabled.value) return;
-    setTimeout(async () => {
-        try {
-            const filters = {
-                status: 'pending',
-                limit: 1,
-                page: 1
-            };
-            const result = await OrderService.getAllOrders(filters);
-            lastOrderCount.value = result.pagination?.total_count || 0;
-        } catch (err) {
-            }
-    }, 2000);
-    pollingInterval.value = setInterval(async () => {
-        try {
-            const filters = {
-                status: 'pending',
-                limit: 1,
-                page: 1
-            };
-            const result = await OrderService.getAllOrders(filters);
-            const currentPendingCount = result.pagination?.total_count || 0;
-            if (lastOrderCount.value > 0 && currentPendingCount > lastOrderCount.value) {
-                const newCount = currentPendingCount - lastOrderCount.value;
-                newOrdersCount.value += newCount;
-                toast.info(`There are ${newCount} new orders pending!`, {
-                    timeout: 5000,
-                    onClick: () => {
-                        selectedStatus.value = 'pending';
-                        loadOrders(1);
-                        newOrdersCount.value = 0;
-                    }
-                });
-                playNotificationSound();
-            }
-            lastOrderCount.value = currentPendingCount;
-        } catch (err) {
-            }
-    }, 10000); 
-}
-function stopOrderPolling() {
-    if (pollingInterval.value) {
-        clearInterval(pollingInterval.value);
-        pollingInterval.value = null;
+    
+    // ✅ Ensure socket is connected before setting up listeners
+    if (!SocketService.getConnectionStatus()) {
+      SocketService.connect();
+      // Wait for connection with timeout
+      const connected = await SocketService.waitForConnection(3000);
+      console.log('[OrderList] Socket connected:', connected);
     }
-}
+    
+    // ✅ SETUP SOCKET.IO LISTENERS
+    // Note: new-order notification is handled globally in App.vue for Admin
+    // We only listen here for data refresh when on this page
+    console.log('[OrderList] Setting up socket listeners for data refresh...');
+    console.log('[OrderList] Socket connection status:', SocketService.getConnectionStatus());
+    
+    // Listen for new orders - only refresh data, notification is shown by App.vue
+    SocketService.on('new-order', (data) => {
+      console.log('[OrderList] 🔔 Received new-order notification (refresh only):', data);
+      
+      const user = AuthService.getUser();
+      const isAdmin = user?.role_id === USER_ROLES.ADMIN;
+      
+      // Admin should always refresh, Manager/Staff only for their branch
+      const shouldRefresh = isAdmin || 
+          !selectedBranch.value || 
+          data.branchId === parseInt(selectedBranch.value);
+      
+      if (shouldRefresh) {
+        console.log('[OrderList] ✅ Refreshing order list (notification shown by App.vue)');
+        newOrdersCount.value++;
+        loadOrders(currentPage.value); // Refresh order list only, no duplicate notification
+      }
+    });
+    
+    // Test socket connection and send test event
+    console.log('[OrderList] Socket connection status:', SocketService.getConnectionStatus());
+    
+    // Test listener registration with a test event after a delay
+    setTimeout(() => {
+      if (SocketService.getConnectionStatus()) {
+        console.log('[OrderList] ✅ Socket is connected, listener should be active');
+        const socket = SocketService.getSocket();
+        if (socket) {
+          console.log('[OrderList] Socket ID:', socket.id);
+          console.log('[OrderList] Socket connected:', socket.connected);
+          const listenerCount = SocketService.testListener('new-order');
+          console.log('[OrderList] new-order listener count:', listenerCount);
+        }
+      } else {
+        console.warn('[OrderList] ⚠️ Socket is NOT connected, listener may not work');
+      }
+    }, 1000);
+    
+    SocketService.on('order-status-updated', (data) => {
+        // Refresh if order is in current view
+        if (orders.value.some(o => o.id === data.orderId)) {
+            loadOrders(currentPage.value);
+        }
+    });
+    
+    SocketService.on('payment-status-updated', (data) => {
+        // Refresh if order is in current view
+        if (orders.value.some(o => o.id === data.orderId)) {
+            loadOrders(currentPage.value);
+        }
+    });
+});
 function playNotificationSound() {
     try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -1723,7 +1701,9 @@ function playNotificationSound() {
         }
 }
 onBeforeUnmount(() => {
-    stopOrderPolling();
+    // Clean up socket listeners (new-order is handled by App.vue, don't off it here)
+    SocketService.off('order-status-updated');
+    SocketService.off('payment-status-updated');
 });
 watch([selectedBranch, selectedStatus, selectedOrderType, selectedPaymentStatus, selectedPaymentMethod, dateFrom, dateTo], () => {
     applyFilters();
@@ -1856,7 +1836,7 @@ watch([chartDateFrom, chartDateTo], () => {
               </div>
               <div class="stat-content">
                 <div class="stat-value">{{ statistics.orders_by_status?.pending || 0 }}</div>
-                <div class="stat-label">{{ isManagerView ? 'Processing' : 'Đang xử lý' }}</div>
+                <div class="stat-label">Processing</div>
               </div>
             </div>
             <div class="order-stat-item">
@@ -1920,16 +1900,16 @@ watch([chartDateFrom, chartDateTo], () => {
       </div>
       <div class="filters-grid">
         <div v-if="!hideBranchFilter" class="filter-group">
-          <label>{{ isManagerView ? 'Branch' : 'Chi nhánh' }}</label>
+          <label>Branch</label>
           <select v-model="selectedBranch" class="filter-select">
-            <option value="">{{ isManagerView ? 'All Branches' : 'Tất cả chi nhánh' }}</option>
+            <option value="">All Branches</option>
             <option v-for="branch in branches" :key="branch.id" :value="branch.id">
               {{ branch.name }}
             </option>
           </select>
         </div>
         <div class="filter-group">
-          <label>{{ isManagerView ? 'Order Type' : 'Loại đơn' }}</label>
+          <label>Order Type</label>
         <select v-model="selectedOrderType" class="filter-select">
           <option v-for="option in orderTypeOptions" :key="option.value" :value="option.value">
             {{ option.label }}
@@ -1937,7 +1917,7 @@ watch([chartDateFrom, chartDateTo], () => {
         </select>
         </div>
         <div class="filter-group">
-          <label>{{ isManagerView ? 'Payment Status' : 'Trạng thái thanh toán' }}</label>
+          <label>Payment Status</label>
           <select v-model="selectedPaymentStatus" class="filter-select">
             <option v-for="option in paymentStatusOptions" :key="option.value" :value="option.value">
               {{ option.label }}
@@ -1945,11 +1925,11 @@ watch([chartDateFrom, chartDateTo], () => {
           </select>
         </div>
         <div class="filter-group">
-          <label>{{ isManagerView ? 'From Date' : 'Từ ngày' }}</label>
+          <label>From Date</label>
           <input v-model="dateFrom" type="date" class="filter-input">
         </div>
         <div class="filter-group">
-          <label>{{ isManagerView ? 'To Date' : 'Đến ngày' }}</label>
+          <label>To Date</label>
           <input v-model="dateTo" type="date" class="filter-input">
         </div>
       </div>
@@ -1958,13 +1938,13 @@ watch([chartDateFrom, chartDateTo], () => {
     <div class="content-area">
       <div v-if="isLoading" class="loading">
         <div class="spinner"></div>
-        <p>{{ isManagerView ? 'Loading order list...' : 'Đang tải danh sách đơn hàng...' }}</p>
+        <p>Loading order list...</p>
       </div>
       <div v-else-if="error" class="error">
         <i class="fas fa-exclamation-triangle"></i>
         <p>{{ error }}</p>
         <button @click="loadOrders(currentPage)" class="btn btn-secondary">
-          {{ isManagerView ? 'Try Again' : 'Thử lại' }}
+          Try Again
         </button>
       </div>
       <!-- Orders Table -->
@@ -1982,7 +1962,7 @@ watch([chartDateFrom, chartDateTo], () => {
                 <button 
                   @click="bulkUpdateStatus('preparing')" 
                   class="bulk-btn" 
-                  :title="isManagerView ? 'Preparing' : 'Đang chuẩn bị'"
+                  title="Preparing"
                   :disabled="!canBulkUpdateToStatus('preparing')"
                 >
               <i class="fas fa-clock"></i>
@@ -1998,7 +1978,7 @@ watch([chartDateFrom, chartDateTo], () => {
                 <button 
                   @click="bulkUpdateStatus('completed')" 
                   class="bulk-btn" 
-                  :title="isManagerView ? 'Completed' : 'Hoàn thành'"
+                  title="Completed"
                   :disabled="!canBulkUpdateToStatus('completed')"
                 >
               <i class="fas fa-check-double"></i>
@@ -2021,7 +2001,7 @@ watch([chartDateFrom, chartDateTo], () => {
                   <i class="fas fa-trash"></i>
                 </button>
               </template>
-            <button @click="selectedOrders = []" class="bulk-btn" :title="isManagerView ? 'Deselect' : 'Bỏ chọn'">
+            <button @click="selectedOrders = []" class="bulk-btn" title="Deselect">
               <i class="fas fa-times"></i>
             </button>
             </div>
@@ -2030,7 +2010,7 @@ watch([chartDateFrom, chartDateTo], () => {
                 <i class="fas fa-file-excel"></i>
                 Export Excel
               </button>
-              <button @click="loadOrders(currentPage)" class="btn-refresh" :disabled="isLoading">{{ isManagerView ? 'Refresh' : 'Làm mới' }}</button>
+              <button @click="loadOrders(currentPage)" class="btn-refresh" :disabled="isLoading">Refresh</button>
             </div>
           </div>
         </div>
@@ -2061,15 +2041,15 @@ watch([chartDateFrom, chartDateTo], () => {
                     class="checkbox-input"
                   />
                 </th>
-                <th style="width: 80px;">{{ isManagerView ? 'ID' : 'ID' }}</th>
-                <th style="width: 12%;">{{ isManagerView ? 'Customer' : 'Khách hàng' }}</th>
-                <th style="width: 18%;">{{ isManagerView ? 'Branch' : 'Chi nhánh' }}</th>
-                <th style="width: 120px;">{{ isManagerView ? 'Type' : 'Loại' }}</th>
-                <th style="width: 100px;">{{ isManagerView ? 'Table' : 'Bàn' }}</th>
-                <th style="width: 120px;">{{ isManagerView ? 'Total' : 'Tổng tiền' }}</th>
-                <th class="status-col" style="width: 140px;">{{ isManagerView ? 'Status' : 'Trạng thái' }}</th>
-                <th style="width: 150px;">{{ isManagerView ? 'Created Date' : 'Ngày tạo' }}</th>
-                <th style="width: 180px; min-width: 180px;">{{ isManagerView ? 'Actions' : 'Thao tác' }}</th>
+                <th style="width: 80px;">ID</th>
+                <th style="width: 12%;">Customer</th>
+                <th style="width: 18%;">Branch</th>
+                <th style="width: 120px;">Type</th>
+                <th style="width: 100px;">Table</th>
+                <th style="width: 120px;">Total</th>
+                <th class="status-col" style="width: 140px;">Status</th>
+                <th style="width: 150px;">Created Date</th>
+                <th style="width: 180px; min-width: 180px;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -2077,12 +2057,12 @@ watch([chartDateFrom, chartDateTo], () => {
                 <td :colspan="10" class="empty-cell">
                   <div class="empty-state-inline">
                     <i class="fas fa-shopping-cart"></i>
-                    <h3>{{ isManagerView ? 'No Orders' : 'Không có đơn hàng' }}</h3>
+                    <h3>No Orders</h3>
                     <p v-if="selectedBranch || selectedStatus || selectedOrderType || dateFrom || dateTo">
-                      {{ isManagerView ? 'No orders match the current filters' : 'Không có đơn hàng nào khớp với bộ lọc hiện tại' }}
+                      No orders match the current filters
                     </p>
                     <p v-else>
-                      {{ isManagerView ? 'No orders have been created yet' : 'Chưa có đơn hàng nào được tạo' }}
+                      No orders have been created yet
                     </p>
                   </div>
                 </td>
@@ -2126,14 +2106,14 @@ watch([chartDateFrom, chartDateTo], () => {
                     <button 
                       class="btn-action btn-view" 
                       @click="showQuickDetails(order)"
-                      :title="isManagerView ? 'Xem nhanh' : 'Quick View'"
+                      title="Quick View"
                     >
                       <i class="fas fa-eye"></i>
                     </button>
                       <button 
                       class="btn-action btn-delete" 
                       @click="handleDelete(order)"
-                      :title="isManagerView ? 'Delete' : 'Xóa'"
+                      title="Delete"
                       :disabled="isLoading || order.status === 'completed'"
                       >
                       <i class="fas fa-trash"></i>
@@ -2208,16 +2188,16 @@ watch([chartDateFrom, chartDateTo], () => {
             <div class="info-card">
               <div class="card-header">
                 <i class="fas fa-user"></i>
-                <h3>{{ isManagerView ? 'Customer Information' : 'Thông tin khách hàng' }}</h3>
+                <h3>Customer Information</h3>
               </div>
               <div class="card-content">
                 <div class="info-item">
-                  <span class="info-label">{{ isManagerView ? 'Customer Name' : 'Tên khách hàng' }}</span>
-                  <span class="info-value">{{ quickViewOrder.customer_name || (isManagerView ? 'N/A' : 'Chưa có') }}</span>
+                  <span class="info-label">Customer Name</span>
+                  <span class="info-value">{{ quickViewOrder.customer_name || 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">{{ isManagerView ? 'Phone Number' : 'Số điện thoại' }}</span>
-                  <span class="info-value">{{ quickViewOrder.customer_phone || (isManagerView ? 'N/A' : 'Chưa có') }}</span>
+                  <span class="info-label">Phone Number</span>
+                  <span class="info-value">{{ quickViewOrder.customer_phone || 'N/A' }}</span>
                 </div>
               </div>
             </div>
@@ -2225,15 +2205,15 @@ watch([chartDateFrom, chartDateTo], () => {
             <div class="info-card">
               <div class="card-header">
                 <i class="fas fa-store"></i>
-                <h3>{{ isManagerView ? 'Order Information' : 'Thông tin đơn hàng' }}</h3>
+                <h3>Order Information</h3>
               </div>
               <div class="card-content">
                 <div class="info-item">
-                  <span class="info-label">{{ isManagerView ? 'Branch' : 'Chi nhánh' }}</span>
-                  <span class="info-value">{{ quickViewOrder.branch_name || (isManagerView ? 'N/A' : 'Chưa có') }}</span>
+                  <span class="info-label">Branch</span>
+                  <span class="info-value">{{ quickViewOrder.branch_name || 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">{{ isManagerView ? 'Order Type' : 'Loại đơn' }}</span>
+                  <span class="info-label">Order Type</span>
                   <span class="info-value">
                     <span class="badge small-badge" :class="quickViewOrder.order_type === 'dine_in' ? 'badge-primary' : 'badge-info'">
                       {{ getOrderTypeLabel(quickViewOrder.order_type) }}
@@ -2241,7 +2221,7 @@ watch([chartDateFrom, chartDateTo], () => {
                   </span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">{{ isManagerView ? 'Created Date' : 'Ngày tạo' }}</span>
+                  <span class="info-label">Created Date</span>
                   <span class="info-value">{{ formatDate(quickViewOrder.created_at) }}</span>
                 </div>
               </div>
@@ -2256,9 +2236,9 @@ watch([chartDateFrom, chartDateTo], () => {
             <div class="items-list">
               <div v-for="(item, index) in quickViewOrder.items" :key="index" class="order-item">
                 <div class="item-info">
-                  <div class="item-name">{{ item.product_name || item.name || (isManagerView ? 'N/A' : 'Chưa có') }}</div>
+                  <div class="item-name">{{ item.product_name || item.name || 'N/A' }}</div>
                   <div class="item-details">
-                    <span class="item-quantity">{{ isManagerView ? 'Quantity' : 'Số lượng' }}: {{ item.quantity || 1 }}</span>
+                    <span class="item-quantity">Quantity: {{ item.quantity || 1 }}</span>
                     <span class="item-price">{{ formatCurrency(item.price || item.total || 0) }}</span>
                   </div>
                 </div>
@@ -2271,11 +2251,11 @@ watch([chartDateFrom, chartDateTo], () => {
           <!-- Order Summary -->
           <div class="order-summary">
             <div class="summary-row">
-              <span class="summary-label">{{ isManagerView ? 'Total Items' : 'Tổng món' }}:</span>
+              <span class="summary-label">Total Items:</span>
               <span class="summary-value">{{ quickViewOrder.items_count || (quickViewOrder.items ? quickViewOrder.items.length : 0) }}</span>
             </div>
             <div class="summary-row total-row">
-              <span class="summary-label">{{ isManagerView ? 'Tổng tiền' : 'Total' }}:</span>
+              <span class="summary-label">Total:</span>
               <span class="summary-value total-amount">{{ formatCurrency(quickViewOrder.total) }}</span>
             </div>
           </div>
@@ -2285,7 +2265,7 @@ watch([chartDateFrom, chartDateTo], () => {
             <div class="info-card">
               <div class="card-header">
                 <i class="fas fa-info-circle"></i>
-                <h3>{{ isManagerView ? 'Thay đổi trạng thái đơn hàng' : 'Change Order Status' }}</h3>
+                <h3>Change Order Status</h3>
               </div>
               <div class="card-content">
                 <div class="quick-status-buttons">
@@ -2315,17 +2295,17 @@ watch([chartDateFrom, chartDateTo], () => {
               <div class="card-content">
               <div class="payment-status-controls">
                   <div class="form-group-inline">
-                    <label>{{ isManagerView ? 'Payment Status' : 'Trạng thái thanh toán' }}</label>
+                    <label>Payment Status</label>
                 <select v-model="quickViewOrder.payment_status" @change="updatePaymentStatusHandler" class="form-select">
-                  <option value="pending">{{ isManagerView ? 'Chờ thanh toán' : 'Pending Payment' }}</option>
-                  <option value="paid">{{ isManagerView ? 'Đã thanh toán' : 'Paid' }}</option>
-                  <option value="failed">{{ isManagerView ? 'Thanh toán thất bại' : 'Payment Failed' }}</option>
+                  <option value="pending">Pending Payment</option>
+                  <option value="paid">Paid</option>
+                  <option value="failed">Payment Failed</option>
                 </select>
                   </div>
                   <div class="form-group-inline" v-if="quickViewOrder.payment_status === 'paid'">
-                    <label>{{ isManagerView ? 'Phương thức thanh toán' : 'Payment Method' }}</label>
+                    <label>Payment Method</label>
                     <select v-model="quickViewOrder.payment_method" @change="updatePaymentStatusHandler" class="form-select">
-                  <option value="cash">{{ isManagerView ? 'Tiền mặt' : 'Cash' }}</option>
+                  <option value="cash">Cash</option>
                 </select>
               </div>
             </div>
@@ -2336,19 +2316,15 @@ watch([chartDateFrom, chartDateTo], () => {
           <div class="modal-actions">
             <button @click="showQuickModal = false" class="btn-close">
               <i class="fas fa-times"></i>
-              {{ isManagerView ? 'Đóng' : 'Close' }}
+              Close
             </button>
-            <button @click="loadOrderLogs(quickViewOrder.id)" class="btn-logs" :title="isManagerView ? 'Xem lịch sử thay đổi' : 'View Change History'">
-              <i class="fas fa-history"></i>
-              {{ isManagerView ? 'Lịch sử' : 'History' }}
-            </button>
-            <button @click="printKitchenTicket" class="btn-kitchen" :title="isManagerView ? 'In phiếu bếp' : 'Print Kitchen Ticket'" v-if="quickViewOrder.status !== 'completed' && quickViewOrder.status !== 'cancelled'">
+            <button @click="printKitchenTicket" class="btn-kitchen" title="Print Kitchen Ticket" v-if="quickViewOrder.status !== 'completed' && quickViewOrder.status !== 'cancelled'">
               <i class="fas fa-utensils"></i>
-              {{ isManagerView ? 'Phiếu bếp' : 'Kitchen Ticket' }}
+              Kitchen Ticket
             </button>
-            <button @click="printInvoice" class="btn-print" :title="isManagerView ? 'In hóa đơn' : 'Print Invoice'">
+            <button @click="printInvoice" class="btn-print" title="Print Invoice">
               <i class="fas fa-print"></i>
-              {{ isManagerView ? 'In hóa đơn' : 'Print Invoice' }}
+              Print Invoice
             </button>
           </div>
         </div>
@@ -2370,7 +2346,7 @@ watch([chartDateFrom, chartDateTo], () => {
           <div class="export-section-card">
             <div class="export-section-header">
               <h4 class="section-title">
-                {{ isManagerView ? 'Khoảng thời gian' : 'Time Range' }}<span class="required-asterisk">*</span>
+                Time Range<span class="required-asterisk">*</span>
               </h4>
             </div>
             <div class="export-section-body">
@@ -2385,14 +2361,14 @@ watch([chartDateFrom, chartDateTo], () => {
                 <div class="form-group">
                   <label>
                     <i class="fas fa-calendar-check label-icon"></i>
-                    {{ isManagerView ? 'Đến ngày' : 'To Date' }}
+                    To Date
                   </label>
                   <input v-model="exportFilters.dateTo" type="date" class="form-input" :min="exportFilters.dateFrom || undefined">
                 </div>
               </div>
               <div class="export-note">
                 <i class="fas fa-info-circle note-icon"></i>
-                <span>{{ isManagerView ? 'Vui lòng chọn ít nhất một ngày (Từ ngày hoặc Đến ngày) để xuất. Nếu chỉ chọn "Từ ngày", sẽ xuất đến hiện tại. Nếu chỉ chọn "Đến ngày", sẽ xuất từ đầu.' : 'Please select at least one date (From Date or To Date) to export. If only "From Date" is selected, it will export until now. If only "To Date" is selected, it will export from the beginning.' }}</span>
+                <span>Please select at least one date (From Date or To Date) to export. If only "From Date" is selected, it will export until now. If only "To Date" is selected, it will export from the beginning.</span>
               </div>
             </div>
           </div>
@@ -2400,7 +2376,7 @@ watch([chartDateFrom, chartDateTo], () => {
           <div class="export-section-card">
             <div class="export-section-header">
               <h4 class="section-title">
-                {{ isManagerView ? 'Bộ lọc tùy chọn' : 'Optional Filters' }}
+                Optional Filters
               </h4>
             </div>
             <div class="export-section-body">
@@ -2408,10 +2384,10 @@ watch([chartDateFrom, chartDateTo], () => {
                 <div class="form-group">
                   <label>
                     <i class="fas fa-store label-icon"></i>
-                    {{ isManagerView ? 'Chi nhánh' : 'Branch' }}
+                    Branch
                   </label>
                   <select v-if="!hideBranchFilter" v-model="exportFilters.branch_id" class="form-select">
-                    <option value="">{{ isManagerView ? 'Tất cả chi nhánh' : 'All Branches' }}</option>
+                    <option value="">All Branches</option>
                     <option v-for="branch in branches" :key="branch.id" :value="branch.id">
                       {{ branch.name }}
                     </option>
@@ -2420,10 +2396,10 @@ watch([chartDateFrom, chartDateTo], () => {
                 <div class="form-group">
                   <label>
                     <i class="fas fa-tag label-icon"></i>
-                    {{ isManagerView ? 'Trạng thái đơn hàng' : 'Order Status' }}
+                    Order Status
                   </label>
                   <select v-model="exportFilters.status" class="form-select">
-                    <option value="">{{ isManagerView ? 'Tất cả trạng thái' : 'All Status' }}</option>
+                    <option value="">All Status</option>
                     <option v-for="option in statusOptions" :key="option.value" :value="option.value">
                       {{ option.label }}
                     </option>
@@ -2432,10 +2408,10 @@ watch([chartDateFrom, chartDateTo], () => {
                 <div class="form-group">
                   <label>
                     <i class="fas fa-shopping-bag label-icon"></i>
-                    {{ isManagerView ? 'Loại đơn' : 'Order Type' }}
+                    Order Type
                   </label>
                   <select v-model="exportFilters.order_type" class="form-select">
-                    <option value="">{{ isManagerView ? 'Tất cả loại đơn' : 'All Order Types' }}</option>
+                    <option value="">All Order Types</option>
                     <option v-for="option in orderTypeOptions" :key="option.value" :value="option.value">
                       {{ option.label }}
                     </option>
@@ -2444,10 +2420,10 @@ watch([chartDateFrom, chartDateTo], () => {
                 <div class="form-group">
                   <label>
                     <i class="fas fa-money-bill-wave label-icon"></i>
-                    {{ isManagerView ? 'Trạng thái thanh toán' : 'Payment Status' }}
+                    Payment Status
                   </label>
                   <select v-model="exportFilters.payment_status" class="form-select">
-                    <option value="">{{ isManagerView ? 'Tất cả trạng thái thanh toán' : 'All Payment Status' }}</option>
+                    <option value="">All Payment Status</option>
                     <option v-for="option in paymentStatusOptions" :key="option.value" :value="option.value">
                       {{ option.label }}
                     </option>
@@ -2456,10 +2432,10 @@ watch([chartDateFrom, chartDateTo], () => {
                 <div class="form-group">
                   <label>
                     <i class="fas fa-credit-card label-icon"></i>
-                    {{ isManagerView ? 'Phương thức thanh toán' : 'Payment Method' }}
+                    Payment Method
                   </label>
                   <select v-model="exportFilters.payment_method" class="form-select">
-                    <option value="">{{ isManagerView ? 'Tất cả phương thức' : 'All Payment Methods' }}</option>
+                    <option value="">All Payment Methods</option>
                     <option v-for="option in paymentMethodOptions" :key="option.value" :value="option.value">
                       {{ option.label }}
                     </option>
@@ -2480,56 +2456,6 @@ watch([chartDateFrom, chartDateTo], () => {
               </span>
             </button>
           </div>
-        </div>
-      </div>
-    </div>
-    <!-- Order Logs Modal -->
-    <div v-if="showLogsModal" class="modal-overlay" @click.self="showLogsModal = false">
-      <div class="modal-content logs-modal" @click.stop>
-        <div class="modal-header">
-          <h3>Order Change History #{{ quickViewOrder?.id }}</h3>
-          <button @click="showLogsModal = false" class="btn-close-modal">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div v-if="isLoadingLogs" class="modal-loading">
-            <div class="spinner"></div>
-            <p>{{ isManagerView ? 'Đang tải lịch sử...' : 'Loading history...' }}</p>
-          </div>
-          <div v-else-if="orderLogs.length === 0" class="empty-state">
-            <i class="fas fa-history"></i>
-            <p>{{ isManagerView ? 'Chưa có lịch sử thay đổi' : 'No change history yet' }}</p>
-          </div>
-          <div v-else class="logs-timeline">
-            <div v-for="(log, index) in orderLogs" :key="log.id" class="log-item">
-              <div class="log-time">{{ formatDate(log.created_at) }}</div>
-              <div class="log-content">
-                <div class="log-action">
-                  <i class="fas fa-circle log-dot" :class="getLogActionClass(log.action)"></i>
-                  <strong>{{ getActionLabel(log.action) }}</strong>
-                </div>
-                <div class="log-change">
-                  <span v-if="log.old_value" class="old-value">{{ getStatusLabel(log.old_value) || log.old_value }}</span>
-                  <i v-if="log.old_value" class="fas fa-arrow-right"></i>
-                  <span class="new-value">{{ getStatusLabel(log.new_value) || log.new_value }}</span>
-                </div>
-                <div v-if="log.user_name" class="log-user">
-                  <i class="fas fa-user"></i>
-                  {{ log.user_name }}
-                  <span v-if="log.user_email">({{ log.user_email }})</span>
-                </div>
-                <div v-if="log.metadata" class="log-metadata">
-                  <small>{{ JSON.parse(log.metadata).payment_method ? (isManagerView ? 'Phương thức thanh toán: ' : 'Payment Method: ') + getPaymentMethodLabel(JSON.parse(log.metadata).payment_method) : '' }}</small>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button @click="showLogsModal = false" class="btn-close">
-            Close
-          </button>
         </div>
       </div>
     </div>
@@ -4324,6 +4250,11 @@ watch([chartDateFrom, chartDateTo], () => {
   background: #F1F5F9;
   color: #334155;
   border: 1px solid #E2E8F0;
+}
+.badge-delivering {
+  background: #E0E7FF;
+  color: #6366F1;
+  border: 1px solid #A5B4FC;
 }
 .action-buttons {
   display: flex;

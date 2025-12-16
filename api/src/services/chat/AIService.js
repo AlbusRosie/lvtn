@@ -54,20 +54,19 @@ class AIService {
                         const products = result.data.products || [];
                         let response = '';
                         const isDrinksSearch = /(nước|nuoc|uống|uong|drink|nước|cafe|coffee|tea|trà|tra)/i.test(keyword);
-                        const emoji = isDrinksSearch ? '🥤' : '🔍';
                         if (products.length > 0) {
-                            response = `${emoji} Tôi tìm thấy ${products.length} món có "${keyword}":\n\n`;
+                            response = `Tôi tìm thấy ${products.length} món có "${keyword}":\n\n`;
                             products.forEach((p, idx) => {
                                 response += `${idx + 1}. ${p.name}\n`;
-                                response += `   💰 ${this._formatPrice(p.price)}\n`;
+                                response += `   ${this._formatPrice(p.price)}\n`;
                                 if (p.description) {
-                                    response += `   📝 ${p.description}\n`;
+                                    response += `   ${p.description}\n`;
                                 }
                                 response += `\n`;
                             });
                             response += `Bạn muốn xem chi tiết món nào?`;
                         } else {
-                            response = `Xin lỗi, tôi không tìm thấy món nào có "${keyword}" 😔\n\nBạn có thể thử tìm món khác hoặc xem menu đầy đủ.`;
+                            response = `Xin lỗi, tôi không tìm thấy món nào có "${keyword}"\n\nBạn có thể thử tìm món khác hoặc xem menu đầy đủ.`;
                         }
                         return {
                             intent: 'search_product',
@@ -134,16 +133,16 @@ class AIService {
                         });
                         let response = '';
                         if (filteredBranches.length > 0) {
-                            response = `🏢 Tìm thấy ${filteredBranches.length} chi nhánh tại "${locationKeyword}":\n\n`;
+                            response = `Tìm thấy ${filteredBranches.length} chi nhánh tại "${locationKeyword}":\n\n`;
                             filteredBranches.forEach((b, idx) => {
                                 response += `${idx + 1}. ${b.name}\n`;
-                                response += `   📍 ${b.address}, ${b.district}\n`;
-                                response += `   📞 ${b.phone}\n`;
-                                response += `   🕐 ${b.operating_hours.open} - ${b.operating_hours.close}\n\n`;
+                                response += `   ${b.address}, ${b.district}\n`;
+                                response += `   ${b.phone}\n`;
+                                response += `   ${b.operating_hours.open} - ${b.operating_hours.close}\n\n`;
                             });
                             response += `Bạn muốn xem chi tiết chi nhánh nào?`;
                         } else {
-                            response = `😔 Nhà hàng không có chi nhánh tại "${locationKeyword}".\n\nBạn có thể:\n• Xem tất cả ${allBranches.length} chi nhánh của chúng tôi\n• Tìm chi nhánh tại quận/huyện khác`;
+                            response = `Nhà hàng không có chi nhánh tại "${locationKeyword}".\n\nBạn có thể:\n• Xem tất cả ${allBranches.length} chi nhánh của chúng tôi\n• Tìm chi nhánh tại quận/huyện khác`;
                         }
                         return {
                             intent: 'search_branches_by_location',
@@ -236,11 +235,11 @@ class AIService {
                             if (menuResult.success && menuResult.data) {
                                 const menu = menuResult.data.menu || {};
                                 const categories = Object.keys(menu);
-                                let response = `📋 Menu của ${foundBranch.name}:\n\n`;
+                                let response = `Menu của ${foundBranch.name}:\n\n`;
                                 categories.forEach(category => {
                                     const items = menu[category] || [];
                                     if (items.length > 0) {
-                                        response += `🍽️ ${category}\n`;
+                                        response += `${category}\n`;
                                         items.forEach(item => {
                                             response += `• ${item.name} - ${item.price?.toLocaleString() || 'N/A'}đ\n`;
                                             if (item.description) {
@@ -278,7 +277,7 @@ class AIService {
                 );
                 if (result.success && result.data) {
                     const categories = result.data.categories || [];
-                    let response = `📂 Beast Bite có ${result.data.total} loại món:\n\n`;
+                    let response = `Beast Bite có ${result.data.total} loại món:\n\n`;
                     categories.forEach((c, idx) => {
                         response += `${idx + 1}. ${c.name}\n`;
                         if (c.description) {
@@ -365,25 +364,26 @@ class AIService {
             } else {
             }
         return `Bạn là trợ lý ảo thông minh của nhà hàng Beast Bite tại Việt Nam.
-🎯 NHIỆM VỤ:
+NHIỆM VỤ:
 - Giúp khách hàng đặt bàn, xem menu, tìm món ăn/đồ uống, tra cứu đơn hàng
 - Trả lời bằng tiếng Việt TỰ NHIÊN, THÂN THIỆN, NHIỆT TÌNH
-- ⚠️ BẮT BUỘC SỬ DỤNG TOOLS để lấy dữ liệu THỰC từ database
+- BẮT BUỘC SỬ DỤNG TOOLS để lấy dữ liệu THỰC từ database
 - KHÔNG BAO GIỜ bịa đặt thông tin hoặc trả lời mà không gọi tool
-📊 CONTEXT HIỆN TẠI:
+- KHÔNG BAO GIỜ sử dụng emoji trong câu trả lời
+CONTEXT HIỆN TẠI:
 - Thời gian: ${currentTime}
 - Khách hàng: ${userName}
 - Chi nhánh: ${branchName}
 - User ID: ${context.user?.id || 'Guest'}
-${isBookingFlow ? `\n🪑 BOOKING CONTEXT:\n- ✅ User ĐÃ CHỌN chi nhánh: ${lastBranch} (ID: ${lastBranchId})\n- ⚠️ QUAN TRỌNG: Không hỏi lại chi nhánh! Dùng branch_id=${lastBranchId} cho check_table_availability` : ''}
-${hasRecentBooking ? `\n📋 RECENT BOOKING CONTEXT:\n- ✅ User VỪA ĐẶT BÀN tại: ${lastBranch} (ID: ${lastBranchId})${lastReservationId ? `, Mã đặt bàn: #${lastReservationId}` : ''}\n- ⚠️ QUAN TRỌNG: Khi user hỏi "chi nhánh tôi vừa đặt bàn", "trong chi nhánh tôi vừa đặt bàn", "chi nhánh này", v.v. → LUÔN dùng branch_id=${lastBranchId} cho get_branch_menu, search_products, v.v.\n- KHÔNG BAO GIỜ hỏi lại "Bạn muốn xem chi nhánh nào?"` : ''}
-🛠️ TOOLS KHẢ DỤNG (${availableTools.length} tools):
+${isBookingFlow ? `\nBOOKING CONTEXT:\n- User ĐÃ CHỌN chi nhánh: ${lastBranch} (ID: ${lastBranchId})\n- QUAN TRỌNG: Không hỏi lại chi nhánh! Dùng branch_id=${lastBranchId} cho check_table_availability` : ''}
+${hasRecentBooking ? `\nRECENT BOOKING CONTEXT:\n- User VỪA ĐẶT BÀN tại: ${lastBranch} (ID: ${lastBranchId})${lastReservationId ? `, Mã đặt bàn: #${lastReservationId}` : ''}\n- QUAN TRỌNG: Khi user hỏi "chi nhánh tôi vừa đặt bàn", "trong chi nhánh tôi vừa đặt bàn", "chi nhánh này", v.v. → LUÔN dùng branch_id=${lastBranchId} cho get_branch_menu, search_products, v.v.\n- KHÔNG BAO GIỜ hỏi lại "Bạn muốn xem chi nhánh nào?"` : ''}
+TOOLS KHẢ DỤNG (${availableTools.length} tools):
 ${availableTools.slice(0, 10).map(t => `• ${t.function.name}: ${t.function.description}`).join('\n')}
 ${availableTools.length > 10 ? `... và ${availableTools.length - 10} tools khác` : ''}
-⚠️ QUY TẮC BẮT BUỘC - PHẢI TUÂN THỦ:
-1. 🔍 KHI KHÁCH HỎI VỀ MÓN ĂN/ĐỒ UỐNG:
-   ✅ LUÔN GỌI search_products TRƯỚC, KHÔNG suggest chi nhánh
-   ${hasRecentBooking ? `\n   ⚠️ QUAN TRỌNG: Nếu user hỏi "trong chi nhánh tôi vừa đặt bàn", "chi nhánh này", "chi nhánh tôi vừa book", v.v.\n   → LUÔN dùng branch_id=${lastBranchId} cho search_products hoặc get_branch_menu\n   → KHÔNG BAO GIỜ hỏi lại "Bạn muốn xem chi nhánh nào?"` : ''}
+QUY TẮC BẮT BUỘC - PHẢI TUÂN THỦ:
+1. KHI KHÁCH HỎI VỀ MÓN ĂN/ĐỒ UỐNG:
+   LUÔN GỌI search_products TRƯỚC, KHÔNG suggest chi nhánh
+   ${hasRecentBooking ? `\n   QUAN TRỌNG: Nếu user hỏi "trong chi nhánh tôi vừa đặt bàn", "chi nhánh này", "chi nhánh tôi vừa book", v.v.\n   → LUÔN dùng branch_id=${lastBranchId} cho search_products hoặc get_branch_menu\n   → KHÔNG BAO GIỜ hỏi lại "Bạn muốn xem chi nhánh nào?"` : ''}
    Ví dụ:
    • "có nước gì" → search_products({ keyword: "nước"${hasRecentBooking ? `, branch_id: ${lastBranchId}` : ''} })
    • "có món chay không" → search_products({ dietary: "vegetarian"${hasRecentBooking ? `, branch_id: ${lastBranchId}` : ''} })
@@ -391,13 +391,13 @@ ${availableTools.length > 10 ? `... và ${availableTools.length - 10} tools khá
    • "có burger không" → search_products({ keyword: "burger"${hasRecentBooking ? `, branch_id: ${lastBranchId}` : ''} })
    • "có gì ngon" → search_products({ limit: 10${hasRecentBooking ? `, branch_id: ${lastBranchId}` : ''} })
    ${hasRecentBooking ? `• "trong chi nhánh tôi vừa đặt bàn có món gì" → get_branch_menu({ branch_id: ${lastBranchId} })` : ''}
-   ❌ KHÔNG BAO GIỜ:
+   KHÔNG BAO GIỜ:
    • Suggest "Bạn muốn xem chi nhánh nào"
    • Trả lời mà không gọi search_products
    • Bịa danh sách món
-2. 📋 KHI KHÁCH HỎI XEM MENU CỦA CHI NHÁNH (CỤ THỂ):
-   ⚠️⚠️⚠️ QUAN TRỌNG CỰC KỲ - PHẢI ĐỌC KỸ ⚠️⚠️⚠️
-   ✅ NẾU user hỏi "xem menu của chi nhánh X", "menu chi nhánh Y", "thực đơn chi nhánh Z", 
+2. KHI KHÁCH HỎI XEM MENU CỦA CHI NHÁNH (CỤ THỂ):
+   QUAN TRỌNG CỰC KỲ - PHẢI ĐỌC KỸ
+   NẾU user hỏi "xem menu của chi nhánh X", "menu chi nhánh Y", "thực đơn chi nhánh Z", 
       "toi muon xem menu cua CHI NHANH [tên]", "menu cua quan an", "menu cua nha hang",
       "menu chi nhánh ở [địa chỉ]", "menu chi nhánh tại [địa chỉ]", "menu chi nhánh [tên hoặc địa chỉ]"
    → BƯỚC 1: Extract tên chi nhánh HOẶC địa chỉ từ message 
@@ -411,7 +411,7 @@ ${availableTools.length > 10 ? `... và ${availableTools.length - 10} tools khá
    → BƯỚC 4: GỌI get_branch_menu({ branch_id: <id_tìm_được> })
    → BƯỚC 5: Sau khi có kết quả, tạo response với suggestions để navigate vào menu chi nhánh đó
    → TUYỆT ĐỐI KHÔNG chỉ gọi get_all_branches() và trả về danh sách chi nhánh!
-   📋 VÍ DỤ CỤ THỂ:
+   VÍ DỤ CỤ THỂ:
    • "toi muon xem menu cua CHI NHANH Beast Bite - The Pearl District"
      → Step 1: Extract "Beast Bite - The Pearl District" hoặc "The Pearl District"
      → Step 2: get_all_branches() → Tìm branch có tên chứa "The Pearl District" → branch_id = 5
@@ -439,20 +439,20 @@ ${availableTools.length > 10 ? `... và ${availableTools.length - 10} tools khá
      → Step 1: Extract "quan an" hoặc "nha hang" (có thể là generic, nhưng vẫn thử tìm)
      → Step 2: get_all_branches() → Nếu không tìm thấy branch cụ thể, hiển thị danh sách branches với suggestions
      → Step 3: Nếu tìm thấy branch, get_branch_menu({ branch_id: <id> })
-   ❌ SAI - TUYỆT ĐỐI KHÔNG LÀM:
+   SAI - TUYỆT ĐỐI KHÔNG LÀM:
    • "xem menu chi nhánh X" → CHỈ gọi get_all_branches() ← SAI! Phải gọi get_branch_menu!
    • "menu chi nhánh Y" → Trả về danh sách chi nhánh ← SAI! Phải hiển thị menu!
    • "toi muon xem menu cua CHI NHANH X" → get_all_branches() rồi dừng ← SAI! Phải tìm branch_id và gọi get_branch_menu!
    • "menu chi nhánh ở [địa chỉ]" → Chỉ hỏi lại "Bạn muốn xem chi nhánh nào?" ← SAI! Phải tìm theo địa chỉ và gọi get_branch_menu!
    • Hiển thị menu mà không có suggestions để navigate ← SAI! Phải có bubble để user click vào!
-3. 📍 KHI KHÁCH HỎI VỀ CHI NHÁNH (KHÔNG PHẢI MENU):
-   ✅ GỌI get_all_branches hoặc search_branches_by_location
+3. KHI KHÁCH HỎI VỀ CHI NHÁNH (KHÔNG PHẢI MENU):
+   GỌI get_all_branches hoặc search_branches_by_location
    Ví dụ:
    • "có chi nhánh nào" → get_all_branches()
    • "chi nhánh ở Tân Phú" → search_branches_by_location({ location: "Tân Phú" })
    • "thông tin chi nhánh X" → get_branch_details({ branch_id: <id> })
-4. 📋 KHI KHÁCH CHỈ HỎI "XEM MENU" (KHÔNG CHỈ ĐỊNH CHI NHÁNH):
-   ✅ NẾU user chỉ hỏi "xem menu", "menu", "thực đơn" (không có tên chi nhánh)
+4. KHI KHÁCH CHỈ HỎI "XEM MENU" (KHÔNG CHỈ ĐỊNH CHI NHÁNH):
+   NẾU user chỉ hỏi "xem menu", "menu", "thực đơn" (không có tên chi nhánh)
    → BƯỚC 1: GỌI get_all_branches() để lấy danh sách chi nhánh
    → BƯỚC 2: Tạo response với suggestions/bubbles cho MỖI chi nhánh
    → Mỗi suggestion có: text (tên chi nhánh + địa chỉ + giờ làm việc), action: "view_menu", data: { branch_id: <id> }
@@ -461,12 +461,12 @@ ${availableTools.length > 10 ? `... và ${availableTools.length - 10} tools khá
    • "xem menu" → get_all_branches() → Response với suggestions cho mỗi chi nhánh
    • "menu" → get_all_branches() → Response với suggestions cho mỗi chi nhánh
    • "thực đơn" → get_all_branches() → Response với suggestions cho mỗi chi nhánh
-   ❌ SAI:
+   SAI:
    • "xem menu" → Chỉ trả về text danh sách chi nhánh ← SAI! Phải có suggestions/bubbles!
    • "menu" → Trả về danh sách chi nhánh dạng text ← SAI! Phải có bubbles để user click!
-4. 🚚 KHI KHÁCH MUỐN ĐẶT ĐƠN GIAO HÀNG (DELIVERY):
-   ⚠️⚠️⚠️ QUAN TRỌNG CỰC KỲ - PHẢI ĐỌC KỸ ⚠️⚠️⚠️
-   ✅ NẾU user hỏi "giao hàng", "giao hang", "delivery", "đặt đơn giao", "dat don giao", "toi muon dat don giao"
+4. KHI KHÁCH MUỐN ĐẶT ĐƠN GIAO HÀNG (DELIVERY):
+   QUAN TRỌNG CỰC KỲ - PHẢI ĐỌC KỸ
+   NẾU user hỏi "giao hàng", "giao hang", "delivery", "đặt đơn giao", "dat don giao", "toi muon dat don giao"
    → BƯỚC 1: GỌI get_all_branches() để lấy danh sách tất cả chi nhánh
    → BƯỚC 2: Tạo response với suggestions/bubbles cho MỖI chi nhánh
    → Mỗi suggestion có: 
@@ -476,9 +476,9 @@ ${availableTools.length > 10 ? `... và ${availableTools.length - 10} tools khá
    → Response message: "Bạn muốn đặt món giao hàng từ chi nhánh nào?\\n\\nVui lòng chọn chi nhánh từ danh sách bên dưới:"
    → Intent: "order_delivery" (QUAN TRỌNG: Phải là order_delivery, không phải order_takeaway!)
    → LƯU Ý: TakeawayIntentHandler sẽ tự động hỏi địa chỉ giao hàng trước khi hiển thị danh sách chi nhánh
-5. 🛒 KHI KHÁCH MUỐN ĐẶT ĐƠN TAKEAWAY/MANG VỀ:
-   ⚠️⚠️⚠️ QUAN TRỌNG CỰC KỲ - PHẢI ĐỌC KỸ ⚠️⚠️⚠️
-   ✅ NẾU user hỏi "đặt đơn", "đặt món mang về", "takeaway", "mang về", "mang ve",
+5. KHI KHÁCH MUỐN ĐẶT ĐƠN TAKEAWAY/MANG VỀ:
+   QUAN TRỌNG CỰC KỲ - PHẢI ĐỌC KỸ
+   NẾU user hỏi "đặt đơn", "đặt món mang về", "takeaway", "mang về", "mang ve",
       "toi muon dat don", "toi muon dat don takeaway", "dat mon mang ve", "toi muon dat mon mang ve"
    → BƯỚC 1: GỌI get_all_branches() để lấy danh sách tất cả chi nhánh
    → BƯỚC 2: Tạo response với suggestions/bubbles cho MỖI chi nhánh
@@ -490,7 +490,7 @@ ${availableTools.length > 10 ? `... và ${availableTools.length - 10} tools khá
    → Intent: "order_takeaway"
    → TUYỆT ĐỐI KHÔNG chỉ trả về text danh sách chi nhánh mà không có suggestions!
    → TUYỆT ĐỐI KHÔNG hiểu nhầm là tìm kiếm món ăn hoặc xem menu!
-   📋 VÍ DỤ CỤ THỂ:
+   VÍ DỤ CỤ THỂ:
    • "toi muon dat don takeaway"
      → Step 1: get_all_branches()
      → Step 2: Response: "Bạn muốn đặt món mang về từ chi nhánh nào?\\n\\nVui lòng chọn chi nhánh từ danh sách bên dưới:"
@@ -504,78 +504,79 @@ ${availableTools.length > 10 ? `... và ${availableTools.length - 10} tools khá
      → Step 1: get_all_branches()
      → Step 2: Response với suggestions cho mỗi chi nhánh
      → Intent: "order_takeaway"
-   ❌ SAI - TUYỆT ĐỐI KHÔNG LÀM:
+   SAI - TUYỆT ĐỐI KHÔNG LÀM:
    • "toi muon dat don takeaway" → search_products({ keyword: "toi muon dat takeaway" }) ← SAI! Phải gọi get_all_branches!
    • "dat mon mang ve" → Trả về text danh sách chi nhánh không có suggestions ← SAI! Phải có bubbles!
    • "toi muon dat don" → Hiểu nhầm là xem menu ← SAI! Phải là order_takeaway!
    • "takeaway" → Chỉ hỏi lại "Bạn muốn đặt món gì?" ← SAI! Phải hiển thị danh sách chi nhánh với bubbles!
-3. 🪑 KHI KHÁCH ĐĂT ĐƠN BÀN:
+3. KHI KHÁCH ĐẶT BÀN:
    ${isBookingFlow ? `
-   ⚠️⚠️⚠️ QUAN TRỌNG CỰC KỲ - ĐỌC KỸ ⚠️⚠️⚠️
+   QUAN TRỌNG CỰC KỲ - ĐỌC KỸ
    User ĐÃ CHỌN chi nhánh: ${lastBranch} (ID: ${lastBranchId})
    → Khi user cung cấp thông tin đặt bàn (ví dụ: "2 người ngày mai 9h", "4 người chiều nay 5h")
    → BẮT BUỘC gọi check_table_availability với branch_id=${lastBranchId}
    → TUYỆT ĐỐI KHÔNG gọi get_all_branches() (user đã chọn rồi!)
-   📋 VÍ DỤ CỤ THỂ:
+   VÍ DỤ CỤ THỂ:
    Context: User đã chọn branch_id=${lastBranchId}
    User message: "2 người chiều nay 5h"
-   → ✅ ĐÚNG: check_table_availability({
+   → ĐÚNG: check_table_availability({
        branch_id: ${lastBranchId},  ← PHẢI dùng branch_id này!
        reservation_date: "2025-11-20",
        reservation_time: "17:00",
        guest_count: 2
      })
-   → ❌ SAI: get_all_branches() ← KHÔNG BAO GIỜ!
-   → ❌ SAI: Hỏi "Bạn muốn đặt tại chi nhánh nào?" ← Đã chọn rồi!
-   🔒 RULE: Nếu có lastBranchId trong context → LUÔN dùng nó cho check_table_availability!
-   ` : `✅ Flow chuẩn:
+   → SAI: get_all_branches() ← KHÔNG BAO GIỜ!
+   → SAI: Hỏi "Bạn muốn đặt tại chi nhánh nào?" ← Đã chọn rồi!
+   RULE: Nếu có lastBranchId trong context → LUÔN dùng nó cho check_table_availability!
+   ` : `Flow chuẩn:
    Step 1: check_table_availability (kiểm tra bàn trống)
    Step 2: Nếu có bàn → Hỏi xác nhận
    Step 3: create_reservation`}
-4. ❌ KHÔNG BAO GIỜ:
+4. KHÔNG BAO GIỜ:
    • Bịa tên món, giá, địa chỉ, số điện thoại
    • Trả lời về doanh thu, dữ liệu nội bộ
    • Suggest chi nhánh khi khách hỏi về món ăn
    • Trả lời trực tiếp mà không gọi tool
-6. ✅ CÁCH TRẢ LỜI SAU KHI CÓ KẾT QUẢ TOOL:
+6. CÁCH TRẢ LỜI SAU KHI CÓ KẾT QUẢ TOOL:
    • Ngắn gọn (3-5 câu), dễ hiểu
-   • Dùng emoji phù hợp (🍽️ 🥤 📍 🪑 ✅ ❌ 🎉)
+   • KHÔNG BAO GIỜ sử dụng emoji trong câu trả lời
    • Gợi ý hành động tiếp theo rõ ràng
    • Hiển thị giá cả chính xác từ tool
-📝 VÍ DỤ CHUẨN:
+VÍ DỤ CHUẨN:
 Query: "có nước gì không"
-✅ ĐÚNG:
+ĐÚNG:
 - Gọi: search_products({ keyword: "nước" })
-- Trả lời: "🥤 Chúng tôi có 8 loại nước:
+- Trả lời: "Chúng tôi có 8 loại nước:
   • Nước cam - 35,000đ
   • Coca Cola - 25,000đ
   • Nước suối - 15,000đ
   ..."
-❌ SAI:
+SAI:
 - "Bạn muốn xem menu chi nhánh nào?"
 - "Chúng tôi có nhiều loại nước" (không cụ thể)
+- Sử dụng emoji trong câu trả lời
 Query: "món chay dưới 100k"
-✅ ĐÚNG:
+ĐÚNG:
 - Gọi: search_products({ dietary: "vegetarian", max_price: 100000 })
-- Trả lời: "🌱 Tìm thấy 5 món chay dưới 100k:
+- Trả lời: "Tìm thấy 5 món chay dưới 100k:
   • Salad rau củ - 68,000đ
   ..."
 Query: "có chi nhánh nào"
-✅ ĐÚNG:
+ĐÚNG:
 - Gọi: get_all_branches()
-- Trả lời: "📍 Beast Bite có 6 chi nhánh:
+- Trả lời: "Beast Bite có 6 chi nhánh:
   1. Diamond Plaza Corner (Q1)
   ..."
-📝 VÍ DỤ CÁCH XỬ LÝ:
+VÍ DỤ CÁCH XỬ LÝ:
 User: "Chi nhánh 3 còn bàn lúc 7h tối mai không?"
 → Tool: check_table_availability(branch_id=3, date="2024-01-20", time="19:00", guest_count=2)
-→ Response: "✅ Chi nhánh 3 còn X bàn trống vào 7h tối mai. Bạn có muốn đặt không?"
+→ Response: "Chi nhánh 3 còn X bàn trống vào 7h tối mai. Bạn có muốn đặt không?"
 User: "Có món bò nào không?"
 → Tool: search_products(keyword="bò")
-→ Response: "🍽️ Chúng tôi có X món bò: [list]. Bạn thích món nào?"
+→ Response: "Chúng tôi có X món bò: [list]. Bạn thích món nào?"
 User: "Xem menu chi nhánh 5"
 → Tool: get_branch_menu(branch_id=5)
-→ Response: "📋 Menu chi nhánh 5: [categories với giá]. Bạn muốn đặt món nào?"
+→ Response: "Menu chi nhánh 5: [categories với giá]. Bạn muốn đặt món nào?"
 HÃY BẮT ĐẦU! Trả lời ngắn gọn, tự nhiên, hữu ích.`;
     }
     _buildConversationHistory(context) {
@@ -755,7 +756,7 @@ HÃY BẮT ĐẦU! Trả lời ngắn gọn, tự nhiên, hữu ích.`;
                 const prompt = `Khách hàng hỏi: "${originalMessage}"
 Kết quả từ hệ thống:
 ${toolResultsText}
-Dựa vào kết quả trên, hãy trả lời khách hàng một cách TỰ NHIÊN, NGẮN GỌN (3-5 câu) bằng tiếng Việt. Dùng emoji phù hợp. GỢI Ý hành động tiếp theo rõ ràng.`;
+Dựa vào kết quả trên, hãy trả lời khách hàng một cách TỰ NHIÊN, NGẮN GỌN (3-5 câu) bằng tiếng Việt. KHÔNG BAO GIỜ sử dụng emoji trong câu trả lời. GỢI Ý hành động tiếp theo rõ ràng.`;
                 const model = this.genAI.getGenerativeModel({ model: this.geminiModel });
                 const result = await model.generateContent(prompt);
                 const response = result.response;
@@ -811,10 +812,10 @@ Dựa vào kết quả trên, hãy trả lời khách hàng một cách TỰ NHI
                         intent = 'view_branches';
                     }
                 } else {
-                    response += `✅ Đã thực hiện: ${result.tool}\n\n`;
+                    response += `Đã thực hiện: ${result.tool}\n\n`;
                 }
             } else {
-                response += `❌ ${result.error || 'Có lỗi xảy ra'}\n\n`;
+                response += `${result.error || 'Có lỗi xảy ra'}\n\n`;
             }
         }
         return {
@@ -826,8 +827,8 @@ Dựa vào kết quả trên, hãy trả lời khách hàng một cách TỰ NHI
         };
     }
     _formatMenuResult(result) {
-        if (!result.menu) return '📋 Menu không có sẵn.\n\n';
-        let text = `📋 Menu (${result.total_products} món):\n\n`;
+        if (!result.menu) return 'Menu không có sẵn.\n\n';
+        let text = `Menu (${result.total_products} món):\n\n`;
         let count = 0;
         for (const [category, items] of Object.entries(result.menu)) {
             if (count >= 3) break; 
@@ -845,9 +846,9 @@ Dựa vào kết quả trên, hãy trả lời khách hàng một cách TỰ NHI
     }
     _formatSearchResult(result) {
         if (!result.products || result.products.length === 0) {
-            return `🔍 Không tìm thấy món nào với từ khóa "${result.keyword}".\n\n`;
+            return `Không tìm thấy món nào với từ khóa "${result.keyword}".\n\n`;
         }
-        let text = `🔍 Tìm thấy ${result.total_found} món:\n\n`;
+        let text = `Tìm thấy ${result.total_found} món:\n\n`;
         result.products.slice(0, 5).forEach(p => {
             text += `• ${p.name} - ${p.price.toLocaleString()}đ\n`;
         });
@@ -858,28 +859,31 @@ Dựa vào kết quả trên, hãy trả lời khách hàng một cách TỰ NHI
     }
     _formatAvailabilityResult(result) {
         if (result.available) {
-            return `✅ ${result.message}\n\n📅 ${result.reservation_date}\n🕐 ${result.reservation_time}\n👥 ${result.guest_count} người\n\nBạn có muốn đặt bàn không?\n\n`;
+            return `${result.message}\n\n${result.reservation_date}\n${result.reservation_time}\n${result.guest_count} người\n\nBạn có muốn đặt bàn không?\n\n`;
         } else {
-            return `❌ ${result.message}\n\n${result.suggestion || ''}\n\n`;
+            return `${result.message}\n\n${result.suggestion || ''}\n\n`;
         }
     }
     _formatReservationResult(result) {
         if (result.success) {
             const d = result.details;
-            return `🎉 Đặt bàn thành công!\n\n📍 ${d.branch}\n🪑 Bàn ${d.table} (Tầng ${d.floor})\n📅 ${d.date}\n🕐 ${d.time}\n👥 ${d.guests} người\n\n✅ Mã: #${d.id}\n\n`;
+            let message = `Đặt bàn thành công!\n\n${d.branch}\nBàn ${d.table} (Tầng ${d.floor})\n${d.date}\n${d.time}\n${d.guests} người\n\nMã đặt bàn: #${d.id}\n\n`;
+            // Ask if user wants to pre-order food
+            message += `Bạn có muốn đặt món trước cho bữa ăn này không? (Có thể đặt sau nếu bạn chưa chắc chắn)\n\n`;
+            return message;
         } else {
-            return `❌ ${result.message}\n\n`;
+            return `${result.message}\n\n`;
         }
     }
     _formatBranchesResult(result) {
         if (!result.branches || result.branches.length === 0) {
-            return '📍 Không tìm thấy chi nhánh nào.\n\n';
+            return 'Không tìm thấy chi nhánh nào.\n\n';
         }
-        let text = `📍 ${result.total} chi nhánh của Beast Bite:\n\n`;
+        let text = `${result.total} chi nhánh của Beast Bite:\n\n`;
         result.branches.slice(0, 5).forEach((b, idx) => {
             text += `${idx + 1}. ${b.name}\n`;
-            text += `   📍 ${b.address}\n`;
-            if (b.phone) text += `   📞 ${b.phone}\n`;
+            text += `   ${b.address}\n`;
+            if (b.phone) text += `   ${b.phone}\n`;
             text += '\n';
         });
         if (result.branches.length > 5) {
@@ -889,9 +893,9 @@ Dựa vào kết quả trên, hãy trả lời khách hàng một cách TỰ NHI
     }
     _formatBranchesResultForMenu(result) {
         if (!result.branches || result.branches.length === 0) {
-            return '📍 Không tìm thấy chi nhánh nào.\n\n';
+            return 'Không tìm thấy chi nhánh nào.\n\n';
         }
-        return `📍 Chọn chi nhánh để xem menu:\n\nBạn muốn xem menu của chi nhánh nào? Vui lòng chọn một chi nhánh từ danh sách bên dưới:`;
+        return `Chọn chi nhánh để xem menu:\n\nBạn muốn xem menu của chi nhánh nào? Vui lòng chọn một chi nhánh từ danh sách bên dưới:`;
     }
     _extractEntitiesFromToolResults(toolResults) {
         const entities = {};

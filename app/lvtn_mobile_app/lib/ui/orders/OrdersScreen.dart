@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/AuthProvider.dart';
 import '../../services/OrderService.dart';
 import '../../services/AuthService.dart';
+import '../../services/NotificationService.dart';
 import '../../models/order.dart';
 import '../../models/reservation.dart';
 import '../../constants/app_constants.dart';
@@ -20,7 +23,7 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -29,10 +32,21 @@ class _OrdersScreenState extends State<OrdersScreen>
   
   bool _isLoading = true;
   String? _error;
+  String? _selectedOrderTypeFilter; // null = "Tất cả"
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       setState(() {});
@@ -50,44 +64,109 @@ class _OrdersScreenState extends State<OrdersScreen>
     ));
     
     _loadData();
+    _startAutoRefresh();
     _animationController.forward();
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     _tabController.dispose();
     _animationController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // Refresh khi app quay lại foreground
+      _loadData(silent: true);
+    }
+  }
+
+  void _startAutoRefresh() {
+    // Auto refresh mỗi 10 giây để nhận cập nhật đơn hàng real-time
+    _refreshTimer = Timer.periodic(Duration(seconds: 10), (timer) {
+      if (mounted) {
+        _loadData(silent: true); // Silent refresh không hiển thị loading
+      }
     });
+  }
+
+  Future<void> _loadData({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       if (authProvider.isAuth && authProvider.currentUser != null) {
         final orderService = OrderService();
         
+        // Lưu trạng thái cũ để so sánh
+        final previousOrders = List<Order>.from(_orders);
+        final previousOrderMap = {for (var o in previousOrders) o.id: o};
+        
         final orders = await orderService.getUserOrders(authProvider.currentUser!.id);
+
+        // Kiểm tra xem có đơn nào thay đổi status không
+        bool hasStatusChanged = false;
+        for (var order in orders) {
+          final previousOrder = previousOrderMap[order.id];
+          if (previousOrder != null && previousOrder.status != order.status) {
+            hasStatusChanged = true;
+            break;
+          }
+        }
 
         setState(() {
           _orders = orders;
-          _isLoading = false;
+          if (!silent) {
+            _isLoading = false;
+          }
         });
+
+        // Hiển thị thông báo nếu có đơn thay đổi status (chỉ khi silent refresh)
+        if (silent && hasStatusChanged && mounted) {
+          NotificationService().showInfo(
+            context: context,
+            message: 'Đơn hàng của bạn đã được cập nhật',
+            title: 'Cập nhật đơn hàng',
+          );
+        }
       } else {
-        setState(() {
-          _isLoading = false;
-          _error = 'Please login to view your orders';
-        });
+        if (!silent) {
+          setState(() {
+            _isLoading = false;
+            _error = 'Please login to view your orders';
+          });
+        }
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _error = 'Unable to load data: ${e.toString()}';
-      });
+      if (!silent) {
+        setState(() {
+          _isLoading = false;
+          _error = 'Unable to load data: ${e.toString()}';
+        });
+      }
     }
   }
 
@@ -95,23 +174,30 @@ class _OrdersScreenState extends State<OrdersScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF8F9FA),
-      appBar: _buildAppBar(),
+        backgroundColor: Color(0xFFF8F9FA),
+        appBar: _buildAppBar(),
       body: Container(
         color: Color(0xFFF8F9FA),
         child: _isLoading
             ? _buildSkeletonLoading()
             : _error != null
                 ? _buildErrorState()
-                : FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildOngoingTab(),
-                        _buildHistoryTab(),
-                      ],
-                    ),
+                : Column(
+                    children: [
+                      _buildOrderTypeFilter(),
+                      Expanded(
+                        child: FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildOngoingTab(),
+                              _buildHistoryTab(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
       ),
       bottomNavigationBar: AppBottomNav(currentIndex: 3),
@@ -119,10 +205,15 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0,
-      leading: Container(
+    return PreferredSize(
+      preferredSize: Size.fromHeight(kToolbarHeight + 50),
+      child: SafeArea(
+        bottom: false,
+         child: AppBar(
+           backgroundColor: Colors.white,
+           elevation: 0,
+           systemOverlayStyle: SystemUiOverlayStyle.dark,
+           leading: Container(
         margin: EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: Color(0xFFF5F5F5),
@@ -212,6 +303,8 @@ class _OrdersScreenState extends State<OrdersScreen>
               ),
             ],
           ),
+        ),
+      ),
         ),
       ),
     );
@@ -344,13 +437,19 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   Widget _buildOngoingTab() {
-    final ongoingOrders = _orders.where((order) => 
+    var ongoingOrders = _orders.where((order) => 
         order.status.toLowerCase() != AppConstants.completed && 
         order.status.toLowerCase() != AppConstants.cancelled).toList();
     
+    // Apply order type filter
+    if (_selectedOrderTypeFilter != null) {
+      ongoingOrders = ongoingOrders.where((order) => 
+        order.orderType.toLowerCase() == _selectedOrderTypeFilter!.toLowerCase()
+      ).toList();
+    }
+    
     return Column(
       children: [
-        SizedBox(height: 20),
         Expanded(
           child: ongoingOrders.isEmpty
               ? _buildEmptyState(
@@ -362,7 +461,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                   onRefresh: _loadData,
                   color: Color(0xFFFF8C00),
                   child: ListView.builder(
-                    padding: EdgeInsets.fromLTRB(16, 8, 16, 100),
+                    padding: EdgeInsets.fromLTRB(16, 4, 16, 100),
                     itemCount: ongoingOrders.length,
                     itemBuilder: (context, index) {
                       final order = ongoingOrders[index];
@@ -388,13 +487,19 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   Widget _buildHistoryTab() {
-    final historyOrders = _orders.where((order) => 
+    var historyOrders = _orders.where((order) => 
         order.status.toLowerCase() == AppConstants.completed || 
         order.status.toLowerCase() == AppConstants.cancelled).toList();
     
+    // Apply order type filter
+    if (_selectedOrderTypeFilter != null) {
+      historyOrders = historyOrders.where((order) => 
+        order.orderType.toLowerCase() == _selectedOrderTypeFilter!.toLowerCase()
+      ).toList();
+    }
+    
     return Column(
       children: [
-        SizedBox(height: 20),
         Expanded(
           child: historyOrders.isEmpty
               ? _buildEmptyState(
@@ -406,7 +511,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                   onRefresh: _loadData,
                   color: Color(0xFFFF8C00),
                   child: ListView.builder(
-                    padding: EdgeInsets.fromLTRB(16, 8, 16, 100),
+                    padding: EdgeInsets.fromLTRB(16, 4, 16, 100),
                     itemCount: historyOrders.length,
                     itemBuilder: (context, index) {
                       final order = historyOrders[index];
@@ -800,28 +905,27 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   void _rateOrder(Order order) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Rating functionality coming soon!'),
-        backgroundColor: Color(0xFFFF8C00),
-      ),
+    NotificationService().showInfo(
+      context: context,
+      message: 'Tính năng đánh giá sắp ra mắt!',
     );
   }
 
   void _reorderItems(Order order) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Re-order functionality coming soon!'),
-        backgroundColor: Color(0xFFFF8C00),
-      ),
+    NotificationService().showInfo(
+      context: context,
+      message: 'Tính năng đặt lại sắp ra mắt!',
     );
   }
 
   List<Widget> _buildActionButtons(Order order) {
-    final canCancel = order.status.toLowerCase() == AppConstants.pending || 
-                      order.status.toLowerCase() == AppConstants.preparing;
+    final status = order.status.toLowerCase();
+    final canCancel = status == AppConstants.pending;
+    final isOngoing = status != AppConstants.completed && status != AppConstants.cancelled;
+    final isCompleted = status == AppConstants.completed || status == AppConstants.cancelled;
     
     if (canCancel) {
+      // Đơn pending: hiển thị "Theo dõi" + "Hủy đơn"
       return [
         Expanded(
           child: Container(
@@ -865,7 +969,32 @@ class _OrdersScreenState extends State<OrdersScreen>
           ),
         ),
       ];
+    } else if (isOngoing) {
+      // Đơn ongoing nhưng không phải pending (preparing, ready, out_for_delivery): chỉ hiển thị "Theo dõi"
+      return [
+        Expanded(
+          child: Container(
+            height: 40,
+            decoration: BoxDecoration(
+              border: Border.all(color: Color(0xFFFF8C00), width: 1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: TextButton(
+              onPressed: () => _viewOrderDetails(order),
+              child: Text(
+                'Theo dõi',
+                style: TextStyle(
+                  color: Color(0xFFFF8C00),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ];
     } else {
+      // Đơn completed/cancelled: hiển thị "Rate" + "Re-Order"
       return [
         Expanded(
           child: Container(
@@ -917,16 +1046,23 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   void _cancelOrder(Order order) {
+    // Chỉ cho phép hủy khi trạng thái là pending
+    if (order.status.toLowerCase() != AppConstants.pending) {
+      NotificationService().showError(
+        context: context,
+        message: 'Không thể hủy đơn hàng. Đơn hàng đã được xử lý.',
+      );
+      return;
+    }
+    
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final authService = AuthService();
     final token = authService.token;
     
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bạn cần đăng nhập để hủy đơn hàng'),
-          backgroundColor: Color(0xFFEF5350),
-        ),
+      NotificationService().showWarning(
+        context: context,
+        message: 'Bạn cần đăng nhập để hủy đơn hàng',
       );
       return;
     }
@@ -991,11 +1127,9 @@ class _OrdersScreenState extends State<OrdersScreen>
         await _loadData();
         
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đơn hàng đã được hủy thành công'),
-              backgroundColor: Color(0xFF4CAF50),
-            ),
+          NotificationService().showSuccess(
+            context: context,
+            message: 'Đơn hàng đã được hủy thành công',
           );
         }
       }
@@ -1003,14 +1137,111 @@ class _OrdersScreenState extends State<OrdersScreen>
       if (mounted) {
         Navigator.of(context).pop();
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Không thể hủy đơn hàng: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: const Color(0xFFEF5350),
-          ),
+        NotificationService().showError(
+          context: context,
+          message: 'Không thể hủy đơn hàng: ${e.toString().replaceAll('Exception: ', '')}',
         );
       }
     }
+  }
+
+  Widget _buildOrderTypeFilter() {
+    return Container(
+      margin: EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildFilterButton(
+              label: 'Tất cả',
+              isSelected: _selectedOrderTypeFilter == null,
+              onTap: () {
+                setState(() {
+                  _selectedOrderTypeFilter = null;
+                });
+              },
+            ),
+          ),
+          SizedBox(width: 4),
+          Expanded(
+            child: _buildFilterButton(
+              label: 'Giao hàng',
+              isSelected: _selectedOrderTypeFilter == AppConstants.delivery,
+              onTap: () {
+                setState(() {
+                  _selectedOrderTypeFilter = AppConstants.delivery;
+                });
+              },
+            ),
+          ),
+          SizedBox(width: 4),
+          Expanded(
+            child: _buildFilterButton(
+              label: 'Mang đi',
+              isSelected: _selectedOrderTypeFilter == 'takeaway',
+              onTap: () {
+                setState(() {
+                  _selectedOrderTypeFilter = 'takeaway';
+                });
+              },
+            ),
+          ),
+          SizedBox(width: 4),
+          Expanded(
+            child: _buildFilterButton(
+              label: 'Tại chỗ',
+              isSelected: _selectedOrderTypeFilter == AppConstants.dineIn,
+              onTap: () {
+                setState(() {
+                  _selectedOrderTypeFilter = AppConstants.dineIn;
+                });
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterButton({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ]
+              : [],
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? Color(0xFFFF8C00) : Color(0xFF95A5A6),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showOrderDetails(Order order) {

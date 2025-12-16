@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/cart.dart';
 import '../../services/CartService.dart';
 import '../../services/AuthService.dart';
+import '../../services/NotificationService.dart';
 
 class TableReservationWidget extends StatefulWidget {
   final Cart cart;
@@ -199,8 +200,9 @@ class _TableReservationWidgetState extends State<TableReservationWidget> {
     try {
       final token = AuthService().token;
       if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Please log in to make reservation')),
+        NotificationService().showWarning(
+          context: context,
+          message: 'Vui lòng đăng nhập để đặt bàn',
         );
         return;
       }
@@ -221,18 +223,14 @@ class _TableReservationWidgetState extends State<TableReservationWidget> {
 
       widget.onReservationUpdated(updatedCart);
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Table reserved successfully!'),
-          backgroundColor: Colors.green,
-        ),
+      NotificationService().showSuccess(
+        context: context,
+        message: 'Đặt bàn thành công!',
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to reserve table: $e'),
-          backgroundColor: Colors.red,
-        ),
+      NotificationService().showError(
+        context: context,
+        message: 'Không thể đặt bàn: $e',
       );
     }
   }
@@ -241,8 +239,9 @@ class _TableReservationWidgetState extends State<TableReservationWidget> {
     try {
       final token = AuthService().token;
       if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Please log in to cancel reservation')),
+        NotificationService().showWarning(
+          context: context,
+          message: 'Vui lòng đăng nhập để hủy đặt bàn',
         );
         return;
       }
@@ -254,18 +253,14 @@ class _TableReservationWidgetState extends State<TableReservationWidget> {
 
       widget.onReservationUpdated(updatedCart);
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Reservation cancelled successfully!'),
-          backgroundColor: Colors.orange,
-        ),
+      NotificationService().showSuccess(
+        context: context,
+        message: 'Hủy đặt bàn thành công!',
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to cancel reservation: $e'),
-          backgroundColor: Colors.red,
-        ),
+      NotificationService().showError(
+        context: context,
+        message: 'Không thể hủy đặt bàn: $e',
       );
     }
   }

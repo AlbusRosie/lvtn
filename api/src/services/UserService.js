@@ -4,6 +4,12 @@ const { unlink } = require('node:fs');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET, JWT_EXPIRES_IN } = require('../middlewares/AuthMiddleware');
+let io = null;
+
+// Function to set io instance (called from server.js)
+function setSocketIO(socketIO) {
+    io = socketIO;
+}
 function userRepository() {
     return knex('users');
 }
@@ -52,11 +58,31 @@ async function createUser(payload) {
     }
     const user = readUser(payload);
     const [id] = await userRepository().insert(user);
-    return {
+    const newUser = {
         id,
         ...user,
         password: undefined
     };
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION
+    if (io) {
+        io.to('admin').emit('user-created', {
+            userId: id,
+            user: newUser,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Notify branch if user has branch_id
+        if (newUser.branch_id) {
+            io.to(`branch:${newUser.branch_id}`).emit('user-created', {
+                userId: id,
+                user: newUser,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+    
+    return newUser;
 }
 async function getManyUsers(query) {
     const { name, phone, role_id, not_role_id, branch_id, recent, page = 1, limit = 5 } = query;
@@ -167,6 +193,32 @@ async function updateUser(id, payload) {
         .where('id', id)
         .select('*')
         .first();
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION
+    if (io && updatedUser) {
+        io.to('admin').emit('user-updated', {
+            userId: id,
+            user: updatedUser,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Notify branch if user has branch_id
+        if (updatedUser.branch_id) {
+            io.to(`branch:${updatedUser.branch_id}`).emit('user-updated', {
+                userId: id,
+                user: updatedUser,
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        // Notify the user themselves if they're online
+        io.to(`user:${id}`).emit('user-profile-updated', {
+            userId: id,
+            user: updatedUser,
+            timestamp: new Date().toISOString()
+        });
+    }
+    
     return updatedUser;
 }
 async function deleteUser(id) {
@@ -184,17 +236,18 @@ async function deleteUser(id) {
     ) {
         unlink(`.${deletedUser.avatar}`, (err) => {});
     }
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION
+    if (io) {
+        io.to('admin').emit('user-deleted', {
+            userId: id,
+            timestamp: new Date().toISOString()
+        });
+    }
+    
     return deletedUser;
 }
-async function deleteAllUsers() {
-    const users = await userRepository().select('avatar');
-    await userRepository().del();
-    users.forEach((user) => {
-        if (user.avatar && user.avatar.startsWith('/public/uploads')) {
-            unlink(`.${user.avatar}`, (err) => {});
-        }
-    });
-}
+// deleteAllUsers - REMOVED: not used (no route exists)
 async function login(username, password) {
     const user = await userRepository()
         .leftJoin('branches as b', 'users.branch_id', 'b.id')
@@ -238,6 +291,7 @@ module.exports = {
     getUserById,
     updateUser,
     deleteUser,
-    deleteAllUsers,
+    // deleteAllUsers - REMOVED: not used (no route exists)
     login,
+    setSocketIO
 };

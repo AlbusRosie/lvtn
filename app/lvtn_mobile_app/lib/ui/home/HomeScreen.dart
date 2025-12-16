@@ -9,11 +9,13 @@ import '../../ui/cart/CartProvider.dart';
 import '../../ui/cart/CartScreen.dart';
 import '../branches/BranchDetailScreen.dart';
 import '../branches/BranchMenuScreen.dart';
+import '../takeaway/TakeawayMenuScreen.dart';
 import '../../constants/app_constants.dart';
 import '../../utils/image_utils.dart';
 import '../orders/QuickOrderScreen.dart';
 import '../widgets/AppBottomNav.dart';
 import '../widgets/MapboxAutocompleteField.dart';
+import '../../services/NotificationService.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -349,11 +351,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     print('MapboxService: Debug - selectedLat: $selectedLat, selectedLng: $selectedLng');
                                     print('MapboxService: Debug - locationProvider.lat: ${locationProvider.latitude}, lng: ${locationProvider.longitude}');
                                     print('MapboxService: Debug - lp.lat: ${lp.latitude}, lng: ${lp.longitude}');
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Vui lòng chọn địa chỉ từ danh sách đề xuất'),
-                                        backgroundColor: Colors.orange,
-                                      ),
+                                    NotificationService().showWarning(
+                                      context: context,
+                                      message: 'Vui lòng chọn địa chỉ từ danh sách đề xuất',
                                     );
                                     return;
                                   }
@@ -1166,7 +1166,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 setState(() {
                   _selectedOrderType = 'delivery';
                 });
-                _showQuickTakeawayDialog();
+                _showDeliveryDialog();
               },
             ),
           ),
@@ -1264,6 +1264,506 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _showTakeawayBranchPicker();
   }
 
+  void _showDeliveryDialog() {
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    
+    // Kiểm tra xem đã có địa chỉ chưa
+    if (locationProvider.detailAddress.isNotEmpty && 
+        locationProvider.latitude != null && 
+        locationProvider.longitude != null) {
+      // Đã có địa chỉ, hiển thị branch picker ngay
+      _showDeliveryBranchPicker(locationProvider.detailAddress);
+    } else {
+      // Chưa có địa chỉ, yêu cầu nhập địa chỉ trước
+      _showDeliveryAddressDialog();
+    }
+  }
+
+  void _showDeliveryAddressDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+            final addressController = TextEditingController(text: locationProvider.detailAddress);
+            double? selectedLat = locationProvider.latitude;
+            double? selectedLng = locationProvider.longitude;
+
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: Offset(0, 10),
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.fromLTRB(24, 24, 20, 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Color(0xFFFF7043).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.delivery_dining_rounded,
+                              color: Color(0xFFFF7043),
+                              size: 24,
+                            ),
+                          ),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Nhập địa chỉ giao hàng',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Cần địa chỉ để tìm chi nhánh gần bạn',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.of(context).pop();
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: EdgeInsets.all(8),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  color: Colors.grey[600],
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    Divider(height: 1, thickness: 1, color: Colors.grey[200]),
+                
+                    Flexible(
+                      child: Consumer<LocationProvider>(
+                        builder: (context, lp, child) {
+                          if (lp.isLoading && lp.provinces.isEmpty) {
+                            return Container(
+                              padding: EdgeInsets.all(40),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFFFF7043),
+                                ),
+                              ),
+                            );
+                          }
+
+                          return SingleChildScrollView(
+                            padding: EdgeInsets.symmetric(horizontal: 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(height: 16),
+                                
+                                MapboxAutocompleteField(
+                                  controller: addressController,
+                                  labelText: 'Địa chỉ giao hàng',
+                                  hintText: 'Nhập địa chỉ để tìm kiếm...',
+                                  proximity: locationProvider.latitude != null && locationProvider.longitude != null
+                                      ? '${locationProvider.longitude},${locationProvider.latitude}'
+                                      : null,
+                                  onPlaceSelected: (address, lat, lng) {
+                                    locationProvider.setDetailAddress(address);
+                                    locationProvider.setCoordinates(lat, lng);
+                                    addressController.text = address;
+                                    selectedLat = lat;
+                                    selectedLng = lng;
+                                    setDialogState(() {});
+                                  },
+                                  onChanged: (value) {
+                                    setDialogState(() {});
+                                  },
+                                ),
+                                
+                                SizedBox(height: 24),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                
+                    Container(
+                      padding: EdgeInsets.fromLTRB(24, 20, 24, 24),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                side: BorderSide(
+                                  color: Colors.grey[300]!,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Text(
+                                'Hủy',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Color(0xFFFF7043).withOpacity(0.3),
+                                    blurRadius: 12,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  final lp = Provider.of<LocationProvider>(context, listen: false);
+                                  final bp = Provider.of<BranchProvider>(context, listen: false);
+                                  final ap = Provider.of<AuthProvider>(context, listen: false);
+
+                                  final address = addressController.text.trim().isNotEmpty 
+                                      ? addressController.text.trim()
+                                      : lp.detailAddress;
+
+                                  final finalLat = selectedLat ?? locationProvider.latitude ?? lp.latitude;
+                                  final finalLng = selectedLng ?? locationProvider.longitude ?? lp.longitude;
+                                  
+                                  if (finalLat == null || finalLng == null) {
+                                    NotificationService().showWarning(
+                                      context: context,
+                                      message: 'Vui lòng chọn địa chỉ từ danh sách đề xuất',
+                                    );
+                                    return;
+                                  }
+
+                                  if (address.isNotEmpty) {
+                                    lp.setDetailAddress(address);
+                                  }
+                                  lp.setCoordinates(finalLat, finalLng);
+                                  
+                                  try {
+                                    await bp.loadNearbyBranches(
+                                      latitude: finalLat,
+                                      longitude: finalLng,
+                                    );
+                                  } catch (e) {
+                                    print('HomeScreen: Lỗi khi reload branches: $e');
+                                  }
+                                  
+                                  bp.clearFilters();
+
+                                  if (ap.isAuth && ap.currentUser != null && address.isNotEmpty) {
+                                    ap.updateUserAddress(address).catchError((e) {
+                                      print('Không thể lưu địa chỉ vào tài khoản: $e');
+                                    });
+                                  }
+
+                                  Navigator.of(context).pop();
+                                  
+                                  // Hiển thị branch picker với địa chỉ đã chọn
+                                  _showDeliveryBranchPicker(address);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  backgroundColor: Color(0xFFFF7043),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.check_circle_outline, size: 20),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Xác nhận',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeliveryBranchPicker(String deliveryAddress) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Consumer2<BranchProvider, LocationProvider>(
+          builder: (context, branchProvider, locationProvider, child) {
+            // Ưu tiên nearby branches (có sẵn distanceKm từ API) nếu có vị trí
+            List<Branch> branches;
+            if (locationProvider.latitude != null && locationProvider.longitude != null) {
+              if (branchProvider.nearbyBranches.isNotEmpty) {
+                branches = branchProvider.nearbyBranches;
+              } else {
+                branches = branchProvider.branches;
+                // Load nearby branches nếu chưa có
+                WidgetsBinding.instance.addPostFrameCallback((_) async {
+                  if (mounted && branchProvider.nearbyBranches.isEmpty) {
+                    await branchProvider.loadNearbyBranches(
+                      latitude: locationProvider.latitude!,
+                      longitude: locationProvider.longitude!,
+                    );
+                  }
+                });
+              }
+            } else {
+              branches = branchProvider.branches;
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          topRight: Radius.circular(16),
+                        ),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: Offset(0, 2)),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.delivery_dining_rounded, color: Color(0xFFFF7043)),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Chọn chi nhánh (Delivery)',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  deliveryAddress,
+                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Gợi ý gần bạn',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        itemCount: branches.length,
+                        separatorBuilder: (_, __) => Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final b = branches[index];
+                          return ListTile(
+                            leading: Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: Color(0xFFFF7043).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: b.image != null && b.image!.isNotEmpty
+                                  ? Padding(
+                                      padding: EdgeInsets.all(2),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Image.network(
+                                          _getImageUrl(b.image!),
+                                          width: 36,
+                                          height: 36,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Icon(
+                                              Icons.store,
+                                              color: Color(0xFFFF7043),
+                                              size: 20,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.store,
+                                      color: Color(0xFFFF7043),
+                                      size: 20,
+                                    ),
+                            ),
+                            title: Text(b.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(b.address, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                if (b.distanceKm != null) ...[
+                                  SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.location_on,
+                                        size: 14,
+                                        color: Color(0xFFFF7043),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        '${b.distanceKm!.toStringAsFixed(1)} km',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFFFF7043),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                            trailing: Icon(Icons.chevron_right),
+                            onTap: () async {
+                              await Provider.of<CartProvider>(context, listen: false).loadCart(b.id);
+                              
+                              Navigator.pop(context);
+                              Navigator.pushNamed(
+                                context,
+                                BranchMenuScreen.routeName,
+                                arguments: {
+                                  'branch': b,
+                                  'orderType': 'delivery', // Đánh dấu đây là delivery order
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showCartBottomSheet() {
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
     final currentBranchId = cartProvider.currentBranchId ?? 5;
@@ -1290,10 +1790,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _showTakeawayBranchPicker() {
-    final branchProvider = Provider.of<BranchProvider>(context, listen: false);
-    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
-    final branches = _getSuggestedBranches(branchProvider);
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1302,93 +1798,172 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
-                    ),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: Offset(0, 2)),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.store_mall_directory, color: Colors.orange),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Chọn chi nhánh (Takeaway)',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 8),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Gợi ý gần bạn',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemCount: branches.length,
-                    separatorBuilder: (_, __) => Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final b = branches[index];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.orange.withOpacity(0.1),
-                          child: Icon(Icons.store, color: Colors.orange),
-                        ),
-                        title: Text(b.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(b.address, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        trailing: Icon(Icons.chevron_right),
-                        onTap: () async {
+        return Consumer2<BranchProvider, LocationProvider>(
+          builder: (context, branchProvider, locationProvider, child) {
+            // Ưu tiên nearby branches (có sẵn distanceKm từ API) nếu có vị trí
+            List<Branch> branches;
+            if (locationProvider.latitude != null && locationProvider.longitude != null) {
+              if (branchProvider.nearbyBranches.isNotEmpty) {
+                branches = branchProvider.nearbyBranches;
+              } else {
+                branches = branchProvider.branches;
+                // Load nearby branches nếu chưa có
+                WidgetsBinding.instance.addPostFrameCallback((_) async {
+                  if (mounted && branchProvider.nearbyBranches.isEmpty) {
+                    await branchProvider.loadNearbyBranches(
+                      latitude: locationProvider.latitude!,
+                      longitude: locationProvider.longitude!,
+                    );
+                  }
+                });
+              }
+            } else {
+              branches = branchProvider.branches;
+            }
 
-                          await Provider.of<CartProvider>(context, listen: false).loadCart(b.id);
-                          
-                          Navigator.pop(context);
-                          Navigator.pushNamed(
-                            context,
-                            BranchMenuScreen.routeName,
-                            arguments: b,
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          topRight: Radius.circular(16),
+                        ),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: Offset(0, 2)),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.store_mall_directory, color: Colors.orange),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Chọn chi nhánh (Takeaway)',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Gợi ý gần bạn',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        itemCount: branches.length,
+                        separatorBuilder: (_, __) => Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final b = branches[index];
+                          return ListTile(
+                            leading: Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: b.image != null && b.image!.isNotEmpty
+                                  ? Padding(
+                                      padding: EdgeInsets.all(2),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Image.network(
+                                          _getImageUrl(b.image!),
+                                          width: 36,
+                                          height: 36,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Icon(
+                                              Icons.store,
+                                              color: Colors.orange,
+                                              size: 20,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.store,
+                                      color: Colors.orange,
+                                      size: 20,
+                                    ),
+                            ),
+                            title: Text(b.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(b.address, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                if (b.distanceKm != null) ...[
+                                  SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.location_on,
+                                        size: 14,
+                                        color: Colors.orange,
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        '${b.distanceKm!.toStringAsFixed(1)} km',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.orange,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                            trailing: Icon(Icons.chevron_right),
+                            onTap: () async {
+                              await Provider.of<CartProvider>(context, listen: false).loadCart(b.id);
+                              
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => TakeawayMenuScreen(
+                                    branch: b,
+                                    orderType: 'takeaway',
+                                  ),
+                                ),
+                              );
+                            },
                           );
                         },
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
-  }
-
-  List<dynamic> _getSuggestedBranches(BranchProvider branchProvider) {
-    return List.from(branchProvider.branches);
   }
 
   Widget _buildRestaurantCard(dynamic branch, BuildContext context, LocationProvider? locationProvider) {

@@ -74,16 +74,16 @@ class BookingHandler {
                 const isWithinHours = BranchHandler.isTimeWithinOperatingHours(mergedData.time, branch);
                 if (!isWithinHours) {
                     const openBranches = await BranchHandler.getBranchesOpenAtTime(mergedData.time);
-                    let warningMessage = `⏰ Lưu ý: Chi nhánh ${branch.name} không hoạt động vào lúc ${mergedData.time}.\n\n`;
-                    warningMessage += `🕐 Giờ làm việc của chi nhánh này: ${BranchHandler.formatOperatingHours(branch)}\n\n`;
+                    let warningMessage = `Lưu ý: Chi nhánh ${branch.name} không hoạt động vào lúc ${mergedData.time}.\n\n`;
+                    warningMessage += `Giờ làm việc của chi nhánh này: ${BranchHandler.formatOperatingHours(branch)}\n\n`;
                     if (openBranches.length > 0) {
-                        warningMessage += `✅ Các chi nhánh còn hoạt động vào lúc ${mergedData.time}:\n\n`;
+                        warningMessage += `Các chi nhánh còn hoạt động vào lúc ${mergedData.time}:\n\n`;
                         openBranches.forEach((b, idx) => {
                             warningMessage += `${idx + 1}. ${b.name} - ${BranchHandler.formatOperatingHours(b)}\n`;
                         });
                         warningMessage += `\nBạn có muốn đổi sang một trong các chi nhánh này không?`;
                     } else {
-                        warningMessage += `❌ Hiện tại không có chi nhánh nào hoạt động vào lúc ${mergedData.time}.\n\n`;
+                        warningMessage += `Hiện tại không có chi nhánh nào hoạt động vào lúc ${mergedData.time}.\n\n`;
                         warningMessage += `Vui lòng chọn giờ khác.`;
                     }
                     const validation = this.validateBookingRequest(mergedData);
@@ -93,9 +93,9 @@ class BookingHandler {
                             intent: 'book_table_warning',
                             entities: mergedData,
                             suggestions: [
-                                { text: '✅ Vẫn đặt tại chi nhánh này', action: 'confirm_booking', data: mergedData },
-                                { text: '📍 Chọn chi nhánh khác', action: 'select_branch', data: { time: mergedData.time } },
-                                { text: '🕐 Chọn giờ khác', action: 'modify_booking', data: { time: null } }
+                                { text: 'Vẫn đặt tại chi nhánh này', action: 'confirm_booking', data: mergedData },
+                                { text: 'Chọn chi nhánh khác', action: 'select_branch', data: { time: mergedData.time } },
+                                { text: 'Chọn giờ khác', action: 'modify_booking', data: { time: null } }
                             ]
                         };
                     }
@@ -107,7 +107,7 @@ class BookingHandler {
         if (isTimeAmbiguous && mergedData.time_hour) {
             const timeHour = mergedData.time_hour;
             return {
-                message: `Tôi hiểu bạn muốn đặt bàn vào lúc ${timeHour} giờ. Bạn muốn đặt vào buổi nào?\n\n🌅 Buổi sáng (${timeHour}:00)\n🌆 Buổi chiều (${timeHour + 12}:00)\n\nVui lòng cho tôi biết bạn muốn đặt vào buổi sáng hay chiều?`,
+                message: `Tôi hiểu bạn muốn đặt bàn vào lúc ${timeHour} giờ. Bạn muốn đặt vào buổi nào?\n\nBuổi sáng (${timeHour}:00)\nBuổi chiều (${timeHour + 12}:00)\n\nVui lòng cho tôi biết bạn muốn đặt vào buổi sáng hay chiều?`,
                 intent: 'ask_time_period',
                 entities: {
                     ...mergedData,
@@ -115,8 +115,8 @@ class BookingHandler {
                     time_hour: timeHour
                 },
                 suggestions: [
-                    { text: `🌅 ${timeHour} giờ sáng`, action: 'select_time', data: { time: `${timeHour.toString().padStart(2, '0')}:00`, period: 'am' } },
-                    { text: `🌆 ${timeHour} giờ chiều`, action: 'select_time', data: { time: `${(timeHour + 12).toString().padStart(2, '0')}:00`, period: 'pm' } }
+                    { text: `${timeHour} giờ sáng`, action: 'select_time', data: { time: `${timeHour.toString().padStart(2, '0')}:00`, period: 'am' } },
+                    { text: `${timeHour} giờ chiều`, action: 'select_time', data: { time: `${(timeHour + 12).toString().padStart(2, '0')}:00`, period: 'pm' } }
                 ]
             };
         }
@@ -131,16 +131,16 @@ class BookingHandler {
                 const isWithinHours = BranchHandler.isTimeWithinOperatingHours(mergedData.time, branch);
                 if (!isWithinHours) {
                     const openBranches = await BranchHandler.getBranchesOpenAtTime(mergedData.time);
-                    let errorMessage = `⏰ Chi nhánh ${branch.name} không hoạt động vào lúc ${mergedData.time}.\n\n`;
-                    errorMessage += `🕐 Giờ làm việc của chi nhánh này: ${BranchHandler.formatOperatingHours(branch)}\n\n`;
+                    let errorMessage = `Chi nhánh ${branch.name} không hoạt động vào lúc ${mergedData.time}.\n\n`;
+                    errorMessage += `Giờ làm việc của chi nhánh này: ${BranchHandler.formatOperatingHours(branch)}\n\n`;
                     if (openBranches.length > 0) {
-                        errorMessage += `✅ Các chi nhánh còn hoạt động vào lúc ${mergedData.time}:\n\n`;
+                        errorMessage += `Các chi nhánh còn hoạt động vào lúc ${mergedData.time}:\n\n`;
                         openBranches.forEach((b, idx) => {
                             errorMessage += `${idx + 1}. ${b.name} - ${BranchHandler.formatOperatingHours(b)}\n`;
                         });
                         errorMessage += `\nBạn có muốn đặt bàn tại một trong các chi nhánh này không?`;
                     } else {
-                        errorMessage += `❌ Hiện tại không có chi nhánh nào hoạt động vào lúc ${mergedData.time}.\n\n`;
+                        errorMessage += `Hiện tại không có chi nhánh nào hoạt động vào lúc ${mergedData.time}.\n\n`;
                         errorMessage += `Vui lòng chọn giờ khác hoặc liên hệ trực tiếp với nhà hàng.`;
                     }
                     return {
@@ -148,8 +148,8 @@ class BookingHandler {
                         intent: 'book_table_warning',
                         entities: mergedData,
                         suggestions: [
-                            { text: '🕐 Chọn giờ khác', action: 'modify_booking', data: { time: null } },
-                            { text: '📍 Chọn chi nhánh khác', action: 'select_branch', data: { time: mergedData.time } }
+                            { text: 'Chọn giờ khác', action: 'modify_booking', data: { time: null } },
+                            { text: 'Chọn chi nhánh khác', action: 'select_branch', data: { time: mergedData.time } }
                         ]
                     };
                 }
@@ -158,7 +158,7 @@ class BookingHandler {
                     const remainingMinutes = closeCheck.remainingMinutes;
                     const hours = Math.floor(remainingMinutes / 60);
                     const minutes = remainingMinutes % 60;
-                    let timeWarning = `⚠️ Lưu ý: Chi nhánh ${branch.name} sẽ đóng cửa sau `;
+                    let timeWarning = `Lưu ý: Chi nhánh ${branch.name} sẽ đóng cửa sau `;
                     if (hours > 0) {
                         timeWarning += `${hours} giờ `;
                     }
@@ -169,17 +169,17 @@ class BookingHandler {
                     }
                     timeWarning += ` (lúc ${branch.close_hours}h).\n\n`;
                     timeWarning += `Bạn vẫn có thể đặt bàn, nhưng vui lòng đến đúng giờ để đảm bảo có đủ thời gian thưởng thức bữa ăn.\n\n`;
-                    timeWarning += `🕐 Giờ làm việc: ${BranchHandler.formatOperatingHours(branch)}`;
+                    timeWarning += `Giờ làm việc: ${BranchHandler.formatOperatingHours(branch)}`;
                     const validation = this.validateBookingRequest(mergedData);
                     if (validation.length === 0) {
                         return {
-                            message: timeWarning + `\n\n✅ Tuyệt vời! Tôi đã hiểu yêu cầu đặt bàn của bạn:\n\n👥 Số người: ${mergedData.people}\n📅 Ngày: ${mergedData.date}\n🕐 Giờ: ${mergedData.time}\n📍 Chi nhánh: ${mergedData.branch_name || 'Chưa chọn'}\n\nTôi sẽ giúp bạn tìm bàn phù hợp!`,
+                            message: timeWarning + `\n\nTuyệt vời! Tôi đã hiểu yêu cầu đặt bàn của bạn:\n\nSố người: ${mergedData.people}\nNgày: ${mergedData.date}\nGiờ: ${mergedData.time}\nChi nhánh: ${mergedData.branch_name || 'Chưa chọn'}\n\nTôi sẽ giúp bạn tìm bàn phù hợp!`,
                             intent: 'book_table_confirmed',
                             entities: mergedData,
                             suggestions: [
-                                { text: '✅ Xác nhận đặt bàn', action: 'confirm_booking', data: mergedData },
-                                { text: '🔄 Thay đổi thông tin', action: 'modify_booking', data: {} },
-                                { text: '📍 Chọn chi nhánh khác', action: 'select_branch', data: {} }
+                                { text: 'Xác nhận đặt bàn', action: 'confirm_booking', data: mergedData },
+                                { text: 'Thay đổi thông tin', action: 'modify_booking', data: {} },
+                                { text: 'Chọn chi nhánh khác', action: 'select_branch', data: {} }
                             ]
                         };
                     }
@@ -211,21 +211,21 @@ class BookingHandler {
                                 availableSlots = await this.findAvailableTimeSlots(branchId, reservationDate, guestCount, branch);
                             } catch (error) {
                                 }
-                            let errorMessage = `❌ Rất tiếc! Không còn bàn trống tại ${branch.name} vào lúc ${time} ngày ${reservationDate} cho ${guestCount} người.\n\n`;
+                            let errorMessage = `Rất tiếc! Không còn bàn trống tại ${branch.name} vào lúc ${time} ngày ${reservationDate} cho ${guestCount} người.\n\n`;
                             if (availabilityCheck.reason === 'capacity') {
-                                errorMessage += `⚠️ Chi nhánh này không có bàn đủ lớn cho ${guestCount} người.\n\n`;
-                                errorMessage += `💡 Gợi ý:\n`;
+                                errorMessage += `Chi nhánh này không có bàn đủ lớn cho ${guestCount} người.\n\n`;
+                                errorMessage += `Gợi ý:\n`;
                                 errorMessage += `• Đặt nhiều bàn nhỏ hơn\n`;
                                 errorMessage += `• Chọn chi nhánh khác có bàn lớn hơn\n`;
                                 errorMessage += `• Liên hệ trực tiếp với nhà hàng: ${branch.phone || 'hotline'}`;
                             } else {
-                                errorMessage += `💡 Các giờ khác còn bàn trống trong ngày:\n\n`;
+                                errorMessage += `Các giờ khác còn bàn trống trong ngày:\n\n`;
                                 if (availableSlots.length > 0) {
                                     availableSlots.forEach((slot, idx) => {
-                                        errorMessage += `${idx + 1}. 🕐 ${slot}\n`;
+                                        errorMessage += `${idx + 1}. ${slot}\n`;
                                     });
                                     const timeSuggestions = availableSlots.slice(0, 3).map(slot => ({
-                                        text: `🕐 ${slot}`,
+                                        text: `${slot}`,
                                         action: 'select_time',
                                         data: {
                                             ...mergedData,
@@ -239,13 +239,13 @@ class BookingHandler {
                                         entities: mergedData,
                                         suggestions: [
                                             ...timeSuggestions,
-                                            { text: '🔄 Thay đổi ngày', action: 'modify_booking', data: {} },
-                                            { text: '📍 Chọn chi nhánh khác', action: 'select_branch', data: {} }
+                                            { text: 'Thay đổi ngày', action: 'modify_booking', data: {} },
+                                            { text: 'Chọn chi nhánh khác', action: 'select_branch', data: {} }
                                         ]
                                     };
                                 } else {
-                                    errorMessage += `❌ Không còn giờ nào trống trong ngày này.\n\n`;
-                                    errorMessage += `💡 Gợi ý:\n`;
+                                    errorMessage += `Không còn giờ nào trống trong ngày này.\n\n`;
+                                    errorMessage += `Gợi ý:\n`;
                                     errorMessage += `• Chọn ngày khác\n`;
                                     errorMessage += `• Chọn chi nhánh khác\n`;
                                     errorMessage += `• Liên hệ trực tiếp: ${branch.phone || 'hotline'}`;
@@ -254,8 +254,8 @@ class BookingHandler {
                                         intent: 'book_table_no_availability',
                                         entities: mergedData,
                                         suggestions: [
-                                            { text: '🔄 Thay đổi ngày', action: 'modify_booking', data: {} },
-                                            { text: '📍 Chọn chi nhánh khác', action: 'select_branch', data: {} }
+                                            { text: 'Thay đổi ngày', action: 'modify_booking', data: {} },
+                                            { text: 'Chọn chi nhánh khác', action: 'select_branch', data: {} }
                                         ]
                                     };
                                 }
@@ -266,25 +266,25 @@ class BookingHandler {
                 }
             }
             return {
-                message: `Tuyệt vời! Tôi đã hiểu yêu cầu đặt bàn của bạn:\n\n👥 Số người: ${mergedData.people}\n📅 Ngày: ${mergedData.date}\n🕐 Giờ: ${mergedData.time}\n📍 Chi nhánh: ${mergedData.branch_name || 'Chưa chọn'}\n\nTôi sẽ giúp bạn tìm bàn phù hợp!`,
+                message: `Tuyệt vời! Tôi đã hiểu yêu cầu đặt bàn của bạn:\n\nSố người: ${mergedData.people}\nNgày: ${mergedData.date}\nGiờ: ${mergedData.time}\nChi nhánh: ${mergedData.branch_name || 'Chưa chọn'}\n\nTôi sẽ giúp bạn tìm bàn phù hợp!`,
                 intent: 'book_table_confirmed',
                 entities: mergedData,
                 suggestions: [
-                    { text: '✅ Xác nhận đặt bàn', action: 'confirm_booking', data: mergedData },
-                    { text: '🔄 Thay đổi thông tin', action: 'modify_booking', data: {} },
-                    { text: '📍 Chọn chi nhánh khác', action: 'select_branch', data: {} }
+                    { text: 'Xác nhận đặt bàn', action: 'confirm_booking', data: mergedData },
+                    { text: 'Thay đổi thông tin', action: 'modify_booking', data: {} },
+                    { text: 'Chọn chi nhánh khác', action: 'select_branch', data: {} }
                 ]
             };
         } else if (mergedData.branch_id || mergedData.branch_name) {
             const provided = [];
-            if (mergedData.branch_name) provided.push(`📍 Chi nhánh: ${mergedData.branch_name}`);
-            if (mergedData.people) provided.push(`👥 Số người: ${mergedData.people}`);
-            if (mergedData.time) provided.push(`🕐 Giờ: ${mergedData.time}`);
-            if (mergedData.date) provided.push(`📅 Ngày: ${mergedData.date}`);
+            if (mergedData.branch_name) provided.push(`Chi nhánh: ${mergedData.branch_name}`);
+            if (mergedData.people) provided.push(`Số người: ${mergedData.people}`);
+            if (mergedData.time) provided.push(`Giờ: ${mergedData.time}`);
+            if (mergedData.date) provided.push(`Ngày: ${mergedData.date}`);
             const missing = [];
-            if (!mergedData.people) missing.push('👥 Số người');
-            if (!mergedData.time) missing.push('🕐 Giờ');
-            if (!mergedData.date) missing.push('📅 Ngày');
+            if (!mergedData.people) missing.push('Số người');
+            if (!mergedData.time) missing.push('Giờ');
+            if (!mergedData.date) missing.push('Ngày');
             const missingFields = [];
             if (!mergedData.people) missingFields.push('people');
             if (!mergedData.time) missingFields.push('time');
@@ -293,9 +293,9 @@ class BookingHandler {
             const suggestions = [];
             if (!mergedData.people) {
                 suggestions.push(
-                    { text: '👥 2 người', action: 'select_people', data: { people: 2, ...mergedData } },
-                    { text: '👥 4 người', action: 'select_people', data: { people: 4, ...mergedData } },
-                    { text: '👥 6 người', action: 'select_people', data: { people: 6, ...mergedData } }
+                    { text: '2 người', action: 'select_people', data: { people: 2, ...mergedData } },
+                    { text: '4 người', action: 'select_people', data: { people: 4, ...mergedData } },
+                    { text: '6 người', action: 'select_people', data: { people: 6, ...mergedData } }
                 );
             }
             return {
@@ -328,7 +328,7 @@ class BookingHandler {
                 intent: 'book_table',
                 entities: {},
                 suggestions: branchSuggestions.length > 0 ? branchSuggestions : [
-                    { text: '📍 Chi nhánh gần tôi', action: 'find_nearest_branch', data: {} }
+                    { text: 'Chi nhánh gần tôi', action: 'find_nearest_branch', data: {} }
                 ]
             };
         }
@@ -375,16 +375,16 @@ class BookingHandler {
             const isWithinHours = BranchHandler.isTimeWithinOperatingHours(normalizedEntities.time, branch);
             if (!isWithinHours) {
                 const openBranches = await BranchHandler.getBranchesOpenAtTime(normalizedEntities.time);
-                let errorMessage = `⏰ Chi nhánh ${branch.name} không hoạt động vào lúc ${normalizedEntities.time}.\n\n`;
-                errorMessage += `🕐 Giờ làm việc của chi nhánh này: ${BranchHandler.formatOperatingHours(branch)}\n\n`;
+                let errorMessage = `Chi nhánh ${branch.name} không hoạt động vào lúc ${normalizedEntities.time}.\n\n`;
+                errorMessage += `Giờ làm việc của chi nhánh này: ${BranchHandler.formatOperatingHours(branch)}\n\n`;
                 if (openBranches.length > 0) {
-                    errorMessage += `✅ Các chi nhánh còn hoạt động vào lúc ${normalizedEntities.time}:\n\n`;
+                    errorMessage += `Các chi nhánh còn hoạt động vào lúc ${normalizedEntities.time}:\n\n`;
                     openBranches.forEach((b, idx) => {
                         errorMessage += `${idx + 1}. ${b.name} - ${BranchHandler.formatOperatingHours(b)}\n`;
                     });
                     errorMessage += `\nBạn có muốn đặt bàn tại một trong các chi nhánh này không?`;
                 } else {
-                    errorMessage += `❌ Hiện tại không có chi nhánh nào hoạt động vào lúc ${normalizedEntities.time}.\n\n`;
+                    errorMessage += `Hiện tại không có chi nhánh nào hoạt động vào lúc ${normalizedEntities.time}.\n\n`;
                     errorMessage += `Vui lòng chọn giờ khác hoặc liên hệ trực tiếp với nhà hàng.`;
                 }
                 throw new Error(errorMessage);
@@ -403,34 +403,21 @@ class BookingHandler {
             .orderBy('created_at', 'desc')
             .first();
         if (existingReservation) {
-            const OrderService = require('../OrderService');
-            let orderId = null;
-            const emptyOrder = await knex('orders')
+            // Note: Empty orders are no longer created
+            // Order will be created only when customer adds items and checkout
+            // Check if there's an existing order for this reservation
+            const existingOrder = await knex('orders')
                 .where('reservation_id', existingReservation.id)
-                .where('total', 0)
-                .orderBy('created_at', 'asc')
+                .where('total', '>', 0) // Only return orders with items
+                .orderBy('created_at', 'desc')
                 .first();
-            if (!emptyOrder) {
-                try {
-                    const newEmptyOrder = await OrderService.createEmptyOrder({
-                        user_id: userId,
-                        branch_id: branchId,
-                        table_id: existingReservation.table_id
-                    });
-                    await knex('orders')
-                        .where('id', newEmptyOrder.id)
-                        .update({ reservation_id: existingReservation.id });
-                    orderId = newEmptyOrder.id;
-                } catch (orderError) { }
-            } else {
-                orderId = emptyOrder.id;
-            }
+            
             return {
                 ...existingReservation,
                 branch_name: branch.name,
                 branch_address: branch.address_detail,
                 branch_phone: branch.phone,
-                order_id: orderId
+                order_id: existingOrder ? existingOrder.id : null
             };
         }
         const guestCount = normalizedEntities.people || normalizedEntities.guest_count || normalizedEntities.number_of_people;
@@ -462,28 +449,28 @@ class BookingHandler {
             } catch (error) { }
             let errorMessage = '';
             if (availabilityCheck.reason === 'capacity') {
-                errorMessage = `❌ Rất tiếc! Chi nhánh ${branch.name} không có bàn đủ lớn cho ${guestCount} người.\n\n`;
-                errorMessage += `💡 Gợi ý:\n`;
+                errorMessage = `Rất tiếc! Chi nhánh ${branch.name} không có bàn đủ lớn cho ${guestCount} người.\n\n`;
+                errorMessage += `Gợi ý:\n`;
                 errorMessage += `• Đặt nhiều bàn nhỏ hơn\n`;
                 errorMessage += `• Chọn chi nhánh khác có bàn lớn hơn\n`;
                 errorMessage += `• Liên hệ trực tiếp với nhà hàng: ${branch.phone || 'hotline'}`;
             } else if (availabilityCheck.reason === 'time') {
-                errorMessage = `❌ Rất tiếc! Không còn bàn trống tại ${branch.name} vào lúc ${normalizedEntities.time} ngày ${reservationDate} cho ${guestCount} người.\n\n`;
+                errorMessage = `Rất tiếc! Không còn bàn trống tại ${branch.name} vào lúc ${normalizedEntities.time} ngày ${reservationDate} cho ${guestCount} người.\n\n`;
                 if (availableSlots.length > 0) {
-                    errorMessage += `💡 Các giờ khác còn bàn trống trong ngày:\n\n`;
+                    errorMessage += `Các giờ khác còn bàn trống trong ngày:\n\n`;
                     availableSlots.slice(0, 6).forEach((slot, idx) => {
-                        errorMessage += `${idx + 1}. 🕐 ${slot}\n`;
+                        errorMessage += `${idx + 1}. ${slot}\n`;
                     });
                     errorMessage += `\nBạn có muốn chọn một trong các giờ này không?`;
                 } else {
-                    errorMessage += `❌ Không còn giờ nào trống trong ngày này.\n\n`;
-                    errorMessage += `💡 Gợi ý:\n`;
+                    errorMessage += `Không còn giờ nào trống trong ngày này.\n\n`;
+                    errorMessage += `Gợi ý:\n`;
                     errorMessage += `• Chọn ngày khác\n`;
                     errorMessage += `• Chọn chi nhánh khác\n`;
                     errorMessage += `• Liên hệ trực tiếp: ${branch.phone || 'hotline'}`;
                 }
             } else {
-                errorMessage = `❌ Rất tiếc! Không thể đặt bàn tại ${branch.name} vào lúc ${normalizedEntities.time} ngày ${reservationDate}.\n\n`;
+                errorMessage = `Rất tiếc! Không thể đặt bàn tại ${branch.name} vào lúc ${normalizedEntities.time} ngày ${reservationDate}.\n\n`;
                 errorMessage += `Vui lòng thử thời gian khác hoặc liên hệ trực tiếp với nhà hàng: ${branch.phone || 'hotline'}`;
             }
             throw new Error(errorMessage);

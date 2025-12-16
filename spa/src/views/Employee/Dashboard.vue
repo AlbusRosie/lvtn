@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, onMounted, shallowRef, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, shallowRef, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import AuthService from '@/services/AuthService';
 import BranchService from '@/services/BranchService';
 import UserService from '@/services/UserService';
+import SocketService from '@/services/SocketService';
 import { USER_ROLES, ROLE_NAMES } from '@/constants';
 import { useToast } from 'vue-toastification';
 import EmployeeHeader from '@/components/Employee/EmployeeHeader.vue';
@@ -28,7 +29,9 @@ const roleTabs = {
     { id: 'orders', label: 'Orders', icon: 'fas fa-shopping-cart', component: () => import('@/views/Employee/Manager/OrdersTab.vue') },
     { id: 'delivery-assignment', label: 'Delivery Assignment', icon: 'fas fa-truck', component: () => import('@/views/Employee/Manager/DeliveryAssignmentTab.vue') },
     { id: 'reservations', label: 'Reservations', icon: 'fas fa-calendar-check', component: () => import('@/views/Employee/Manager/ReservationsTab.vue') },
+    { id: 'branch-menu', label: 'Branch Menu', icon: 'fas fa-utensils', component: () => import('@/views/Employee/Manager/BranchMenuTab.vue') },
     { id: 'tables', label: 'Tables', icon: 'fas fa-table', component: () => import('@/views/Employee/Manager/TablesTab.vue') },
+    { id: 'floors', label: 'Floors', icon: 'fas fa-layer-group', component: () => import('@/views/Employee/Manager/FloorsTab.vue') },
     { id: 'staff', label: 'Staff', icon: 'fas fa-users', component: () => import('@/views/Employee/Manager/StaffTab.vue') }
   ],
   [USER_ROLES.STAFF]: [
@@ -160,6 +163,134 @@ onMounted(async () => {
     activeTab.value = tabs.value[0].id;
     await loadComponent();
   }
+  
+  // ✅ SETUP SOCKET.IO LISTENERS FOR GLOBAL NOTIFICATIONS
+  console.log('[Employee Dashboard] Setting up global socket listeners...');
+  
+  // Ensure socket is connected
+  if (!SocketService.getConnectionStatus()) {
+    SocketService.connect();
+    const connected = await SocketService.waitForConnection(3000);
+    console.log('[Employee Dashboard] Socket connected:', connected);
+  }
+  
+  const currentUser = AuthService.getUser();
+  const userBranchId = currentUser?.branch_id ? parseInt(currentUser.branch_id) : null;
+  const userRoleId = currentUser?.role_id;
+  
+  console.log('[Employee Dashboard] User info:', { 
+    role_id: userRoleId, 
+    branch_id: userBranchId,
+    username: currentUser?.username 
+  });
+  
+  // Listen for new orders - show notification based on role and branch
+  SocketService.on('new-order', (data) => {
+    console.log('[Employee Dashboard] 🔔 Received new-order notification:', data);
+    
+    const dataBranchId = parseInt(data.branchId);
+    let shouldShowNotification = false;
+    
+    // Manager (role_id === 2): show if order is from their assigned branch
+    // Cashier (role_id === 6): show if order is from their assigned branch
+    // Kitchen Staff (role_id === 5): show if order is from their assigned branch
+    // Staff (role_id === 8): show if order is from their assigned branch
+    if (userBranchId && dataBranchId === userBranchId) {
+      shouldShowNotification = true;
+      console.log('[Employee Dashboard] ✅ Branch match - showing notification');
+    } else {
+      console.log('[Employee Dashboard] ❌ Branch mismatch - userBranchId:', userBranchId, 'dataBranchId:', dataBranchId);
+    }
+    
+    if (shouldShowNotification) {
+      const orderTypeLabel = {
+        'dine_in': 'Dine-in',
+        'takeaway': 'Takeaway',
+        'delivery': 'Delivery'
+      }[data.orderType] || data.orderType;
+      
+      const totalAmount = data.total ? new Intl.NumberFormat('vi-VN').format(data.total) + 'đ' : '';
+      const customerInfo = data.customerName ? ` - ${data.customerName}` : '';
+      
+      const notificationMessage = `Đơn hàng mới #${data.orderId} (${orderTypeLabel})${customerInfo}${totalAmount ? ' - ' + totalAmount : ''}`;
+      
+      console.log('[Employee Dashboard] ✅ Showing notification:', notificationMessage);
+      
+      try {
+        toast.info(notificationMessage, {
+          timeout: 8000,
+          onClick: () => {
+            // Navigate to orders tab if available
+            if (tabs.value.find(t => t.id === 'orders')) {
+              activeTab.value = 'orders';
+            }
+          }
+        });
+      } catch (error) {
+        console.error('[Employee Dashboard] ❌ Error showing toast:', error);
+        alert(notificationMessage);
+      }
+    } else {
+      console.log('[Employee Dashboard] ❌ Notification filtered out - branch mismatch or not applicable');
+    }
+  });
+  
+  // Listen for order status updates - show notification if order is from user's branch
+  SocketService.on('order-status-updated', (data) => {
+    console.log('[Employee Dashboard] 🔔 Received order-status-updated notification:', data);
+    
+    const dataBranchId = data.branchId ? parseInt(data.branchId) : null;
+    
+    if (userBranchId && dataBranchId === userBranchId) {
+      console.log('[Employee Dashboard] ✅ Order status updated for branch:', userBranchId);
+      
+      // Manager: Hiển thị thông báo khi có đơn delivery ready cần assign
+      if (userRoleId === USER_ROLES.MANAGER && 
+          data.orderType === 'delivery' && 
+          data.newStatus === 'ready') {
+        const notificationMessage = `Đơn hàng #${data.orderId} đã sẵn sàng! Vui lòng assign cho shipper.`;
+        toast.info(notificationMessage, {
+          timeout: 8000,
+          onClick: () => {
+            // Navigate to Delivery Assignment tab if available
+            if (tabs.value.find(t => t.id === 'delivery-assignment')) {
+              activeTab.value = 'delivery-assignment';
+            }
+          }
+        });
+      }
+      
+      // Refresh orders if on orders tab
+      if (tabs.value.find(t => t.id === 'orders') && activeTab.value === 'orders') {
+        // Component will handle refresh via its own listener
+      }
+    }
+  });
+  
+  // Listen for payment status updates
+  SocketService.on('payment-status-updated', (data) => {
+    console.log('[Employee Dashboard] 🔔 Received payment-status-updated notification:', data);
+    
+    const dataBranchId = data.branchId ? parseInt(data.branchId) : null;
+    
+    if (userBranchId && dataBranchId === userBranchId) {
+      console.log('[Employee Dashboard] ✅ Payment status updated for branch:', userBranchId);
+      // Refresh orders if on orders tab
+      if (tabs.value.find(t => t.id === 'orders') && activeTab.value === 'orders') {
+        // Component will handle refresh via its own listener
+      }
+    }
+  });
+  
+  console.log('[Employee Dashboard] ✅ Global socket listeners registered');
+});
+
+onBeforeUnmount(() => {
+  // Clean up socket listeners
+  console.log('[Employee Dashboard] Cleaning up socket listeners...');
+  SocketService.off('new-order');
+  SocketService.off('order-status-updated');
+  SocketService.off('payment-status-updated');
 });
 </script>
 <template>

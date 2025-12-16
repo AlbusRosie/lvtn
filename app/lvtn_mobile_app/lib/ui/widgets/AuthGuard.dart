@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/AuthProvider.dart';
+import '../home/HomeScreen.dart';
+import '../delivery/DeliveryDriverScreen.dart';
 
 /// Widget bảo vệ các màn hình yêu cầu đăng nhập
 /// Nếu chưa đăng nhập, sẽ tự động chuyển đến màn hình đăng nhập
@@ -48,6 +50,38 @@ class _AuthGuardState extends State<AuthGuard> {
           );
         }
       });
+      return;
+    }
+    
+    // Kiểm tra role và redirect đến màn hình phù hợp nếu đang ở sai màn hình
+    if (user != null && user.roleId == 7) {
+      // Delivery staff - kiểm tra xem có đang ở DeliveryDriverScreen không
+      final currentRoute = ModalRoute.of(context)?.settings.name;
+      if (currentRoute != DeliveryDriverScreen.routeName) {
+        print('AuthGuard: Delivery driver đang ở sai màn hình, redirect đến DeliveryDriverScreen');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              DeliveryDriverScreen.routeName,
+              (route) => false,
+            );
+          }
+        });
+      }
+    } else {
+      // Customer - kiểm tra xem có đang ở HomeScreen không
+      final currentRoute = ModalRoute.of(context)?.settings.name;
+      if (currentRoute == DeliveryDriverScreen.routeName) {
+        print('AuthGuard: Customer đang ở DeliveryDriverScreen, redirect đến HomeScreen');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              HomeScreen.routeName,
+              (route) => false,
+            );
+          }
+        });
+      }
     }
   }
 

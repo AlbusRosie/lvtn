@@ -14,7 +14,7 @@ module.exports.setup = (app) => {
     ];
     router.post('/', ...manageAccess, TableController.createTable);
     router.put('/:id', ...manageAccess, BranchMiddleware.validateResourceBranch('table'), TableController.updateTable);
-    router.patch('/:id/status', ...manageAccess, BranchMiddleware.validateResourceBranch('table'), TableController.updateTableStatus);
+    // router.patch('/:id/status', ...) - REMOVED: updateTableStatus is deprecated
     router.delete('/:id', ...manageAccess, BranchMiddleware.validateResourceBranch('table'), TableController.deleteTable);
     // Public endpoint for checking table availability (no auth required)
     router.get('/:id/check-availability', TableController.checkTableAvailability);

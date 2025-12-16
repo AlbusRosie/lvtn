@@ -1,5 +1,11 @@
 const knex = require('../database/knex');
 const TableService = require('./TableService');
+let io = null;
+
+// Function to set io instance (called from server.js)
+function setSocketIO(socketIO) {
+    io = socketIO;
+}
 function reservationRepository() {
     return knex('reservations');
 }
@@ -29,7 +35,11 @@ async function createReservation(payload) {
     if (!branch) {
         throw new Error('Branch not found');
     }
-    const table = await knex('tables').where('id', payload.table_id).first();
+    const table = await knex('tables')
+        .leftJoin('floors', 'tables.floor_id', 'floors.id')
+        .where('tables.id', payload.table_id)
+        .select('tables.*', 'floors.branch_id')
+        .first();
     if (!table) {
         throw new Error('Table not found');
     }
@@ -46,18 +56,33 @@ async function createReservation(payload) {
         throw new Error('Table is not available at the requested date and time');
     }
     return await knex.transaction(async (trx) => {
+        // Lock table row to prevent race condition
+        // SELECT FOR UPDATE ensures only one transaction can proceed at a time
+        const tableLock = await trx('tables')
+            .where('id', payload.table_id)
+            .forUpdate()
+            .first();
+        
+        if (!tableLock) {
+            throw new Error('Table not found');
+        }
+        
+        // Recheck availability within transaction (with lock)
         const recheckAvailable = await TableService.isTableAvailable(
             payload.table_id,
             payload.reservation_date,
             payload.reservation_time,
-            120
+            120,
+            trx // Pass transaction to check within locked transaction
         );
         if (!recheckAvailable) {
             throw new Error('Table is not available at the requested date and time. It may have been reserved by another customer.');
         }
         const reservation = readReservation(payload);
         const [id] = await trx('reservations').insert(reservation);
-        // Pass transaction to createTableSchedule to avoid lock timeout
+        // Create table_schedule immediately to block the table slot
+        // This prevents other users from booking the same table
+        // Note: Reservation stays valid even without order - customers can book tables without ordering food
         await TableService.createTableSchedule({
             table_id: payload.table_id,
             reservation_id: id,
@@ -66,22 +91,48 @@ async function createReservation(payload) {
             duration_minutes: 120,
             status: 'reserved'
         }, trx);
-        try {
-            const OrderService = require('./OrderService');
-            await OrderService.createEmptyOrderForReservation({
-                user_id: payload.user_id,
-                branch_id: payload.branch_id,
-                table_id: payload.table_id,
-                reservation_id: id
-            });
-        } catch (orderError) {
-            }
-        return { 
+        
+        const newReservation = { 
             id, 
             ...reservation
         };
+        
+        // ✅ EMIT REAL-TIME NOTIFICATION
+        if (io) {
+            // Notify branch staff
+            io.to(`branch:${payload.branch_id}`).emit('reservation-created', {
+                reservationId: id,
+                reservation: newReservation,
+                branchId: payload.branch_id,
+                tableId: payload.table_id,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Notify admin
+            io.to('admin').emit('reservation-created', {
+                reservationId: id,
+                reservation: newReservation,
+                branchId: payload.branch_id,
+                tableId: payload.table_id,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Notify customer
+            if (payload.user_id) {
+                io.to(`user:${payload.user_id}`).emit('reservation-created', {
+                    reservationId: id,
+                    reservation: newReservation,
+                    branchId: payload.branch_id,
+                    tableId: payload.table_id,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+        
+        return newReservation;
     });
 }
+
 async function getReservationsByDateRange(startDate, endDate) {
     return await reservationRepository()
         .select(
@@ -119,7 +170,7 @@ async function getTableSchedule(tableId, startDate, endDate) {
     const activeOrders = await knex('orders')
         .select(
             'orders.id as order_id',
-            'orders.table_id',
+            'reservations.table_id',
             'orders.created_at',
             'orders.status as order_status',
             'orders.order_type',
@@ -128,15 +179,16 @@ async function getTableSchedule(tableId, startDate, endDate) {
             'tables.capacity'
         )
         .leftJoin('users', 'orders.user_id', 'users.id')
-        .leftJoin('tables', 'orders.table_id', 'tables.id')
-        .where('orders.table_id', tableId)
+        .leftJoin('reservations', 'orders.reservation_id', 'reservations.id')
+        .leftJoin('tables', 'reservations.table_id', 'tables.id')
+        .where('reservations.table_id', tableId)
         .where('orders.order_type', 'dine_in')
         .whereIn('orders.status', ['pending', 'preparing', 'ready'])
         .whereBetween(knex.raw('DATE(orders.created_at)'), [startDate, endDate])
         .whereNotExists(function() {
             this.select('*')
                 .from('table_schedules')
-                .whereRaw('table_schedules.table_id = orders.table_id')
+                .whereRaw('table_schedules.table_id = reservations.table_id')
                 .whereRaw('DATE(table_schedules.schedule_date) = DATE(orders.created_at)')
                 .whereRaw('TIME(table_schedules.start_time) <= TIME(orders.created_at)')
                 .where(function() {
@@ -203,7 +255,7 @@ async function getAllReservations(filters = {}) {
             'branches.name as branch_name',
             'tables.capacity',
             'floors.name as floor_name',
-            knex.raw('(SELECT id FROM orders WHERE orders.table_id = reservations.table_id AND orders.user_id = reservations.user_id AND orders.status != "cancelled" AND orders.created_at >= reservations.created_at ORDER BY orders.created_at ASC LIMIT 1) as order_id')
+            knex.raw('(SELECT id FROM orders WHERE orders.reservation_id = reservations.id AND orders.user_id = reservations.user_id AND orders.status != "cancelled" AND orders.created_at >= reservations.created_at ORDER BY orders.created_at ASC LIMIT 1) as order_id')
         )
         .leftJoin('users', 'reservations.user_id', 'users.id')
         .leftJoin('branches', 'reservations.branch_id', 'branches.id')
@@ -249,6 +301,7 @@ async function updateReservation(id, payload) {
     if (!existingReservation) {
         throw new Error('Reservation not found');
     }
+    const oldStatus = existingReservation.status;
     await reservationRepository().where('id', id).update(payload);
     if (payload.status) {
         if (payload.status === 'checked_in' || payload.status === 'confirmed') {
@@ -259,7 +312,44 @@ async function updateReservation(id, payload) {
             await TableService.checkOutTableSchedule(id);
         }
     }
-    return await getReservationById(id);
+    const updated = await getReservationById(id);
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION
+    if (io && updated) {
+        const newStatus = payload.status || oldStatus;
+        // Notify branch staff
+        io.to(`branch:${updated.branch_id}`).emit('reservation-updated', {
+            reservationId: id,
+            reservation: updated,
+            branchId: updated.branch_id,
+            oldStatus: oldStatus,
+            newStatus: newStatus,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Notify admin
+        io.to('admin').emit('reservation-updated', {
+            reservationId: id,
+            reservation: updated,
+            branchId: updated.branch_id,
+            oldStatus: oldStatus,
+            newStatus: newStatus,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Notify customer
+        if (updated.user_id) {
+            io.to(`user:${updated.user_id}`).emit('reservation-updated', {
+                reservationId: id,
+                reservation: updated,
+                oldStatus: oldStatus,
+                newStatus: newStatus,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+    
+    return updated;
 }
 async function deleteReservation(id) {
     const reservation = await reservationRepository().where('id', id).first();
@@ -268,6 +358,34 @@ async function deleteReservation(id) {
     }
     await TableService.cancelTableScheduleByReservation(id);
     await reservationRepository().where('id', id).del();
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION
+    if (io) {
+        // Notify branch staff
+        io.to(`branch:${reservation.branch_id}`).emit('reservation-deleted', {
+            reservationId: id,
+            reservation: reservation,
+            branchId: reservation.branch_id,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Notify admin
+        io.to('admin').emit('reservation-deleted', {
+            reservationId: id,
+            reservation: reservation,
+            branchId: reservation.branch_id,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Notify customer
+        if (reservation.user_id) {
+            io.to(`user:${reservation.user_id}`).emit('reservation-deleted', {
+                reservationId: id,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+    
     return { message: 'Reservation deleted successfully' };
 }
 async function checkTableAvailability(branchId, date, time, guestCount) {
@@ -276,10 +394,11 @@ async function checkTableAvailability(branchId, date, time, guestCount) {
             return { available: false, reason: 'invalid_input' };
         }
         const allTables = await knex('tables')
-            .where('branch_id', branchId)
-            .where('capacity', '>=', guestCount)
-            .orderBy('capacity', 'asc')
-            .select('*');
+            .leftJoin('floors', 'tables.floor_id', 'floors.id')
+            .where('floors.branch_id', branchId)
+            .where('tables.capacity', '>=', guestCount)
+            .orderBy('tables.capacity', 'asc')
+            .select('tables.*');
         if (allTables.length === 0) {
             return { available: false, reason: 'capacity' };
         }
@@ -369,61 +488,80 @@ async function createQuickReservation(payload) {
             }
         let errorMessage = '';
         if (availabilityCheck.reason === 'capacity') {
-            errorMessage = `❌ Rất tiếc! Chi nhánh ${branch.name} không có bàn đủ lớn cho ${payload.guest_count} người.\n\n`;
-            errorMessage += `💡 Gợi ý:\n`;
+            errorMessage = `Rất tiếc! Chi nhánh ${branch.name} không có bàn đủ lớn cho ${payload.guest_count} người.\n\n`;
+            errorMessage += `Gợi ý:\n`;
             errorMessage += `• Đặt nhiều bàn nhỏ hơn\n`;
             errorMessage += `• Chọn chi nhánh khác có bàn lớn hơn\n`;
             errorMessage += `• Liên hệ trực tiếp với nhà hàng: ${branch.phone || 'hotline'}`;
         } else if (availabilityCheck.reason === 'time') {
-            errorMessage = `❌ Rất tiếc! Không còn bàn trống tại ${branch.name} vào lúc ${payload.reservation_time} ngày ${payload.reservation_date} cho ${payload.guest_count} người.\n\n`;
-            errorMessage += `⚠️ Có thể bàn đã được đặt bởi khách hàng khác.\n\n`;
+            errorMessage = `Rất tiếc! Không còn bàn trống tại ${branch.name} vào lúc ${payload.reservation_time} ngày ${payload.reservation_date} cho ${payload.guest_count} người.\n\n`;
+            errorMessage += `Có thể bàn đã được đặt bởi khách hàng khác.\n\n`;
             if (availableSlots.length > 0) {
-                errorMessage += `💡 Các giờ khác còn bàn trống trong ngày:\n\n`;
+                errorMessage += `Các giờ khác còn bàn trống trong ngày:\n\n`;
                 availableSlots.forEach((slot, idx) => {
-                    errorMessage += `${idx + 1}. 🕐 ${slot}\n`;
+                    errorMessage += `${idx + 1}. ${slot}\n`;
                 });
                 errorMessage += `\nBạn có muốn chọn một trong các giờ này không?`;
             } else {
-                errorMessage += `❌ Không còn giờ nào trống trong ngày này.\n\n`;
-                errorMessage += `💡 Gợi ý:\n`;
+                errorMessage += `Không còn giờ nào trống trong ngày này.\n\n`;
+                errorMessage += `Gợi ý:\n`;
                 errorMessage += `• Chọn ngày khác\n`;
                 errorMessage += `• Chọn chi nhánh khác\n`;
                 errorMessage += `• Liên hệ trực tiếp: ${branch.phone || 'hotline'}`;
             }
         } else {
-            errorMessage = `❌ Rất tiếc! Không thể đặt bàn tại ${branch.name} vào lúc ${payload.reservation_time} ngày ${payload.reservation_date}.\n\n`;
-            errorMessage += `⚠️ Có thể bàn đã được đặt bởi khách hàng khác hoặc đã hết bàn.\n\n`;
+            errorMessage = `Rất tiếc! Không thể đặt bàn tại ${branch.name} vào lúc ${payload.reservation_time} ngày ${payload.reservation_date}.\n\n`;
+            errorMessage += `Có thể bàn đã được đặt bởi khách hàng khác hoặc đã hết bàn.\n\n`;
             errorMessage += `Vui lòng thử thời gian khác hoặc liên hệ trực tiếp với nhà hàng: ${branch.phone || 'hotline'}`;
         }
         throw new Error(errorMessage);
     }
     let selectedTable = availabilityCheck.table;
     return await knex.transaction(async (trx) => {
+        // Lock table row to prevent race condition
+        // SELECT FOR UPDATE ensures only one transaction can proceed at a time
+        const tableLock = await trx('tables')
+            .where('id', selectedTable.id)
+            .forUpdate()
+            .first();
+        
+        if (!tableLock) {
+            throw new Error('Table not found');
+        }
+        
+        // Recheck availability within transaction (with lock)
         const recheckAvailable = await TableService.isTableAvailable(
             selectedTable.id,
             payload.reservation_date,
             payload.reservation_time,
-            120
+            120,
+            trx // Pass transaction to check within locked transaction
         );
         if (!recheckAvailable) {
+            // Release lock before searching for alternative tables
             const allTables = await trx('tables')
-                .where('branch_id', payload.branch_id)
-                .where('capacity', '>=', payload.guest_count)
-                .where('id', '!=', selectedTable.id) 
-                .where(function() {
-                    this.where('status', '!=', 'disabled')
-                        .where('status', '!=', 'inactive')
-                        .orWhereNull('status');
-                })
-                .orderBy('capacity', 'asc')
-                .select('*');
+                .leftJoin('floors', 'tables.floor_id', 'floors.id')
+                .where('floors.branch_id', payload.branch_id)
+                .where('tables.capacity', '>=', payload.guest_count)
+                .where('tables.id', '!=', selectedTable.id) 
+                .orderBy('tables.capacity', 'asc')
+                .select('tables.*');
             let alternativeTable = null;
             for (const table of allTables) {
+                // Lock each table row when checking
+                const tableLock = await trx('tables')
+                    .where('id', table.id)
+                    .forUpdate()
+                    .first();
+                
+                if (!tableLock) continue;
+                
                 const isAvailable = await TableService.isTableAvailable(
                     table.id,
                     payload.reservation_date,
                     payload.reservation_time,
-                    120
+                    120,
+                    trx // Pass transaction to check within locked transaction
                 );
                 if (isAvailable) {
                     alternativeTable = table;
@@ -442,16 +580,16 @@ async function createQuickReservation(payload) {
                     );
                 } catch (error) {
                     }
-                let errorMessage = `❌ Rất tiếc! Bàn vừa được đặt bởi khách hàng khác. Không còn bàn trống tại ${branch.name} vào lúc ${payload.reservation_time} ngày ${payload.reservation_date} cho ${payload.guest_count} người.\n\n`;
+                let errorMessage = `Rất tiếc! Bàn vừa được đặt bởi khách hàng khác. Không còn bàn trống tại ${branch.name} vào lúc ${payload.reservation_time} ngày ${payload.reservation_date} cho ${payload.guest_count} người.\n\n`;
                 if (availableSlots.length > 0) {
-                    errorMessage += `💡 Các giờ khác còn bàn trống trong ngày:\n\n`;
+                    errorMessage += `Các giờ khác còn bàn trống trong ngày:\n\n`;
                     availableSlots.forEach((slot, idx) => {
-                        errorMessage += `${idx + 1}. 🕐 ${slot}\n`;
+                        errorMessage += `${idx + 1}. ${slot}\n`;
                     });
                     errorMessage += `\nBạn có muốn chọn một trong các giờ này không?`;
                 } else {
-                    errorMessage += `❌ Không còn giờ nào trống trong ngày này.\n\n`;
-                    errorMessage += `💡 Gợi ý:\n`;
+                    errorMessage += `Không còn giờ nào trống trong ngày này.\n\n`;
+                    errorMessage += `Gợi ý:\n`;
                     errorMessage += `• Chọn ngày khác\n`;
                     errorMessage += `• Chọn chi nhánh khác\n`;
                     errorMessage += `• Liên hệ trực tiếp: ${branch.phone || 'hotline'}`;
@@ -459,23 +597,15 @@ async function createQuickReservation(payload) {
                 throw new Error(errorMessage);
             }
             selectedTable = alternativeTable;
-        }
-        const OrderService = require('./OrderService');
-        let emptyOrder = null;
-        try {
-            emptyOrder = await OrderService.createEmptyOrder({
-                user_id: payload.user_id,
-                branch_id: payload.branch_id,
-                table_id: selectedTable.id
-            });
-        } catch (orderError) {
             }
         const reservation = readReservation({
             ...payload,
             table_id: selectedTable.id
         });
         const [id] = await trx('reservations').insert(reservation);
-        // Pass transaction to createTableSchedule to avoid lock timeout
+        // Create table_schedule immediately to block the table slot
+        // This prevents other users from booking the same table
+        // Note: Reservation stays valid even without order - customers can book tables without ordering food
         await TableService.createTableSchedule({
             table_id: selectedTable.id,
             reservation_id: id,
@@ -484,21 +614,13 @@ async function createQuickReservation(payload) {
             duration_minutes: 120,
             status: 'reserved'
         }, trx);
-        if (emptyOrder) {
-            try {
-                await trx('orders')
-                    .where('id', emptyOrder.id)
-                    .update({ reservation_id: id });
-            } catch (updateError) {
-                }
-        }
         return {
             id,
             ...reservation,
             table_id: selectedTable.id,
             table_capacity: selectedTable.capacity,
             floor_id: selectedTable.floor_id,
-            order_id: emptyOrder?.id || null
+            order_id: null
         };
     });
 }
@@ -540,6 +662,24 @@ async function getReservationsNeedingWarning() {
 async function getReservationsToCancel() {
     return await getOverdueReservations(60);
 }
+/**
+ * @deprecated This function is deprecated. Reservations are no longer auto-cancelled 
+ * just because they don't have orders. Customers can book tables without ordering food.
+ * Reservations are only cancelled for no-show (overdue) or manual cancellation.
+ */
+async function getReservationsWithoutOrder(timeoutMinutes = 30) {
+    // Deprecated - no longer used
+    return [];
+}
+/**
+ * @deprecated This function is deprecated. Reservations are no longer auto-cancelled 
+ * just because they don't have orders. Customers can book tables without ordering food.
+ * Reservations are only cancelled for no-show (overdue) or manual cancellation.
+ */
+async function cancelReservationsWithoutOrder(timeoutMinutes = 30) {
+    // Deprecated - no longer used
+    return 0;
+}
 async function cancelOverdueReservations() {
     const reservationsToCancel = await getReservationsToCancel();
     let cancelledCount = 0;
@@ -562,47 +702,55 @@ async function createOverdueNotifications(overdueReservations) {
     let notificationCount = 0;
     for (const reservation of overdueReservations) {
         const minutesOverdue = reservation.minutes_overdue || 0;
-        if (reservation.user_id) {
-            try {
-                await knex('notifications').insert({
-                    user_id: reservation.user_id,
-                    title: minutesOverdue >= 60 
+        const isCancelled = minutesOverdue >= 60;
+        
+        // ✅ EMIT REAL-TIME NOTIFICATIONS VIA SOCKET.IO
+        if (io) {
+            // Notify customer if user_id exists
+            if (reservation.user_id) {
+                io.to(`user:${reservation.user_id}`).emit('reservation-overdue', {
+                    reservationId: reservation.id,
+                    branchId: reservation.branch_id,
+                    branchName: reservation.branch_name,
+                    tableId: reservation.table_id,
+                    floorName: reservation.floor_name,
+                    reservationTime: reservation.reservation_time,
+                    minutesOverdue: Math.floor(minutesOverdue),
+                    isCancelled: isCancelled,
+                    title: isCancelled 
                         ? 'Đặt bàn đã bị hủy do không đến'
                         : 'Cảnh báo: Đặt bàn của bạn đã quá giờ',
-                    message: minutesOverdue >= 60
+                    message: isCancelled
                         ? `Đặt bàn của bạn tại ${reservation.branch_name}, bàn #${reservation.table_id || 'N/A'} (${reservation.floor_name}) lúc ${reservation.reservation_time} đã bị hủy tự động do bạn không đến sau 60 phút.`
                         : `Đặt bàn của bạn tại ${reservation.branch_name}, bàn #${reservation.table_id || 'N/A'} (${reservation.floor_name}) lúc ${reservation.reservation_time} đã quá ${Math.floor(minutesOverdue)} phút. Vui lòng đến sớm hoặc liên hệ nhà hàng.`,
-                    type: minutesOverdue >= 60 ? 'urgent' : 'general',
-                    is_read: 0,
-                    created_at: new Date()
+                    type: isCancelled ? 'urgent' : 'general',
+                    timestamp: new Date().toISOString()
                 });
                 notificationCount++;
-            } catch (error) {
-                }
-        }
-        if (reservation.branch_id) {
-            try {
-                const branchStaff = await knex('users')
-                    .where('branch_id', reservation.branch_id)
-                    .whereIn('role_id', [2, 6])
-                    .select('id');
-                for (const staff of branchStaff) {
-                    await knex('notifications').insert({
-                        user_id: staff.id,
-                        title: minutesOverdue >= 60
-                            ? 'Đặt bàn đã bị hủy tự động'
-                            : 'Cảnh báo: Khách hàng chưa đến đặt bàn',
-                        message: minutesOverdue >= 60
-                            ? `Đặt bàn #${reservation.id} tại bàn #${reservation.table_id || 'N/A'} (${reservation.floor_name}) lúc ${reservation.reservation_time} đã bị hủy tự động do khách hàng không đến sau 60 phút.`
-                            : `Đặt bàn #${reservation.id} tại ${reservation.branch_name}, bàn #${reservation.table_id || 'N/A'} (${reservation.floor_name}) lúc ${reservation.reservation_time} đã quá ${Math.floor(minutesOverdue)} phút mà khách hàng chưa đến.`,
-                        type: minutesOverdue >= 60 ? 'urgent' : 'urgent',
-                        is_read: 0,
-                        created_at: new Date()
-                    });
-                    notificationCount++;
-                }
-            } catch (error) {
-                }
+            }
+            
+            // Notify branch staff (manager and cashier)
+            if (reservation.branch_id) {
+                io.to(`branch:${reservation.branch_id}`).emit('reservation-overdue', {
+                    reservationId: reservation.id,
+                    branchId: reservation.branch_id,
+                    branchName: reservation.branch_name,
+                    tableId: reservation.table_id,
+                    floorName: reservation.floor_name,
+                    reservationTime: reservation.reservation_time,
+                    minutesOverdue: Math.floor(minutesOverdue),
+                    isCancelled: isCancelled,
+                    title: isCancelled
+                        ? 'Đặt bàn đã bị hủy tự động'
+                        : 'Cảnh báo: Khách hàng chưa đến đặt bàn',
+                    message: isCancelled
+                        ? `Đặt bàn #${reservation.id} tại bàn #${reservation.table_id || 'N/A'} (${reservation.floor_name}) lúc ${reservation.reservation_time} đã bị hủy tự động do khách hàng không đến sau 60 phút.`
+                        : `Đặt bàn #${reservation.id} tại ${reservation.branch_name}, bàn #${reservation.table_id || 'N/A'} (${reservation.floor_name}) lúc ${reservation.reservation_time} đã quá ${Math.floor(minutesOverdue)} phút mà khách hàng chưa đến.`,
+                    type: 'urgent',
+                    timestamp: new Date().toISOString()
+                });
+                notificationCount++;
+            }
         }
     }
     return notificationCount;
@@ -648,8 +796,7 @@ async function cancelReservationSimple(reservationId) {
     const result = await reservationRepository()
         .where('id', reservationId)
         .update({
-            status: 'cancelled',
-            updated_at: new Date()
+            status: 'cancelled'
         });
     return result > 0;
 }
@@ -672,5 +819,9 @@ module.exports = {
     checkAndProcessOverdueReservations,
     getUserReservations,
     getReservationsByBranch,
-    cancelReservationSimple
+    cancelReservationSimple,
+    // Deprecated functions removed:
+    // - getReservationsWithoutOrder (deprecated, not used)
+    // - cancelReservationsWithoutOrder (deprecated, not used)
+    setSocketIO
 };

@@ -141,6 +141,7 @@ onMounted(() => {
           <!-- Logout Button -->
           <button class="action-btn logout-btn" @click="handleLogout" title="Đăng xuất">
             <i class="fas fa-sign-out-alt"></i>
+            <span class="logout-text">Đăng xuất</span>
           </button>
         </div>
       </div>
@@ -271,6 +272,18 @@ onMounted(() => {
 .action-btn:hover {
   background: #FEF7ED;
   color: #FF8C42;
+}
+.action-btn.logout-btn {
+  width: auto;
+  padding: 10px 16px;
+  gap: 8px;
+  background: #F8F9FA;
+  color: #64748B;
+}
+.action-btn.logout-btn .logout-text {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 .action-btn.logout-btn:hover {
   background: #FEE2E2;
@@ -448,6 +461,14 @@ onMounted(() => {
     height: 38px;
     font-size: 15px;
   }
+  .action-btn.logout-btn {
+    width: auto;
+    padding: 8px 14px;
+    gap: 6px;
+  }
+  .action-btn.logout-btn .logout-text {
+    font-size: 13px;
+  }
   .user-avatar {
     width: 38px;
     height: 38px;
@@ -490,6 +511,14 @@ onMounted(() => {
     width: 36px;
     height: 36px;
     font-size: 14px;
+  }
+  .action-btn.logout-btn {
+    width: auto;
+    padding: 8px 12px;
+    gap: 6px;
+  }
+  .action-btn.logout-btn .logout-text {
+    font-size: 12px;
   }
   .tabs-container {
     padding: 0 12px;

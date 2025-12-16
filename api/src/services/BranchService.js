@@ -1,5 +1,11 @@
 const knex = require('../database/knex');
 const Paginator = require('./Paginator');
+let io = null;
+
+// Function to set io instance (called from server.js)
+function setSocketIO(socketIO) {
+    io = socketIO;
+}
 function branchRepository() {
     return knex('branches');
 }
@@ -67,7 +73,18 @@ async function createBranch(payload) {
     }
     const branch = readBranch(payload);
     const [id] = await branchRepository().insert(branch);
-    return { id, ...branch };
+    const newBranch = { id, ...branch };
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION
+    if (io) {
+        io.to('admin').emit('branch-created', {
+            branchId: id,
+            branch: newBranch,
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    return newBranch;
 }
 async function getAllBranches(status, search) {
     let query = branchRepository()
@@ -123,7 +140,28 @@ async function updateBranch(id, payload) {
     }
     const update = readBranch(payload);
     await branchRepository().where('id', id).update(update);
-    return { ...updatedBranch, ...update };
+    const updated = { ...updatedBranch, ...update };
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION
+    if (io) {
+        io.to('admin').emit('branch-updated', {
+            branchId: id,
+            branch: updated,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Notify branch staff if status changed
+        if (update.status && update.status !== updatedBranch.status) {
+            io.to(`branch:${id}`).emit('branch-status-updated', {
+                branchId: id,
+                oldStatus: updatedBranch.status,
+                newStatus: update.status,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+    
+    return updated;
 }
 async function deleteBranch(id) {
     const deletedBranch = await branchRepository()
@@ -164,11 +202,22 @@ async function deleteBranch(id) {
         .where('branch_id', id)
         .del();
     await branchRepository().where('id', id).del();
-    return { 
+    const result = { 
         ...deletedBranch,
         message: `Branch deleted successfully! Deleted ${deletedFloors} floors and all related data.`,
         deletedFloors 
     };
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION
+    if (io) {
+        io.to('admin').emit('branch-deleted', {
+            branchId: id,
+            branch: deletedBranch,
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    return result;
 }
 async function getBranchStatistics() {
     const stats = await branchRepository()
@@ -211,7 +260,9 @@ async function getNearbyBranches(userLat, userLng, maxDistanceKm = null) {
     if (userLat == null || userLng == null) {
         throw new Error('Latitude and longitude are required');
     }
-    const query = branchRepository()
+    
+    // Build subquery to calculate distance
+    const subquery = branchRepository()
         .select(
             'branches.*',
             knex.raw(
@@ -229,11 +280,21 @@ async function getNearbyBranches(userLat, userLng, maxDistanceKm = null) {
                 [userLat, userLng, userLat]
             )
         )
-        .where('status', 'active') 
-        .orderByRaw('CASE WHEN distance_km IS NULL THEN 1 ELSE 0 END ASC, distance_km ASC'); 
+        .where('status', 'active');
+    
+    // Build main query from subquery to filter by distance
+    let query = knex.from(subquery.as('branches_with_distance'))
+        .select('*');
+    
     if (maxDistanceKm != null) {
-        query.havingRaw('distance_km IS NULL OR distance_km <= ?', [maxDistanceKm]);
+        query.where(function() {
+            this.whereNull('distance_km')
+                .orWhere('distance_km', '<=', maxDistanceKm);
+        });
     }
+    
+    query.orderByRaw('CASE WHEN distance_km IS NULL THEN 1 ELSE 0 END ASC, distance_km ASC');
+    
     const results = await query;
     return results;
 }
@@ -246,5 +307,6 @@ module.exports = {
     getActiveBranches,
     getBranchStatistics,
     getManagers,
-    getNearbyBranches
+    getNearbyBranches,
+    setSocketIO
 };

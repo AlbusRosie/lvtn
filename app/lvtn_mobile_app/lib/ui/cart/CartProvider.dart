@@ -100,7 +100,23 @@ class CartProvider extends ChangeNotifier {
         return;
       }
 
-      
+      // Nếu đang switch branch và có cart của branch cũ, clear nó trước
+      if (_currentBranchId != null && _currentBranchId != branchId && _cart != null) {
+        try {
+          await CartService.clearCart(
+            token: token,
+            cartId: _cart!.id,
+          );
+          // Clear session để đảm bảo không dùng session cũ
+          await CartService.clearSession();
+        } catch (e) {
+          // Ignore error nếu cart không tồn tại
+          print('Error clearing old cart when switching branch: $e');
+        }
+        // Clear cart trong memory
+        _cart = null;
+      }
+
       final cart = await CartService.getUserCart(
         token: token,
         branchId: branchId,
@@ -109,8 +125,11 @@ class CartProvider extends ChangeNotifier {
       if (cart != null) {
         setCart(cart);
         _currentBranchId = branchId;
+        setCurrentBranch(branchId, cart.branchName ?? '');
       } else {
         setCart(null);
+        _currentBranchId = branchId;
+        setCurrentBranch(branchId, '');
       }
     } catch (e) {
       setError(e.toString());
@@ -156,7 +175,7 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> addToCart(int branchId, int productId, {int quantity = 1, String orderType = 'dine_in', List<SelectedOption>? selectedOptions, String? specialInstructions}) async {
+  Future<void> addToCart(int branchId, int productId, {int quantity = 1, String? orderType, List<SelectedOption>? selectedOptions, String? specialInstructions, String? sessionId}) async {
     try {
       setLoading(true);
       
@@ -166,12 +185,35 @@ class CartProvider extends ChangeNotifier {
         throw Exception('Authentication token not found');
       }
 
+      // Kiểm tra nếu đang switch branch - cần clear cart cũ và session
+      if (_currentBranchId != null && _currentBranchId != branchId) {
+        // Nếu có cart của branch cũ, clear nó trước
+        if (_cart != null) {
+          try {
+            await CartService.clearCart(
+              token: token,
+              cartId: _cart!.id,
+            );
+          } catch (e) {
+            // Ignore error nếu cart không tồn tại
+            print('Error clearing old cart: $e');
+          }
+        }
+        // Clear session để tạo session mới cho branch mới
+        await CartService.clearSession();
+      }
+
+      // Determine orderType: use provided, or from existing cart, or default to 'delivery'
+      // Note: 'dine_in' and 'takeaway' should only be used in Quick Dine In and Chatbot (they have separate menu/cart screens)
+      String finalOrderType = orderType ?? _cart?.orderType ?? 'delivery';
+
       final cart = await CartService.addToCart(
         token: token,
         branchId: branchId,
         productId: productId,
         quantity: quantity,
-        orderType: orderType,
+        orderType: finalOrderType,
+        sessionId: sessionId,
         selectedOptions: selectedOptions,
         specialInstructions: specialInstructions,
       );
@@ -179,6 +221,7 @@ class CartProvider extends ChangeNotifier {
       setCart(cart);
       
       _currentBranchId = branchId;
+      setCurrentBranch(branchId, cart.branchName ?? '');
       notifyListeners();
     } catch (e) {
       setError(e.toString());

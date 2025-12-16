@@ -260,7 +260,7 @@
                   <td class="branch-name">{{ order.branch_name || 'N/A' }}</td>
                   <td class="order-total">{{ formatCurrency(order.total_amount || 0) }}</td>
                   <td>
-                    <span class="status-badge" :class="`status-${order.status}`">
+                    <span class="status-badge" :class="getStatusClass(order.status)">
                       {{ getStatusLabel(order.status) }}
                     </span>
                   </td>
@@ -588,7 +588,7 @@ export default {
         date.setDate(date.getDate() - i);
         date.setHours(0, 0, 0, 0);
         const dateStr = date.toISOString().split('T')[0]; 
-        const dayName = date.toLocaleDateString(this.isManagerView ? 'en-US' : 'vi-VN', { weekday: 'short' });
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
         const dayNumber = date.getDate();
         const revenue = dateMap.get(dateStr) || 0;
         days.push({
@@ -602,7 +602,7 @@ export default {
       this.loadReports();
     },
     formatCurrency(amount) {
-      return new Intl.NumberFormat('vi-VN', {
+      return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'VND'
       }).format(amount);
@@ -612,11 +612,11 @@ export default {
       const millions = amount / 1000000;
       const billions = amount / 1000000000;
       if (billions >= 1) {
-        return (billions % 1 === 0 ? billions : billions.toFixed(1)) + ' tỷ ₫';
+        return (billions % 1 === 0 ? billions : billions.toFixed(1)) + 'B ₫';
       } else if (millions >= 1) {
-        return (millions % 1 === 0 ? millions : millions.toFixed(1)) + ' triệu ₫';
+        return (millions % 1 === 0 ? millions : millions.toFixed(1)) + 'M ₫';
       } else {
-        return new Intl.NumberFormat('vi-VN', {
+        return new Intl.NumberFormat('en-US', {
           style: 'currency',
           currency: 'VND',
           maximumFractionDigits: 0
@@ -626,7 +626,7 @@ export default {
     formatDate(dateString) {
       if (!dateString) return '-';
       const date = new Date(dateString);
-      return date.toLocaleDateString('vi-VN', {
+      return date.toLocaleDateString('en-US', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -641,10 +641,20 @@ export default {
         'preparing': 'Preparing',
         'ready': 'Ready',
         'delivering': 'Delivering',
+        'out_for_delivery': 'Out for Delivery',
         'completed': 'Completed',
         'cancelled': 'Cancelled'
       };
       return labels[status] || status;
+    },
+    getStatusClass(status) {
+      // Normalize status names for CSS classes
+      const statusMap = {
+        'out_for_delivery': 'delivering',
+        'delivering': 'delivering'
+      };
+      const normalizedStatus = statusMap[status] || status;
+      return `status-${normalizedStatus}`;
     },
     goToOrders() {
       this.router.push('/admin/orders');
@@ -745,19 +755,22 @@ export default {
             if (!groupedData[periodKey]) {
               groupedData[periodKey] = {
                 dine_in: 0,
-                delivery: 0
+                delivery: 0,
+                takeaway: 0
               };
             }
             if (order.order_type === 'dine_in') {
               groupedData[periodKey].dine_in += parseFloat(order.total) || 0;
             } else if (order.order_type === 'delivery') {
               groupedData[periodKey].delivery += parseFloat(order.total) || 0;
+            } else if (order.order_type === 'takeaway') {
+              groupedData[periodKey].takeaway += parseFloat(order.total) || 0;
             }
           }
         });
         const sortedPeriods = Object.keys(groupedData).sort();
         sortedPeriods.forEach(period => {
-          const total = groupedData[period].dine_in + groupedData[period].delivery;
+          const total = groupedData[period].dine_in + groupedData[period].delivery + groupedData[period].takeaway;
           summary.total += total;
           if (total > summary.max) summary.max = total;
           if (total < summary.min) summary.min = total;
@@ -770,40 +783,43 @@ export default {
         const formatPeriodLabel = (period, periodType) => {
           if (periodType === 'day') {
             const date = new Date(period);
-            const dayName = date.toLocaleDateString(this.isManagerView ? 'en-US' : 'vi-VN', { weekday: 'short' });
+            const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
             const dayNumber = date.getDate();
             return `${dayName}\n${dayNumber}`;
           } else if (periodType === 'week') {
             const date = new Date(period);
-            if (this.isManagerView) {
-              return `Week ${date.getDate()}/${date.getMonth() + 1}`;
-            }
-            return `Tuần ${date.getDate()}/${date.getMonth() + 1}`;
+            return `Week ${date.getDate()}/${date.getMonth() + 1}`;
           } else if (periodType === 'month') {
             const [year, month] = period.split('-');
-            if (this.isManagerView) {
-              const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-              return monthNames[parseInt(month) - 1] || period;
-            }
-            const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
-              'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             return monthNames[parseInt(month) - 1] || period;
           } else if (periodType === 'year') {
-            return this.isManagerView ? `Year ${period}` : `Năm ${period}`;
+            return `Year ${period}`;
           }
           return period;
         };
         const labels = sortedPeriods.map(period => formatPeriodLabel(period, this.commonPeriod));
         const datasets = [
           {
-            label: this.isManagerView ? 'Dine In' : 'Tại chỗ',
+            label: 'Dine In',
             data: sortedPeriods.map(period => groupedData[period].dine_in),
+            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+            borderColor: 'rgba(59, 130, 246, 1)',
             fill: true
           },
           {
-            label: this.isManagerView ? 'Delivery' : 'Giao hàng',
+            label: 'Delivery',
             data: sortedPeriods.map(period => groupedData[period].delivery),
+            backgroundColor: 'rgba(34, 197, 94, 0.7)',
+            borderColor: 'rgba(34, 197, 94, 1)',
+            fill: true
+          },
+          {
+            label: 'Takeaway',
+            data: sortedPeriods.map(period => groupedData[period].takeaway),
+            backgroundColor: 'rgba(245, 158, 11, 0.7)',
+            borderColor: 'rgba(245, 158, 11, 1)',
             fill: true
           }
         ];
@@ -838,7 +854,10 @@ export default {
     async navigateChartPeriod(direction) {
       if (!this.chartDateFrom || !this.chartDateTo) {
         this.initializeChartDateRange();
-        await this.generateRevenueChartData();
+        await Promise.all([
+          this.generateRevenueChartData(),
+          this.loadFilteredOrderStats()
+        ]);
         return;
       }
       let from = new Date(this.chartDateFrom);
@@ -865,12 +884,18 @@ export default {
       }
       this.chartDateFrom = from.toISOString().split('T')[0];
       this.chartDateTo = to.toISOString().split('T')[0];
-      await this.generateRevenueChartData();
+      await Promise.all([
+        this.generateRevenueChartData(),
+        this.loadFilteredOrderStats()
+      ]);
     },
     async onChartDateRangeChange(from, to) {
       if (from) this.chartDateFrom = from;
       if (to) this.chartDateTo = to;
-      await this.generateRevenueChartData();
+      await Promise.all([
+        this.generateRevenueChartData(),
+        this.loadFilteredOrderStats()
+      ]);
     },
     getCommonPeriodDateRange() {
       const now = new Date();
@@ -950,14 +975,25 @@ export default {
         const takeawayOrders = orders.filter(order => order.order_type === 'takeaway').length;
         const completedOrders = orders.filter(order => order.status === 'completed').length;
         const cancelledOrders = orders.filter(order => order.status === 'cancelled').length;
+        const pendingOrders = orders.filter(order => order.status === 'pending').length;
+        const preparingOrders = orders.filter(order => order.status === 'preparing').length;
+        const readyOrders = orders.filter(order => order.status === 'ready').length;
+        const outForDeliveryOrders = orders.filter(order => order.status === 'out_for_delivery').length;
+        
+        // Update all order statistics when date filter changes
         this.orderStats.completedOrders = completedOrders;
         this.orderStats.cancelledOrders = cancelledOrders;
+        this.orderStats.pendingOrders = pendingOrders;
+        this.orderStats.preparingOrders = preparingOrders;
+        
         this.filteredOrderStatsData = {
           totalOrders,
           revenue,
           reservations: reservationsCount,
           takeawayOrders
         };
+        // Update reportStats.totalRevenue when date filter changes
+        this.reportStats.totalRevenue = revenue;
       } catch (err) {
         this.filteredOrderStatsData = {
           totalOrders: 0,
@@ -965,6 +1001,12 @@ export default {
           reservations: 0,
           takeawayOrders: 0
         };
+        this.reportStats.totalRevenue = 0;
+        // Reset order stats on error
+        this.orderStats.completedOrders = 0;
+        this.orderStats.cancelledOrders = 0;
+        this.orderStats.pendingOrders = 0;
+        this.orderStats.preparingOrders = 0;
       }
     },
     async loadTopProducts() {

@@ -1,6 +1,12 @@
 const knex = require('../database/knex');
 const Paginator = require('./Paginator');
 const { unlink } = require('node:fs');
+let io = null;
+
+// Function to set io instance (called from server.js)
+function setSocketIO(socketIO) {
+    io = socketIO;
+}
 function productRepository() {
     return knex('products');
 }
@@ -33,8 +39,7 @@ async function autoCreateBranchProducts(productId, basePrice) {
             price: basePrice,
             is_available: 1,
             status: 'available',
-            created_at: new Date(),
-            updated_at: new Date()
+            created_at: new Date()
         }));
         await knex('branch_products').insert(branchProducts);
     }
@@ -62,8 +67,7 @@ async function createBranchProductsForSelectedBranches(productId, basePrice, sel
             price: basePrice,
             is_available: 1,
             status: 'available',
-            created_at: new Date(),
-            updated_at: new Date()
+            created_at: new Date()
         }));
         await knex('branch_products').insert(branchProducts);
     }
@@ -95,7 +99,7 @@ async function createProduct(payload) {
     };
 }
 async function getProductsByBranch(query) {
-    const { branch_id, page = 1, limit = 20, include_all = false } = query;
+    const { branch_id, page = 1, limit = 20, include_all = false, category_id } = query;
     const paginator = new Paginator(page, limit);
     if (!branch_id) {
         throw new Error('Branch ID is required');
@@ -110,6 +114,9 @@ async function getProductsByBranch(query) {
         });
     if (!includeAll) {
         queryBuilder.whereNotNull('branch_products.id');
+    }
+    if (category_id) {
+        queryBuilder.where('products.category_id', parseInt(category_id));
     }
     queryBuilder.select(
             knex.raw('count(products.id) OVER() AS recordCount'),
@@ -338,7 +345,38 @@ async function updateProduct(id, payload) {
     if (update.is_global_available !== undefined || update.status !== undefined) {
         await updateAllBranchProductsForGlobalChange(id, update);
     }
-    return { ...existingProduct, ...update };
+    
+    const updatedProduct = { ...existingProduct, ...update };
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION for product updates
+    if (io && (update.base_price !== undefined || update.status !== undefined)) {
+        // Get all branch_products for this product
+        const branchProducts = await knex('branch_products')
+            .where('product_id', id)
+            .select('branch_id', 'id');
+        
+        // Notify all branches that have this product
+        branchProducts.forEach(bp => {
+            io.to(`branch:${bp.branch_id}`).emit('product-updated', {
+                productId: id,
+                branchId: bp.branch_id,
+                branchProductId: bp.id,
+                basePrice: update.base_price !== undefined ? update.base_price : existingProduct.base_price,
+                status: update.status !== undefined ? update.status : existingProduct.status,
+                timestamp: new Date().toISOString()
+            });
+        });
+        
+        // Notify admin
+        io.to('admin').emit('product-updated', {
+            productId: id,
+            basePrice: update.base_price !== undefined ? update.base_price : existingProduct.base_price,
+            status: update.status !== undefined ? update.status : existingProduct.status,
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    return updatedProduct;
 }
 async function updateAllBranchProductsForGlobalChange(productId, globalChanges) {
     if (globalChanges.is_global_available === 0 || globalChanges.status === 'inactive') {
@@ -382,8 +420,7 @@ async function addProductToBranch(branchId, productId, branchProductData) {
                 price: branchProductData.price || product.base_price,
                 is_available: branchProductData.is_available !== undefined ? branchProductData.is_available : 1,
                 status: branchProductData.status || 'available',
-                notes: branchProductData.notes || null,
-                updated_at: new Date()
+                notes: branchProductData.notes || null
             });
         id = existingBranchProduct.id;
     } else {
@@ -425,7 +462,8 @@ async function updateBranchProduct(branchProductId, updateData) {
     if (updateData.status === 'discontinued') {
         const pendingOrders = await knex('order_details')
             .join('orders', 'order_details.order_id', 'orders.id')
-            .where('order_details.product_id', existingBranchProduct.product_id)
+            .join('branch_products', 'order_details.branch_product_id', 'branch_products.id')
+            .where('branch_products.product_id', existingBranchProduct.product_id)
             .where('orders.branch_id', existingBranchProduct.branch_id)
             .whereIn('orders.status', ['pending', 'preparing'])
             .count('* as count')
@@ -457,11 +495,11 @@ async function updateBranchProduct(branchProductId, updateData) {
     if (Object.keys(updateFields).length === 0) {
         throw new Error('No valid fields to update');
     }
-    updateFields.updated_at = new Date();
     await knex('branch_products')
         .where('id', branchProductId)
         .update(updateFields);
-    return await knex('branch_products')
+    
+    const updatedBranchProduct = await knex('branch_products')
         .join('products', 'branch_products.product_id', 'products.id')
         .join('categories', 'products.category_id', 'categories.id')
         .where('branch_products.id', branchProductId)
@@ -475,11 +513,41 @@ async function updateBranchProduct(branchProductId, updateData) {
             'categories.name as category_name'
         )
         .first();
+    
+    // ✅ EMIT REAL-TIME NOTIFICATION
+    if (io && updatedBranchProduct) {
+        // Notify branch staff
+        io.to(`branch:${updatedBranchProduct.branch_id}`).emit('product-price-updated', {
+            branchProductId: branchProductId,
+            productId: updatedBranchProduct.product_id,
+            branchId: updatedBranchProduct.branch_id,
+            price: updatedBranchProduct.price,
+            isAvailable: updatedBranchProduct.is_available,
+            status: updatedBranchProduct.status,
+            productName: updatedBranchProduct.name,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Notify admin
+        io.to('admin').emit('product-price-updated', {
+            branchProductId: branchProductId,
+            productId: updatedBranchProduct.product_id,
+            branchId: updatedBranchProduct.branch_id,
+            price: updatedBranchProduct.price,
+            isAvailable: updatedBranchProduct.is_available,
+            status: updatedBranchProduct.status,
+            productName: updatedBranchProduct.name,
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    return updatedBranchProduct;
 }
 async function removeProductFromBranch(branchId, productId) {
     const pendingOrders = await knex('order_details')
         .join('orders', 'order_details.order_id', 'orders.id')
-        .where('order_details.product_id', productId)
+        .join('branch_products', 'order_details.branch_product_id', 'branch_products.id')
+        .where('branch_products.product_id', productId)
         .where('orders.branch_id', branchId)
         .whereIn('orders.status', ['pending', 'preparing'])
         .count('* as count')
@@ -632,6 +700,7 @@ module.exports = {
     deleteOptionType,
     deleteOptionValue,
     createProductOption,
+    setSocketIO,
     updateProductOption,
     getOptionTypeWithValues
 };

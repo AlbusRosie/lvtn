@@ -90,12 +90,12 @@ class BranchIntentHandler extends BaseIntentHandler {
                     const phone = nearestBranch.phone || '';
                     const openingHours = nearestBranch.opening_hours ? `${nearestBranch.opening_hours}h` : '';
                     const closeHours = nearestBranch.close_hours ? `${nearestBranch.close_hours}h` : '';
-                    const hoursText = openingHours && closeHours ? `🕐 ${openingHours} - ${closeHours}` : '';
-                    const responseText = `📍 **Chi nhánh gần bạn nhất${distanceText}:**\n\n` +
-                        `🏢 **${nearestBranch.name}**\n` +
-                        `${address ? `📍 ${address}\n` : ''}` +
+                    const hoursText = openingHours && closeHours ? `${openingHours} - ${closeHours}` : '';
+                    const responseText = `**Chi nhánh gần bạn nhất${distanceText}:**\n\n` +
+                        `**${nearestBranch.name}**\n` +
+                        `${address ? `${address}\n` : ''}` +
                         `${hoursText ? `${hoursText}\n` : ''}` +
-                        `${phone ? `📞 ${phone}\n` : ''}` +
+                        `${phone ? `${phone}\n` : ''}` +
                         `\n${nearbyBranches.length > 1 ? `Còn ${nearbyBranches.length - 1} chi nhánh khác gần bạn. ` : ''}Bạn muốn xem menu hoặc đặt bàn tại chi nhánh này không?`;
                     return this.buildResponse({
                         intent: 'find_nearest_branch',
@@ -117,11 +117,11 @@ class BranchIntentHandler extends BaseIntentHandler {
                 }
                 const branchList = await BranchFormatter.formatBranchListWithDetails(branches);
                 const responseText = userAddress 
-                    ? `📍 Để tìm chi nhánh gần bạn nhất, tôi cần tọa độ chính xác của bạn.\n\n` +
+                    ? `Để tìm chi nhánh gần bạn nhất, tôi cần tọa độ chính xác của bạn.\n\n` +
                       `Địa chỉ của bạn: **${userAddress}**\n\n` +
                       `Hiện tại tôi có thể hiển thị tất cả ${branches.length} chi nhánh:\n\n${branchList.join('\n\n')}\n\n` +
                       `Bạn muốn xem menu hoặc đặt bàn tại chi nhánh nào?`
-                    : `📍 Để tìm chi nhánh gần bạn nhất, vui lòng cung cấp địa chỉ của bạn.\n\n` +
+                    : `Để tìm chi nhánh gần bạn nhất, vui lòng cung cấp địa chỉ của bạn.\n\n` +
                       `Hiện tại tôi có ${branches.length} chi nhánh:\n\n${branchList.join('\n\n')}\n\n` +
                       `Bạn muốn xem menu hoặc đặt bàn tại chi nhánh nào?`;
                 return this.buildResponse({
@@ -210,12 +210,12 @@ class BranchIntentHandler extends BaseIntentHandler {
                         const phone = nearestBranch.phone || '';
                         const openingHours = nearestBranch.opening_hours ? `${nearestBranch.opening_hours}h` : '';
                         const closeHours = nearestBranch.close_hours ? `${nearestBranch.close_hours}h` : '';
-                        const hoursText = openingHours && closeHours ? `🕐 ${openingHours} - ${closeHours}` : '';
-                        const responseText = `📍 **Chi nhánh gần bạn nhất${distanceText}:**\n\n` +
-                            `🏢 **${nearestBranch.name}**\n` +
-                            `${address ? `📍 ${address}\n` : ''}` +
+                        const hoursText = openingHours && closeHours ? `${openingHours} - ${closeHours}` : '';
+                        const responseText = `**Chi nhánh gần bạn nhất${distanceText}:**\n\n` +
+                            `**${nearestBranch.name}**\n` +
+                            `${address ? `${address}\n` : ''}` +
                             `${hoursText ? `${hoursText}\n` : ''}` +
-                            `${phone ? `📞 ${phone}\n` : ''}` +
+                            `${phone ? `${phone}\n` : ''}` +
                             `\n${nearbyBranches.length > 1 ? `Còn ${nearbyBranches.length - 1} chi nhánh khác gần bạn. ` : ''}Bạn muốn xem menu hoặc đặt bàn tại chi nhánh này không?`;
                         return this.buildResponse({
                             intent: 'find_nearest_branch',
@@ -239,7 +239,7 @@ class BranchIntentHandler extends BaseIntentHandler {
             });
         }
         const branchList = await BranchFormatter.formatBranchListWithDetails(branches);
-        const responseText = `📍 Danh sách ${branches.length} chi nhánh của Beast Bite:\n\n${branchList.join('\n\n')}\n\nBạn muốn xem menu hoặc đặt bàn tại chi nhánh nào?`;
+        const responseText = `Danh sách ${branches.length} chi nhánh của Beast Bite:\n\n${branchList.join('\n\n')}\n\nBạn muốn xem menu hoặc đặt bàn tại chi nhánh nào?`;
         return this.buildResponse({
             intent: intent || 'view_branches',
             response: responseText,

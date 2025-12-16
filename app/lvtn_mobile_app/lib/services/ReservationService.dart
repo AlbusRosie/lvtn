@@ -100,32 +100,75 @@ class ReservationService {
     required String reservationTime,
     required int guestCount,
     String? specialRequests,
+    String? token,
   }) async {
     try {
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+      };
+      
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+      
+      final requestBody = {
+        'user_id': userId,
+        'branch_id': branchId,
+        'table_id': tableId,
+        'reservation_date': reservationDate,
+        'reservation_time': reservationTime,
+        'guest_count': guestCount,
+        'special_requests': specialRequests,
+      };
+      
+      print('ReservationService.createReservation: Request body: $requestBody');
+      
       final response = await http.post(
         Uri.parse('$_baseUrl/reservations'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'user_id': userId,
-          'branch_id': branchId,
-          'table_id': tableId,
-          'reservation_date': reservationDate,
-          'reservation_time': reservationTime,
-          'guest_count': guestCount,
-          'special_requests': specialRequests,
-        }),
+        headers: headers,
+        body: json.encode(requestBody),
       );
 
+      print('ReservationService.createReservation: Status code: ${response.statusCode}');
+      print('ReservationService.createReservation: Response body: ${response.body}');
+
+      print('ReservationService.createReservation: Response status: ${response.statusCode}');
+      print('ReservationService.createReservation: Response body: ${response.body}');
+      
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
-        return data['reservation'];
+        print('ReservationService.createReservation: Parsed data: $data');
+        
+        // API trả về { status: 'success', data: {...reservation...}, message: '...' }
+        if (data is Map) {
+          if (data['data'] != null) {
+            // data['data'] chính là reservation object
+            final reservation = Map<String, dynamic>.from(data['data']);
+            print('ReservationService.createReservation: ✅ Reservation parsed: $reservation');
+            if (reservation['id'] == null) {
+              print('ReservationService.createReservation: ⚠️ Reservation không có ID!');
+              throw Exception('Reservation được tạo nhưng không có ID');
+            }
+            return reservation;
+          } else if (data['reservation'] != null) {
+            final reservation = Map<String, dynamic>.from(data['reservation']);
+            print('ReservationService.createReservation: ✅ Reservation parsed (alt path): $reservation');
+            return reservation;
+          }
+        }
+        print('ReservationService.createReservation: ⚠️ Unexpected response structure: $data');
+        throw Exception('Unexpected response structure from server');
       } else {
-        return null;
+        final errorData = json.decode(response.body);
+        final errorMessage = errorData['message'] ?? errorData['error'] ?? 'Failed to create reservation';
+        print('ReservationService.createReservation: ❌ Error - $errorMessage');
+        print('ReservationService.createReservation: Error data: $errorData');
+        throw Exception(errorMessage);
       }
-    } catch (e) {
-      return null;
+    } catch (e, stackTrace) {
+      print('ReservationService.createReservation: ❌ Exception - $e');
+      print('ReservationService.createReservation: Stack trace: $stackTrace');
+      rethrow;
     }
   }
 

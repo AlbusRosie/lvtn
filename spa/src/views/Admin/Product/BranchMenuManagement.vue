@@ -2,6 +2,19 @@
   <div class="branch-menu-management">
     <!-- Top Products Section -->
     <div class="top-products-section">
+      <div class="top-products-header">
+        <h3 class="top-products-title">
+          <i class="fas fa-chart-line"></i>
+          Top 5 Best Selling Products
+          <span v-if="currentBranchId && selectedBranch" class="branch-badge">
+            - {{ selectedBranch.name }}
+          </span>
+          <span v-else class="branch-badge all-branches">
+            - All Branches
+          </span>
+        </h3>
+        <span class="top-products-subtitle">Last 12 months</span>
+      </div>
       <div v-if="loadingTopProducts" class="top-products-loading">
         <i class="fas fa-spinner fa-spin"></i>
         <span>Loading...</span>
@@ -50,7 +63,7 @@
       <div class="filters-header">
         <h3>Filters</h3>
         <div class="filters-header-actions">
-          <button v-if="selectedBranchId || filters.category || filters.status || filters.min_price || filters.max_price || searchQuery" 
+          <button v-if="currentBranchId || filters.category || filters.status || filters.min_price || filters.max_price || searchQuery" 
                   @click="clearFilters" class="btn-clear-filters">
             <i class="fas fa-times"></i>
             Clear Filters
@@ -62,7 +75,7 @@
         </div>
       </div>
       <div class="filters-grid">
-        <div class="filter-group">
+        <div v-if="!hideBranchFilter" class="filter-group">
           <label>Branch</label>
           <select v-model="selectedBranchId" @change="onBranchChange" class="filter-select">
             <option value="">All Branches</option>
@@ -141,7 +154,7 @@
           Retry
         </button>
       </div>
-      <div v-else-if="filteredProducts.length === 0 && !selectedBranchId" class="empty-state">
+      <div v-else-if="filteredProducts.length === 0 && !currentBranchId" class="empty-state">
         <i class="fas fa-box"></i>
         <h3>No Products Found</h3>
         <p v-if="filters.category || filters.status || filters.min_price || filters.max_price || searchQuery">
@@ -155,10 +168,10 @@
       <div v-else class="products-card">
         <div class="table-header-section">
           <div class="table-title">
-            <h3 v-if="selectedBranchId">{{ selectedBranch?.name }}</h3>
+            <h3 v-if="currentBranchId">{{ selectedBranch?.name }}</h3>
             <h3 v-else>Product List</h3>
             <span class="table-count">
-              <template v-if="selectedBranchId">
+              <template v-if="currentBranchId">
                 {{ products.length }} products
               </template>
               <template v-else>
@@ -170,7 +183,7 @@
             <div v-if="selectedProducts.length > 0" class="bulk-actions">
               <span class="selected-count">{{ selectedProducts.length }} selected</span>
               <button 
-                v-if="selectedBranchId"
+                v-if="currentBranchId"
                 class="bulk-btn" 
                 @click="bulkAddToBranch"
                 :disabled="loading"
@@ -179,7 +192,7 @@
                 <i class="fas fa-plus"></i>
               </button>
               <button 
-                v-if="selectedBranchId"
+                v-if="currentBranchId"
                 class="bulk-btn" 
                 @click="bulkRemoveFromBranch"
                 :disabled="loading"
@@ -212,7 +225,7 @@
           </div>
         </div>
         <!-- Branch Management Mode -->
-        <div v-if="selectedBranchId" class="products-layout">
+        <div v-if="currentBranchId" class="products-layout">
           <!-- Column: Not Added Products -->
           <div class="products-column not-added-column">
             <div class="column-header">
@@ -491,7 +504,7 @@
                   </td>
                   <td class="status-col">
                     <select 
-                      v-if="selectedBranchId"
+                      v-if="currentBranchId"
                       :value="product.final_status || product.status"
                       @change="quickUpdateStatus(product, $event.target.value)"
                       class="status-select"
@@ -530,7 +543,7 @@
           </div>
         </div>
         <!-- Pagination (only show when not viewing branch-specific menu) -->
-        <div v-if="!selectedBranchId && totalPages > 1" class="pagination-section">
+        <div v-if="!currentBranchId && totalPages > 1" class="pagination-section">
           <nav class="pagination-nav">
             <button 
               class="pagination-btn" 
@@ -580,7 +593,7 @@
           <AddProductToBranchForm 
             :branches="branches"
             :categories="categories"
-            :selected-branch-id="selectedBranchId"
+            :selected-branch-id="currentBranchId"
             @success="onProductAdded"
             @cancel="showAddProductModal = false"
           />
@@ -826,7 +839,8 @@
   </div>
 </template>
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import SocketService from '@/services/SocketService'
 import { useToast } from 'vue-toastification'
 import ProductService from '@/services/ProductService'
 import BranchService from '@/services/BranchService'
@@ -837,6 +851,22 @@ import EditProductForm from '@/components/Admin/Product/EditProductForm.vue'
 import ProductCard from '@/components/Admin/Product/ProductCard.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import OrderService from '@/services/OrderService'
+
+const props = defineProps({
+  isManagerView: {
+    type: Boolean,
+    default: false
+  },
+  managerBranchId: {
+    type: Number,
+    default: null
+  },
+  hideBranchFilter: {
+    type: Boolean,
+    default: false
+  }
+})
+
 const toast = useToast()
 const loading = ref(false)
 const error = ref(null)
@@ -892,8 +922,15 @@ const filters = reactive({
   min_price: '',
   max_price: ''
 })
+const currentBranchId = computed(() => {
+  if (props.isManagerView && props.managerBranchId) {
+    return props.managerBranchId
+  }
+  return selectedBranchId.value ? Number(selectedBranchId.value) : null
+})
 const selectedBranch = computed(() => {
-  return branches.value.find(b => b.id == selectedBranchId.value)
+  const branchId = currentBranchId.value
+  return branches.value.find(b => b.id == branchId)
 })
 const productStats = computed(() => {
   const total = products.value.length
@@ -977,7 +1014,8 @@ const selectedAddedProducts = computed(() => {
   )
 })
 const notAddedProducts = computed(() => {
-  if (!selectedBranchId.value) {
+  const branchId = props.isManagerView && props.managerBranchId ? props.managerBranchId : selectedBranchId.value
+  if (!branchId) {
     return []
   }
   return products.value.filter(p => p.final_status === 'not_added')
@@ -1167,6 +1205,7 @@ const loadCategories = async () => {
 }
 const loadProducts = async (page = 1) => {
   loading.value = true
+  error.value = null
   try {
     let params = { ...filters }
     if (params.category) {
@@ -1181,14 +1220,15 @@ const loadProducts = async (page = 1) => {
     delete params.min_price
     delete params.max_price
     let data
-    if (selectedBranchId.value) {
+    const branchId = currentBranchId.value
+    if (branchId) {
       const branchParams = { 
         ...params, 
         include_all: true,
         limit: 10000,  
         page: 1  
       }
-      data = await ProductService.getProductsByBranch(selectedBranchId.value, branchParams)
+      data = await ProductService.getProductsByBranch(branchId, branchParams)
     } else {
       const allParams = {
         ...params,
@@ -1232,8 +1272,14 @@ const loadProducts = async (page = 1) => {
     })
     await loadStatistics()
     await loadTopProducts()
-  } catch (error) {
-    showErrorToast('Unable to load product list')
+    error.value = null
+  } catch (err) {
+    const errorMessage = err?.response?.data?.message || err?.message || 'Unable to load product list'
+    error.value = errorMessage
+    showErrorToast(errorMessage)
+    products.value = []
+    totalCount.value = 0
+    totalPages.value = 1
   } finally {
     loading.value = false
   }
@@ -1260,12 +1306,17 @@ const loadTopProducts = async () => {
   loadingTopProducts.value = true
   try {
     const filters = {}
-    if (selectedBranchId.value) {
-      filters.branch_id = selectedBranchId.value
+    const branchId = currentBranchId.value
+    if (branchId) {
+      filters.branch_id = branchId
     }
+    // Use same date range as Home page (12 months for consistency)
     const dateTo = new Date()
+    dateTo.setHours(23, 59, 59, 999)
     const dateFrom = new Date()
-    dateFrom.setDate(dateFrom.getDate() - 30)
+    dateFrom.setMonth(dateFrom.getMonth() - 12)
+    dateFrom.setDate(1)
+    dateFrom.setHours(0, 0, 0, 0)
     filters.date_from = dateFrom.toISOString().split('T')[0]
     filters.date_to = dateTo.toISOString().split('T')[0]
     filters.limit = 5
@@ -1281,13 +1332,25 @@ const loadTopProducts = async () => {
     } else if (data?.products && Array.isArray(data.products)) {
       products = data.products
     }
-    // Sort by total_quantity descending
+    // Normalize and ensure total_quantity is a number
+    products = products.map(product => {
+      // Handle different field names for quantity
+      const quantity = product.total_quantity || product.quantity || product.totalQuantity || 0
+      // Convert to number if it's a string (from database)
+      const totalQuantity = typeof quantity === 'string' ? parseFloat(quantity) : (quantity || 0)
+      
+      return {
+        ...product,
+        total_quantity: totalQuantity,
+        product_name: product.name || product.product_name || 'N/A',
+        name: product.name || product.product_name || 'N/A',
+        total_revenue: product.total_revenue || product.totalRevenue || 0
+      }
+    })
+    // Sort by total_quantity descending (already sorted by API, but ensure it)
     products.sort((a, b) => (b.total_quantity || 0) - (a.total_quantity || 0))
-    topProducts.value = products.map(product => ({
-      ...product,
-      product_name: product.name || product.product_name || 'N/A',
-      name: product.name || product.product_name || 'N/A'
-    }))
+    // Take top 5
+    topProducts.value = products.slice(0, 5)
   } catch (error) {
     console.error('Error loading top products:', error)
     topProducts.value = []
@@ -1305,6 +1368,7 @@ const onBranchChange = () => {
   notAddedPage.value = 1
   addedPage.value = 1
   loadProducts(1)
+  loadTopProducts()
 }
 const selectAllBranches = () => {
   showInfoToast('Tính năng đang phát triển')
@@ -1346,7 +1410,7 @@ const refreshData = () => {
   loadProducts(currentPage.value)
 }
 function openExportModal() {
-  exportFilters.branch_id = selectedBranchId.value || ''
+  exportFilters.branch_id = currentBranchId.value || ''
   exportFilters.category = filters.category || ''
   exportFilters.status = filters.status || ''
   exportFilters.min_price = filters.min_price || ''
@@ -1545,7 +1609,8 @@ function exportToCSV(products) {
 }
 async function quickUpdateStatus(product, newStatus) {
   try {
-    if (selectedBranchId.value) {
+    const branchId = currentBranchId.value
+    if (branchId) {
       await ProductService.updateBranchProduct(product.branch_product_id, {
         status: newStatus
       })
@@ -1561,7 +1626,8 @@ async function quickUpdateStatus(product, newStatus) {
   }
 }
 const addProductToBranch = async (product) => {
-  if (!selectedBranchId.value) {
+  const branchId = currentBranchId.value
+  if (!branchId) {
     showErrorToast('Please select a branch before adding products')
     return
   }
@@ -1569,7 +1635,7 @@ const addProductToBranch = async (product) => {
     const branchProductData = {
       price: product.base_price
     }
-    await ProductService.addProductToBranch(selectedBranchId.value, product.id, branchProductData)
+    await ProductService.addProductToBranch(branchId, product.id, branchProductData)
     const message = `Added "${product.name}" to branch`
     showSuccessToast(message)
     await loadProducts()
@@ -1589,7 +1655,9 @@ const confirmDeleteBranchProduct = async () => {
   if (!productToDelete.value) return
   deleteLoading.value = true
   try {
-    await ProductService.removeProductFromBranch(selectedBranchId.value, productToDelete.value.id)
+    const branchId = currentBranchId.value
+    if (!branchId) return
+    await ProductService.removeProductFromBranch(branchId, productToDelete.value.id)
     showSuccessToast(`Removed "${productToDelete.value.name}" from branch`)
     showDeleteBranchProductModal.value = false
     productToDelete.value = null
@@ -1665,14 +1733,15 @@ const onProductSelect = (productId, isSelected) => {
   }
 }
 const bulkAddToBranch = async () => {
-  if (!selectedBranchId.value) {
+  const branchId = currentBranchId.value
+  if (!branchId) {
     showErrorToast('Please select a branch')
     return
   }
   try {
     const promises = selectedProducts.value.map(productId => {
       const product = products.value.find(p => p.id === productId)
-      return ProductService.addProductToBranch(selectedBranchId.value, productId, {
+      return ProductService.addProductToBranch(branchId, productId, {
         price: product.base_price,
         is_available: 1,
         status: 'available'
@@ -1693,8 +1762,10 @@ const bulkUpdateStatus = () => {
 const bulkRemoveFromBranch = async () => {
   if (!confirm(`Are you sure you want to remove ${selectedProducts.value.length} product(s) from branch?`)) return
   try {
+    const branchId = currentBranchId.value
+    if (!branchId) return
     const promises = selectedProducts.value.map(productId => {
-      return ProductService.removeProductFromBranch(selectedBranchId.value, productId)
+      return ProductService.removeProductFromBranch(branchId, productId)
     })
     await Promise.all(promises)
     showSuccessToast(`Removed ${selectedProducts.value.length} product(s) from branch`)
@@ -1805,14 +1876,96 @@ watch(searchQuery, () => {
   addedPage.value = 1
   loadProducts(1)
 })
+// Real-time product price updates
+function handleProductPriceUpdate(data) {
+  const { branchProductId, productId, branchId, price, isAvailable, status } = data
+  
+  // Update product in the list if it matches
+  const productIndex = products.value.findIndex(p => 
+    (p.id === productId || p.product_id === productId) && 
+    (p.branch_id === branchId || p.branchId === branchId)
+  )
+  
+  if (productIndex !== -1) {
+    const product = products.value[productIndex]
+    if (price !== undefined) {
+      product.price = price
+      product.display_price = price
+    }
+    if (isAvailable !== undefined) {
+      product.is_available = isAvailable
+    }
+    if (status !== undefined) {
+      product.status = status
+      product.final_status = status
+    }
+    // Force reactivity
+    products.value = [...products.value]
+  }
+  
+  // Reload products to ensure consistency
+  if (currentBranchId.value === branchId || !currentBranchId.value) {
+    loadProducts(currentPage.value)
+  }
+}
+
+function handleProductUpdate(data) {
+  const { productId, basePrice, status } = data
+  
+  // Update all products with matching productId
+  products.value.forEach(product => {
+    if (product.id === productId || product.product_id === productId) {
+      if (basePrice !== undefined) {
+        product.base_price = basePrice
+        // If no branch-specific price, update display price
+        if (!product.price || product.price === product.base_price) {
+          product.price = basePrice
+          product.display_price = basePrice
+        }
+      }
+      if (status !== undefined) {
+        product.status = status
+        product.final_status = status
+      }
+    }
+  })
+  
+  // Force reactivity
+  products.value = [...products.value]
+  
+  // Reload to ensure consistency
+  loadProducts(currentPage.value)
+}
+
 onMounted(() => {
   loadBranches()
   loadCategories()
+  if (props.isManagerView && props.managerBranchId) {
+    selectedBranchId.value = String(props.managerBranchId)
+  }
   loadProducts(1)
   loadTopProducts()
+  
+  // Setup real-time listeners
+  SocketService.on('product-price-updated', handleProductPriceUpdate)
+  SocketService.on('product-updated', handleProductUpdate)
+})
+
+onUnmounted(() => {
+  // Cleanup listeners
+  SocketService.off('product-price-updated', handleProductPriceUpdate)
+  SocketService.off('product-updated', handleProductUpdate)
 })
 watch(selectedBranchId, () => {
   loadTopProducts()
+})
+watch(currentBranchId, () => {
+  loadTopProducts()
+})
+watch(() => props.managerBranchId, () => {
+  if (props.isManagerView) {
+    loadTopProducts()
+  }
 })
 </script>
 <style scoped>
@@ -2145,6 +2298,45 @@ watch(selectedBranchId, () => {
 .btn-sm {
   padding: 6px 12px;
   font-size: 12px;
+}
+.top-products-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #E2E8F0;
+}
+.top-products-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1E293B;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.top-products-title i {
+  color: #FF8C42;
+  font-size: 18px;
+}
+.branch-badge {
+  font-size: 14px;
+  font-weight: 600;
+  color: #FF8C42;
+  padding: 4px 12px;
+  background: #FFF5E6;
+  border-radius: 8px;
+  margin-left: 8px;
+}
+.branch-badge.all-branches {
+  color: #6366F1;
+  background: #E0E7FF;
+}
+.top-products-subtitle {
+  font-size: 12px;
+  color: #64748B;
+  font-weight: 500;
 }
 .top-products-section {
   margin-bottom: 24px;
@@ -2638,6 +2830,7 @@ watch(selectedBranchId, () => {
   display: flex;
   flex-direction: column;
   max-width: 100%;
+  min-height: 650px;
 }
 .not-added-column {
   flex: 0 0 45%;
@@ -2710,7 +2903,8 @@ watch(selectedBranchId, () => {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  max-height: calc(100vh - 450px);
+  min-height: 600px;
+  max-height: calc(100vh - 300px);
 }
 .column-pagination {
   display: flex;

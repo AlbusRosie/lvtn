@@ -13,7 +13,11 @@ class CleanupService {
         try {
             const expiredTablesCount = await this.cleanupExpiredTableReservations();
             const overdueResult = await ReservationService.checkAndProcessOverdueReservations();
+            // Note: Reservations are no longer auto-cancelled just because they don't have orders
+            // Customers can book tables without ordering food - reservation stays valid
+            // Reservations are only cancelled for no-show (overdue) or manual cancellation
         } catch (error) {
+            console.error('Cleanup error:', error);
         } finally {
             this.isRunning = false;
         }
@@ -34,8 +38,7 @@ class CleanupService {
             await knex('table_schedules')
                 .where('id', schedule.id)
                 .update({
-                    status: 'cancelled',
-                    updated_at: now
+                    status: 'cancelled'
                 });
             count++;
         }

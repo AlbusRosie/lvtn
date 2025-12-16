@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/branch.dart';
 import '../../models/product.dart';
@@ -18,6 +19,7 @@ import '../../services/TableService.dart';
 import '../../services/ReservationService.dart';
 import '../../services/CartService.dart';
 import '../../services/AuthService.dart';
+import '../../services/NotificationService.dart';
 import '../../constants/api_constants.dart';
 
 class QuickOrderScreen extends StatefulWidget {
@@ -63,6 +65,14 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<BranchProvider>(context, listen: false).loadBranches();
@@ -75,10 +85,14 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> with SingleTickerPr
     if (_selectedBranch == null) return;
     setState(() => _isLoading = true);
     try {
-      await Provider.of<ProductProvider>(context, listen: false)
-          .loadProducts(branchId: _selectedBranch!.id);
-      await Provider.of<CategoryProvider>(context, listen: false)
-          .loadCategories();
+      final productProvider = Provider.of<ProductProvider>(context, listen: false);
+      final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+      
+      // Load categories đầy đủ trước
+      await categoryProvider.loadCategories();
+      
+      productProvider.resetPagination();
+      await productProvider.loadProducts(branchId: _selectedBranch!.id, loadAll: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -231,9 +245,29 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> with SingleTickerPr
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(100),
         child: SafeArea(
@@ -375,6 +409,7 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> with SingleTickerPr
       ),
       bottomNavigationBar: AppBottomNav(
         currentIndex: 0,
+      ),
       ),
     );
   }
@@ -1558,9 +1593,14 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> with SingleTickerPr
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _tableSelectionDate != null && _tableSelectionTime != null
-                        ? () => _loadTablesForSelection()
-                        : null,
+                    onPressed: () {
+                      // Ở tab "Nhanh", sync _selectedDate và _selectedTime vào _tableSelectionDate và _tableSelectionTime
+                      setState(() {
+                        _tableSelectionDate = _selectedDate;
+                        _tableSelectionTime = _selectedTime;
+                      });
+                      _loadTablesForSelection();
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       padding: EdgeInsets.symmetric(vertical: 14),
@@ -1881,7 +1921,19 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> with SingleTickerPr
   }
 
   Future<void> _loadTablesForSelection() async {
-    if (_selectedBranch == null || _tableSelectionDate == null || _tableSelectionTime == null) {
+    if (_selectedBranch == null) {
+      return;
+    }
+    
+    // Đảm bảo _tableSelectionDate và _tableSelectionTime có giá trị từ tab "Nhanh"
+    if (_tableSelectionDate == null) {
+      _tableSelectionDate = _selectedDate;
+    }
+    if (_tableSelectionTime == null) {
+      _tableSelectionTime = _selectedTime;
+    }
+    
+    if (_tableSelectionDate == null || _tableSelectionTime == null) {
       return;
     }
 
@@ -1904,11 +1956,9 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> with SingleTickerPr
 
       await _checkTableAvailability();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Không thể tải danh sách bàn: $e'),
-          backgroundColor: Colors.red,
-        ),
+      NotificationService().showError(
+        context: context,
+        message: 'Không thể tải danh sách bàn: $e',
       );
     } finally {
       setState(() => _isLoadingTables = false);
@@ -1932,6 +1982,24 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> with SingleTickerPr
           time: timeStr,
         );
         _tableAvailability[tableId] = result['available'] == true;
+      }
+      
+      // Tự động chọn bàn đầu tiên có sẵn nếu đang ở tab "Nhanh" và chưa có bàn nào được chọn
+      if (_reservationTabIndex == 0 && _selectedTableId == null) {
+        final firstAvailableTable = _filteredTables.firstWhere(
+          (table) {
+            final tableId = table['id'] as int;
+            return _tableAvailability[tableId] == true;
+          },
+          orElse: () => <String, dynamic>{},
+        );
+        
+        if (firstAvailableTable.isNotEmpty) {
+          final tableId = firstAvailableTable['id'] as int;
+          setState(() {
+            _selectedTableId = tableId;
+          });
+        }
       }
     } catch (e) {
       print('Error checking table availability: $e');
@@ -2537,83 +2605,100 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> with SingleTickerPr
     final user = authProvider.currentUser;
     
     if (user?.name?.isEmpty == true || user?.phone?.isEmpty == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Vui lòng cập nhật đầy đủ thông tin cá nhân trước khi đặt bàn'),
-          backgroundColor: Colors.orange,
-        ),
+      NotificationService().showWarning(
+        context: context,
+        message: 'Vui lòng cập nhật đầy đủ thông tin cá nhân trước khi đặt bàn',
       );
       return;
     }
     
-    if (_cartItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Vui lòng chọn ít nhất một món'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
+    // Kiểm tra: Có thể chỉ đặt bàn hoặc chỉ đặt món hoặc cả hai
+    // Ở tab "Nhanh", sử dụng _selectedDate và _selectedTime nếu _tableSelectionDate/_tableSelectionTime null
+    final reservationDate = _tableSelectionDate ?? _selectedDate;
+    final reservationTime = _tableSelectionTime ?? _selectedTime;
+    final hasTableReservation = _selectedTableId != null && 
+                                 reservationDate != null && 
+                                 reservationTime != null;
+    final hasItems = _cartItems.isNotEmpty;
+    
+    // Cho phép đặt bàn mà không cần chọn món
+    // Không cần validation bắt buộc phải có món
     
     setState(() {
       _isLoading = true;
     });
     
     try {
-
-
-
-
-
-
-
+      print('QuickOrderScreen: ========== BẮT ĐẦU SUBMIT ==========');
+      print('QuickOrderScreen: _reservationTabIndex: $_reservationTabIndex');
+      print('QuickOrderScreen: _selectedTableId (trước): $_selectedTableId');
+      print('QuickOrderScreen: reservationDate: $reservationDate');
+      print('QuickOrderScreen: reservationTime: $reservationTime');
       
-
-      // Tạo sessionId riêng cho QuickOrder để không ảnh hưởng đến cart bên ngoài
-      if (_quickOrderSessionId == null) {
-        _quickOrderSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+      // Nếu ở tab "Nhanh" và chưa có bàn được chọn, tự động tìm và chọn bàn
+      if (_reservationTabIndex == 0 && _selectedTableId == null && !hasItems) {
+        print('QuickOrderScreen: 🔵 Ở tab "Nhanh", chưa có bàn - tự động tìm bàn...');
+        
+        // Đảm bảo _tableSelectionDate và _tableSelectionTime có giá trị
+        if (_tableSelectionDate == null) {
+          _tableSelectionDate = _selectedDate;
+        }
+        if (_tableSelectionTime == null) {
+          _tableSelectionTime = _selectedTime;
+        }
+        
+        // Tải danh sách bàn
+        await _loadTablesForSelection();
+        
+        // Tìm bàn đầu tiên có sẵn
+        if (_filteredTables.isNotEmpty) {
+          final firstAvailableTable = _filteredTables.firstWhere(
+            (table) {
+              final tableId = table['id'] as int;
+              return _tableAvailability[tableId] == true;
+            },
+            orElse: () => <String, dynamic>{},
+          );
+          
+          if (firstAvailableTable.isNotEmpty) {
+            final tableId = firstAvailableTable['id'] as int;
+            setState(() {
+              _selectedTableId = tableId;
+            });
+            print('QuickOrderScreen: ✅ Đã tự động chọn bàn: $tableId');
+          } else {
+            print('QuickOrderScreen: ⚠️ Không có bàn nào có sẵn');
+            throw Exception('Không có bàn nào có sẵn vào thời gian đã chọn. Vui lòng chọn thời gian khác.');
+          }
+        } else {
+          print('QuickOrderScreen: ⚠️ Không có bàn nào phù hợp');
+          throw Exception('Không có bàn nào phù hợp với số khách. Vui lòng chọn số khách khác.');
+        }
       }
       
-      // Thêm món vào giỏ hàng riêng của QuickOrder (không dùng CartProvider)
+      // Cập nhật lại hasTableReservation sau khi có thể đã chọn bàn tự động
+      final updatedHasTableReservation = _selectedTableId != null && 
+                                         reservationDate != null && 
+                                         reservationTime != null;
+      
+      print('QuickOrderScreen: hasTableReservation: $updatedHasTableReservation');
+      print('QuickOrderScreen: hasItems: $hasItems');
+      print('QuickOrderScreen: _selectedTableId (sau): $_selectedTableId');
+      
       final authService = AuthService();
       final token = authService.token;
       if (token == null) {
+        print('QuickOrderScreen: ❌ Không tìm thấy token');
         throw Exception('Không tìm thấy token xác thực');
       }
+      print('QuickOrderScreen: ✅ Token found');
       
-      Cart? quickOrderCart;
-      
-      // Thêm từng món vào cart riêng của QuickOrder
-      for (final e in _cartItems.entries) {
-        final productId = e.key;
-        final qty = e.value;
-        final options = _cartItemOptions[productId];
-        final specialInstructions = _cartItemSpecialInstructions[productId];
-        
-        // Sử dụng CartService trực tiếp với sessionId riêng
-        quickOrderCart = await CartService.addToCart(
-          token: token,
-          branchId: _selectedBranch!.id,
-          productId: productId,
-          quantity: qty,
-          orderType: 'dine_in',
-          sessionId: _quickOrderSessionId, // Sử dụng sessionId riêng
-          selectedOptions: options,
-          specialInstructions: specialInstructions,
-        );
-      }
-      
-      if (quickOrderCart == null) {
-        throw Exception('Không thể tạo giỏ hàng cho đơn hàng nhanh');
-      }
-      
-      // Tạo reservation nếu có thông tin đặt bàn
+      // Tạo reservation nếu có thông tin đặt bàn (tạo trước, không phụ thuộc vào món)
       int? reservationId;
-      if (_selectedTableId != null && _tableSelectionDate != null && _tableSelectionTime != null) {
+      if (updatedHasTableReservation) {
+        print('QuickOrderScreen: 🔵 Bắt đầu tạo reservation...');
         try {
-          final reservationDate = _tableSelectionDate!;
-          final reservationTime = _tableSelectionTime!;
+          // Sử dụng reservationDate và reservationTime đã được xác định ở trên
           final dateTime = DateTime(
             reservationDate.year,
             reservationDate.month,
@@ -2622,26 +2707,101 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> with SingleTickerPr
             reservationTime.minute,
           );
           
+          final reservationDateStr = dateTime.toIso8601String().split('T')[0];
+          // API yêu cầu format HH:MM (không có giây)
+          final reservationTimeStr = '${reservationTime.hour.toString().padLeft(2, '0')}:${reservationTime.minute.toString().padLeft(2, '0')}';
+          
+          print('QuickOrderScreen: Reservation params:');
+          print('  - userId: ${user!.id}');
+          print('  - branchId: ${_selectedBranch!.id}');
+          print('  - tableId: $_selectedTableId');
+          print('  - reservationDate: $reservationDateStr');
+          print('  - reservationTime: $reservationTimeStr');
+          print('  - guestCount: $_numberOfGuests');
+          
           final reservation = await ReservationService.createReservation(
             userId: user!.id,
             branchId: _selectedBranch!.id,
             tableId: _selectedTableId!,
-            reservationDate: dateTime.toIso8601String().split('T')[0],
-            reservationTime: '${reservationTime.hour.toString().padLeft(2, '0')}:${reservationTime.minute.toString().padLeft(2, '0')}:00',
+            reservationDate: reservationDateStr,
+            reservationTime: reservationTimeStr,
             guestCount: _numberOfGuests,
             specialRequests: _specialRequests.isNotEmpty ? _specialRequests : null,
+            token: token,
           );
+          
+          print('QuickOrderScreen: Reservation response: $reservation');
           
           if (reservation != null && reservation['id'] != null) {
             reservationId = reservation['id'] as int;
+            print('QuickOrderScreen: ✅ Reservation created successfully! ID: $reservationId');
+          } else {
+            print('QuickOrderScreen: ❌ Reservation created but no ID returned');
+            print('QuickOrderScreen: Reservation object: $reservation');
+            throw Exception('Không thể tạo reservation: Không nhận được ID từ server');
           }
-        } catch (e) {
-          print('Lỗi khi tạo reservation: $e');
-          // Tiếp tục tạo đơn hàng dù không tạo được reservation
+        } catch (e, stackTrace) {
+          print('QuickOrderScreen: ❌ Lỗi khi tạo reservation: $e');
+          print('QuickOrderScreen: Stack trace: $stackTrace');
+          if (!hasItems) {
+            // Nếu chỉ đặt bàn mà không tạo được reservation thì throw error
+            print('QuickOrderScreen: ⚠️ Chỉ đặt bàn, không có món - rethrow error');
+            rethrow;
+          }
+          // Nếu có món thì tiếp tục tạo đơn hàng dù không tạo được reservation
+          print('QuickOrderScreen: ⚠️ Có món, tiếp tục tạo đơn hàng dù reservation fail');
         }
+      } else {
+        print('QuickOrderScreen: ⚠️ Không có thông tin đặt bàn (hasTableReservation = false)');
       }
       
-      // Checkout cart riêng của QuickOrder để tạo đơn hàng
+      // Chỉ tạo order nếu có món
+      if (hasItems) {
+        // Đảm bảo sessionId đã được khởi tạo
+        if (_quickOrderSessionId == null) {
+          _quickOrderSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+        }
+        
+        // Lấy cart hiện có từ CartProvider hoặc từ server với sessionId
+        final cartProvider = Provider.of<CartProvider>(context, listen: false);
+        Cart? quickOrderCart = cartProvider.cart;
+        
+        // Nếu cart không tồn tại hoặc không khớp sessionId, lấy từ server
+        if (quickOrderCart == null || quickOrderCart.sessionId != _quickOrderSessionId) {
+          quickOrderCart = await CartService.getUserCart(
+            token: token,
+            branchId: _selectedBranch!.id,
+            sessionId: _quickOrderSessionId,
+          );
+        }
+        
+        // Nếu vẫn không có cart, thêm các sản phẩm vào cart mới
+        if (quickOrderCart == null) {
+          for (final e in _cartItems.entries) {
+            final productId = e.key;
+            final qty = e.value;
+            final options = _cartItemOptions[productId];
+            final specialInstructions = _cartItemSpecialInstructions[productId];
+            
+            // Sử dụng CartService trực tiếp với sessionId riêng
+            quickOrderCart = await CartService.addToCart(
+              token: token,
+              branchId: _selectedBranch!.id,
+              productId: productId,
+              quantity: qty,
+              orderType: 'dine_in',
+              sessionId: _quickOrderSessionId,
+              selectedOptions: options,
+              specialInstructions: specialInstructions,
+            );
+          }
+        }
+        
+        if (quickOrderCart == null) {
+          throw Exception('Không thể tạo giỏ hàng cho đơn hàng nhanh');
+        }
+        
+        // Checkout cart để tạo đơn hàng
       final orderData = await CartService.checkout(
         token: token,
         cartId: quickOrderCart.id,
@@ -2652,47 +2812,43 @@ class _QuickOrderScreenState extends State<QuickOrderScreen> with SingleTickerPr
       
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Đặt bàn thành công!',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Mã đơn: #${orderData['id'] ?? 'N/A'} • ${_formatDate(_selectedDate)} • ${_selectedTime.format(context)}',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-          ),
+        final message = reservationId != null 
+          ? 'Đặt bàn và đơn hàng thành công!\n${_formatDate(_selectedDate)} • ${_selectedTime.format(context)}'
+          : 'Đơn hàng thành công!\n${_formatDate(_selectedDate)} • ${_selectedTime.format(context)}';
+        NotificationService().showSuccess(
+          context: context,
+          message: message,
         );
       }
       
       // KHÔNG clear cart bên ngoài, chỉ reset sessionId của QuickOrder
       _quickOrderSessionId = null;
-    } catch (e) {
+      } else {
+        // Chỉ đặt bàn, không có món - chỉ tạo reservation
+        print('QuickOrderScreen: Chỉ đặt bàn, không có món');
+        if (updatedHasTableReservation && reservationId != null) {
+          print('QuickOrderScreen: ✅ Reservation ID: $reservationId - Hiển thị thành công');
+          if (mounted) {
+            Navigator.pop(context);
+            NotificationService().showSuccess(
+              context: context,
+              message: 'Đặt bàn thành công!\n${_formatDate(_selectedDate)} • ${_selectedTime.format(context)}',
+            );
+          }
+        } else {
+          print('QuickOrderScreen: ❌ Reservation không được tạo (reservationId: $reservationId)');
+          throw Exception('Không thể tạo reservation. Vui lòng thử lại.');
+        }
+      }
+      print('QuickOrderScreen: ========== HOÀN THÀNH SUBMIT ==========');
+    } catch (e, stackTrace) {
+      print('QuickOrderScreen: ========== LỖI TRONG SUBMIT ==========');
+      print('QuickOrderScreen: Error: $e');
+      print('QuickOrderScreen: Stack trace: $stackTrace');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Có lỗi xảy ra: $e'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 4),
-        ),
+      NotificationService().showError(
+        context: context,
+        message: 'Có lỗi xảy ra: $e',
       );
     } finally {
       if (mounted) {
@@ -3367,21 +3523,17 @@ Future<void> _showProductOptionsDialog() async {
                                   child: InkWell(
                                     onTap: () async {
                                       if (quantity <= 0) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Vui lòng chọn số lượng'),
-                                            backgroundColor: Color(0xFFFF8A00),
-                                          ),
+                                        NotificationService().showWarning(
+                                          context: context,
+                                          message: 'Vui lòng chọn số lượng',
                                         );
                                         return;
                                       }
                                       
                                       if (widget.branch == null) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Vui lòng chọn chi nhánh trước'),
-                                            backgroundColor: Color(0xFFFF8A00),
-                                          ),
+                                        NotificationService().showWarning(
+                                          context: context,
+                                          message: 'Vui lòng chọn chi nhánh trước',
                                         );
                                         return;
                                       }
@@ -3410,27 +3562,14 @@ Future<void> _showProductOptionsDialog() async {
                                           _showOptions = false;
                                         });
                                         
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Row(
-                                              children: [
-                                                Icon(Icons.check_circle, color: Colors.white, size: 20),
-                                                SizedBox(width: 8),
-                                                Expanded(
-                                                  child: Text('Đã thêm vào giỏ hàng'),
-                                                ),
-                                              ],
-                                            ),
-                                            backgroundColor: Colors.green,
-                                            duration: Duration(seconds: 2),
-                                          ),
+                                        NotificationService().showSuccess(
+                                          context: context,
+                                          message: 'Đã thêm vào giỏ hàng',
                                         );
                                       } catch (e) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Lỗi: ${e.toString()}'),
-                                            backgroundColor: Colors.red,
-                                          ),
+                                        NotificationService().showError(
+                                          context: context,
+                                          message: 'Lỗi: ${e.toString()}',
                                         );
                                       }
                                     },

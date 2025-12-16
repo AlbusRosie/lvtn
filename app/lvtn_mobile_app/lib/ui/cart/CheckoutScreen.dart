@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../models/cart.dart';
+import '../../models/branch.dart';
 import '../../services/CartService.dart';
 import '../../services/AuthService.dart';
 import '../../utils/image_utils.dart';
@@ -11,6 +13,9 @@ import '../../ui/cart/CartProvider.dart';
 import '../../constants/app_constants.dart';
 import '../../constants/api_constants.dart';
 import '../../providers/LocationProvider.dart';
+import '../../providers/BranchProvider.dart';
+import '../../providers/AuthProvider.dart';
+import '../../services/NotificationService.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final int branchId;
@@ -30,6 +35,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isLoading = false;
   String _voucherCode = '';
 
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
+  }
+
   String _getImageUrl(String? imagePath) {
     return ImageUtils.getImageUrl(imagePath);
   }
@@ -47,11 +78,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final cart = context.read<CartProvider>().cart;
       if (cart == null || cart.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Cart is empty'),
-              backgroundColor: Colors.red,
-            ),
+          NotificationService().showError(
+            context: context,
+            message: 'Giỏ hàng trống',
           );
         }
         return;
@@ -60,11 +89,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       await _processCashPayment(cart);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing order: $e'),
-            backgroundColor: Colors.red,
-          ),
+        NotificationService().showError(
+          context: context,
+          message: 'Lỗi xử lý đơn hàng: $e',
         );
       }
     } finally {
@@ -151,12 +178,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             final data = jsonDecode(response.body);
             
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Order placed successfully! Order ID: ${data['data']['id']}'),
-                  backgroundColor: Colors.green,
-                  duration: const Duration(seconds: 3),
-                ),
+              NotificationService().showSuccess(
+                context: context,
+                message: 'Đặt hàng thành công!',
               );
 
               // Clear cart và reservation sau khi checkout thành công
@@ -177,6 +201,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           
           await CartService.clearSession();
           
+          // Preserve orderType from original cart (dine_in and takeaway only for Quick Dine In and Chatbot)
+          final originalOrderType = cart.orderType ?? 'delivery';
+          
           Cart? newCart;
           for (int i = 0; i < cart.items.length; i++) {
             final item = cart.items[i];
@@ -185,6 +212,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               branchId: widget.branchId,
               productId: item.productId,
               quantity: item.quantity,
+              orderType: originalOrderType, // Preserve orderType from original cart
             );
           }
           
@@ -249,12 +277,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               final data = jsonDecode(response.body);
               
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Order placed successfully! Order ID: ${data['data']['id']}'),
-                    backgroundColor: Colors.green,
-                    duration: const Duration(seconds: 3),
-                  ),
+                NotificationService().showSuccess(
+                  context: context,
+                  message: 'Đặt hàng thành công! Mã đơn: #${data['data']['id']}',
                 );
 
                 // Clear cart và reservation sau khi checkout thành công
@@ -285,6 +310,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios, color: Colors.grey[600]),
           onPressed: () => Navigator.pop(context),
@@ -314,6 +340,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Phần thông tin địa chỉ/chi nhánh - LUÔN HIỂN THỊ cho delivery/takeaway/dine-in
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -329,84 +356,355 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Delivery to',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[800],
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.green[100],
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Icon(
-                              Icons.location_on,
-                              color: Colors.green[600],
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
+                  child: Consumer3<CartProvider, LocationProvider, AuthProvider>(
+                    builder: (context, cartProviderInner, locationProvider, authProvider, child) {
+                      final cartInner = cartProviderInner.cart;
+                      final isDelivery = cartInner?.orderType == 'delivery';
+                      final isTakeaway = cartInner?.orderType == 'takeaway';
+                      
+                      final deliveryAddress = locationProvider.detailAddress ?? '';
+                      final user = authProvider.currentUser;
+                      final userPhone = user?.phone ?? '';
+                      
+                      // Debug log
+                      print('CheckoutScreen Consumer3: cart.orderType = ${cartInner?.orderType}');
+                      print('CheckoutScreen Consumer3: isDelivery = $isDelivery, isTakeaway = $isTakeaway');
+                      print('CheckoutScreen Consumer3: deliveryAddress = $deliveryAddress');
+                      
+                      // Get branch to calculate distance
+                      final branchProvider = Provider.of<BranchProvider>(context, listen: false);
+                      Branch? branch;
+                      
+                      // Try to find branch in all available lists
+                      final allBranches = [
+                        ...branchProvider.branches,
+                        ...branchProvider.nearbyBranches,
+                        ...branchProvider.activeBranches,
+                      ];
+                      
+                      try {
+                        branch = allBranches.firstWhere(
+                          (b) => b.id == widget.branchId,
+                        );
+                      } catch (e) {
+                        // Branch not found in any list
+                        branch = null;
+                      }
+                      
+                      // Calculate distance if we have both user location and branch location (only for delivery)
+                      double? distance;
+                      if (isDelivery && branch != null && 
+                          locationProvider.latitude != null && 
+                          locationProvider.longitude != null) {
+                        distance = branchProvider.calculateDistance(
+                          userLatitude: locationProvider.latitude,
+                          userLongitude: locationProvider.longitude,
+                          branch: branch,
+                        );
+                      } else if (isDelivery && branch != null && branch.distanceKm != null) {
+                        distance = branch.distanceKm;
+                      }
+                      
+                      // Hiển thị khác nhau cho Delivery và Takeaway
+                      if (isDelivery) {
+                            return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Color(0xFFFF7043).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.delivery_dining_rounded,
+                                            size: 14,
+                                            color: Color(0xFFFF7043),
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Giao hàng',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFFFF7043),
+                                              fontFamily: 'Inter',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
                                 Text(
-                                  '(323) 238-0678',
+                                  'Địa chỉ giao hàng',
                                   style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
                                     color: Colors.grey[800],
                                     fontFamily: 'Inter',
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '909-1/2 E 49th St Los Angeles, California(CA), 90011',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                    fontFamily: 'Inter',
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 12),
                                 Row(
                                   children: [
-                                    Icon(
-                                      Icons.location_on_outlined,
-                                      size: 12,
-                                      color: Colors.grey[500],
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: Colors.green[100],
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Icon(
+                                        Icons.location_on,
+                                        color: Colors.green[600],
+                                        size: 20,
+                                      ),
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '1.5 km',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[500],
-                                        fontFamily: 'Inter',
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (userPhone.isNotEmpty)
+                                            Text(
+                                              userPhone,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.grey[800],
+                                                fontFamily: 'Inter',
+                                              ),
+                                            )
+                                          else
+                                            Text(
+                                              'Chưa có số điện thoại',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.grey[500],
+                                                fontFamily: 'Inter',
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            deliveryAddress.isNotEmpty 
+                                                ? deliveryAddress 
+                                                : 'Chưa có địa chỉ giao hàng',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: deliveryAddress.isNotEmpty 
+                                                  ? Colors.grey[600] 
+                                                  : Colors.grey[400],
+                                              fontFamily: 'Inter',
+                                              fontStyle: deliveryAddress.isEmpty 
+                                                  ? FontStyle.italic 
+                                                  : FontStyle.normal,
+                                            ),
+                                          ),
+                                          if (distance != null) ...[
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.location_on_outlined,
+                                                  size: 12,
+                                                  color: Colors.grey[500],
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '${distance.toStringAsFixed(1)} km',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey[500],
+                                                    fontFamily: 'Inter',
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ),
                                   ],
                                 ),
                               ],
-                            ),
-                          ),
-                        ],
+                            );
+                          } else if (isTakeaway) {
+                            // Hiển thị thông tin cho Takeaway
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Color(0xFFFFB74D).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.shopping_bag_rounded,
+                                            size: 14,
+                                            color: Color(0xFFFFB74D),
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Mang đi',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFFFFB74D),
+                                              fontFamily: 'Inter',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Thông tin nhận hàng',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[800],
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: Color(0xFFFFB74D).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Icon(
+                                        Icons.store_rounded,
+                                        color: Color(0xFFFFB74D),
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            widget.branchName,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.grey[800],
+                                              fontFamily: 'Inter',
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Bạn sẽ đến lấy hàng tại chi nhánh',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                              fontFamily: 'Inter',
+                                            ),
+                                          ),
+                                          if (userPhone.isNotEmpty) ...[
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.phone_outlined,
+                                                  size: 14,
+                                                  color: Colors.grey[500],
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  userPhone,
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey[600],
+                                                    fontFamily: 'Inter',
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          } else {
+                            // Dine-in hoặc orderType khác
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Thông tin đơn hàng',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[800],
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Icon(
+                                        Icons.restaurant_rounded,
+                                        color: Colors.orange,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            widget.branchName,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.grey[800],
+                                              fontFamily: 'Inter',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          }
+                        },
                       ),
-                    ],
                   ),
-                ),
 
                 const SizedBox(height: 16),
 
@@ -562,101 +860,134 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ],
                   ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Subtotal (${cart.items.length} items)',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              fontFamily: 'Inter',
+                    child: Consumer<CartProvider>(
+                      builder: (context, cartProvider, child) {
+                        final currentCart = cartProvider.cart;
+                        final isDelivery = currentCart?.orderType == 'delivery';
+                        final isTakeaway = currentCart?.orderType == 'takeaway';
+                        
+                        return Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Tạm tính (${cart.items.length} món)',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                                Text(
+                                  '${_formatCurrency(cart.items.fold<double>(0.0, (sum, item) => sum + (item.price * item.quantity)))} đ',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          Text(
-                            '${_formatCurrency(cart.items.fold<double>(0.0, (sum, item) => sum + (item.price * item.quantity)))} đ',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              fontFamily: 'Inter',
+                            if (isDelivery) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Phí giao hàng',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                  Text(
+                                    'Miễn phí',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ] else if (isTakeaway) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Hình thức',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                  Text(
+                                    'Mang đi',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Voucher',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                                Text(
+                                  '-',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Delivery',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              fontFamily: 'Inter',
+                            const SizedBox(height: 12),
+                            Divider(color: Colors.grey[300]),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Tổng cộng',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[900],
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                                Text(
+                                  '${_formatCurrency(cart.total)} đ',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange,
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          Text(
-                            '\$ 0.00',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Voucher',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                          Text(
-                            '-',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Divider(color: Colors.grey[300]),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Total',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[900],
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                          Text(
-                            '${_formatCurrency(cart.total)} đ',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.orange,
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                          ],
+                        );
+                      },
+                    ),
                 ),
 
                 const SizedBox(height: 12),

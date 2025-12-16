@@ -13,6 +13,7 @@ import '../cart/CartProvider.dart';
 import '../cart/CartScreen.dart';
 import '../widgets/AppBottomNav.dart';
 import '../widgets/MapboxAutocompleteField.dart';
+import '../../services/NotificationService.dart';
 
 class BranchScreen extends StatefulWidget {
   const BranchScreen({super.key});
@@ -296,11 +297,9 @@ class _BranchScreenState extends State<BranchScreen> {
                                   final finalLng = selectedLng ?? locationProvider.longitude ?? lp.longitude;
                                   
                                   if (finalLat == null || finalLng == null) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Vui lòng chọn địa chỉ từ danh sách đề xuất'),
-                                        backgroundColor: Colors.orange,
-                                      ),
+                                    NotificationService().showWarning(
+                                      context: context,
+                                      message: 'Vui lòng chọn địa chỉ từ danh sách đề xuất',
                                     );
                                     return;
                                   }

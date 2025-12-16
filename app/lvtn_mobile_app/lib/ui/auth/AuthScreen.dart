@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/AuthProvider.dart';
+import '../../constants/app_constants.dart';
+import '../../services/NotificationService.dart';
 import '../home/HomeScreen.dart';
+import '../delivery/DeliveryDriverScreen.dart';
 
 class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key});
@@ -10,9 +14,18 @@ class AuthScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: AuthScreenContent(),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        extendBodyBehindAppBar: false,
+        body: AuthScreenContent(),
+      ),
     );
   }
 }
@@ -36,6 +49,19 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
   bool _isLogin = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -75,16 +101,27 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
           password: _passwordController.text,
           email: _emailController.text.trim(),
           name: _nameController.text.trim(),
-          phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+          phone: _phoneController.text.trim(),
           address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
         );
       }
       
       if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          HomeScreen.routeName,
-          (route) => false,
-        );
+        final user = authProvider.currentUser;
+        // Redirect based on role
+        if (user != null && user.roleId == 7) {
+          // Delivery staff - redirect to delivery driver screen
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            DeliveryDriverScreen.routeName,
+            (route) => false,
+          );
+        } else {
+          // Customer - redirect to home screen
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            HomeScreen.routeName,
+            (route) => false,
+          );
+        }
       }
     } catch (error) {
       print('AuthScreen: Lỗi khi đăng nhập: $error');
@@ -104,17 +141,10 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
           errorMessage = errorStr.replaceAll('Exception: ', '');
         }
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'Đóng',
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
-          ),
+        NotificationService().showError(
+          context: context,
+          message: errorMessage,
+          duration: Duration(seconds: 5),
         );
       }
     } finally {
@@ -130,9 +160,8 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
+      body: Center(
+        child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Form(
               key: _formKey,
@@ -274,9 +303,18 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
                 if (!_isLogin) ...[
                   _buildInputField(
                     controller: _phoneController,
-                    label: 'Số điện thoại (không bắt buộc)',
+                    label: 'Số điện thoại',
                     icon: Icons.phone_outlined,
                     keyboardType: TextInputType.phone,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Vui lòng nhập số điện thoại';
+                      }
+                      if (!RegExp(r'^[0-9]{10,11}$').hasMatch(value.trim())) {
+                        return 'Số điện thoại phải có 10-11 chữ số';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -358,7 +396,6 @@ class _AuthScreenContentState extends State<AuthScreenContent> {
             ),
           ),
         ),
-      ),
     );
   }
 

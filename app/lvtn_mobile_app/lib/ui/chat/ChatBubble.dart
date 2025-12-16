@@ -100,11 +100,13 @@ class ChatBubble extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(
-        message.isUser ? Icons.person_rounded : Icons.smart_toy_rounded,
-        color: Colors.white,
-        size: 22,
-      ),
+      child: message.isUser 
+          ? null
+          : Icon(
+              Icons.restaurant,
+              color: Colors.white,
+              size: 18,
+            ),
     );
   }
 
@@ -153,7 +155,7 @@ class ChatBubble extends StatelessWidget {
           if (confidence != null) ...[
             Spacer(),
             _buildMetricPill(
-              icon: Icons.trending_up_rounded,
+              icon: Icons.table_restaurant_rounded,
               label: 'Confidence',
               value: (confidence is num) ? confidence.toStringAsFixed(2) : confidence.toString(),
             ),
@@ -175,24 +177,13 @@ class ChatBubble extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: Color(0xFFFF8A00),
-          ),
-          SizedBox(width: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Colors.grey[800],
-            ),
-          ),
-        ],
+      child: Text(
+        value,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: Colors.grey[800],
+        ),
       ),
     );
   }
@@ -208,11 +199,10 @@ class ChatBubble extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline_rounded, color: Colors.red[700], size: 20),
             SizedBox(width: 10),
             Flexible(
               child: Text(
-                message.content,
+                _removeEmoji(message.content),
                 style: TextStyle(
                   color: Colors.red[800],
                   fontSize: 14,
@@ -232,18 +222,11 @@ class ChatBubble extends StatelessWidget {
                                   message.metadata != null;
 
     if (hasStructuredContent && !message.isUser) {
-      return Container(
-        padding: EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Color(0xFFFF8A00).withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: _buildStructuredContent(),
-      );
+      return _buildStructuredContent();
     }
 
     return Text(
-      message.content,
+      _removeEmoji(message.content),
       style: TextStyle(
         color: message.isUser ? Colors.grey[900] : Colors.grey[800],
         fontSize: 15,
@@ -264,7 +247,7 @@ class ChatBubble extends StatelessWidget {
         }
         
         final isBold = line.contains('**');
-        final cleanLine = line.replaceAll('**', '');
+        final cleanLine = _removeEmoji(line.replaceAll('**', ''));
         
         return Padding(
           padding: EdgeInsets.only(bottom: 4),
@@ -317,6 +300,46 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
+  IconData? _getSuggestionIcon(String? action) {
+    if (action == null) return null;
+    
+    switch (action) {
+      case 'view_menu':
+      case 'navigate_menu':
+      case 'order_food':
+        return Icons.restaurant_menu_rounded;
+      case 'book_table':
+      case 'confirm_booking':
+        return Icons.table_restaurant_rounded;
+      case 'view_branches':
+      case 'find_branch':
+      case 'select_branch':
+        return Icons.location_on_rounded;
+      case 'view_orders':
+      case 'navigate_orders':
+      case 'check_order_status':
+        return Icons.shopping_bag_outlined;
+      case 'order_takeaway':
+      case 'select_branch_for_takeaway':
+        return Icons.shopping_bag_rounded;
+      case 'select_branch_for_delivery':
+        return Icons.delivery_dining_rounded;
+      case 'search_food':
+        return Icons.search_rounded;
+      default:
+        return null;
+    }
+  }
+
+  String _removeEmoji(String text) {
+    // Remove common emojis
+    return text
+        .replaceAll(RegExp(r'[\u{1F300}-\u{1F9FF}]', unicode: true), '')
+        .replaceAll(RegExp(r'[\u{2600}-\u{26FF}]', unicode: true), '')
+        .replaceAll(RegExp(r'[\u{2700}-\u{27BF}]', unicode: true), '')
+        .trim();
+  }
+
   Widget _buildSuggestions() {
     return Padding(
       padding: EdgeInsets.only(top: 12, left: 4, right: 4),
@@ -333,6 +356,8 @@ class ChatBubble extends StatelessWidget {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: singleLineSuggestions.map((suggestion) {
+                      final cleanText = _removeEmoji(suggestion.text);
+                      final icon = _getSuggestionIcon(suggestion.action);
                       return Padding(
                         padding: EdgeInsets.only(right: 10, bottom: 10),
                         child: Material(
@@ -356,14 +381,27 @@ class ChatBubble extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              child: Text(
-                                suggestion.text,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFFFF8A00),
-                                  letterSpacing: -0.2,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (icon != null) ...[
+                                    Icon(
+                                      icon,
+                                      size: 16,
+                                      color: Color(0xFFFF8A00),
+                                    ),
+                                    SizedBox(width: 6),
+                                  ],
+                                  Text(
+                                    cleanText,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFFFF8A00),
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -402,14 +440,15 @@ class ChatBubble extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: suggestion.text.split('\n').map((line) {
                             if (line.trim().isEmpty) return SizedBox(height: 4);
-                            final isHeader = line.startsWith('📍') || line.startsWith('✅') || line.startsWith('📋');
+                            final cleanLine = _removeEmoji(line);
+                            final isHeader = line.contains('**') || cleanLine.length < 50;
                             return Padding(
                               padding: EdgeInsets.only(bottom: 6),
                               child: Text(
-                                line.trim(),
+                                cleanLine.replaceAll('**', ''),
                                 style: TextStyle(
                                   fontSize: isHeader ? 15 : 13.5,
-                                  fontWeight: FontWeight.w400,
+                                  fontWeight: isHeader ? FontWeight.w600 : FontWeight.w400,
                                   color: Colors.grey[900],
                                   height: 1.5,
                                   letterSpacing: -0.2,
