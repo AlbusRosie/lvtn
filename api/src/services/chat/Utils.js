@@ -33,21 +33,6 @@ class Utils {
             .trim();
         return cleaned;
     }
-    removeMarkdownBold(text) {
-        if (!text) return text;
-        let cleaned = text.replace(/\*\*([^*]+)\*\*/g, (match, content) => {
-            if (content.length > 20 || content.includes(':')) {
-                return `\n${content}\n`;
-            }
-            return content;
-        });
-        cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
-        return cleaned.trim();
-    }
-    sanitizeForSqlLike(input) {
-        if (typeof input !== 'string') return input;
-        return input.replace(/[%_]/g, '\\$&');
-    }
     safeJsonParse(jsonString, schema = null) {
         if (typeof jsonString !== 'string') return null;
         try {
@@ -70,29 +55,6 @@ class Utils {
         } catch {
             return null;
         }
-    }
-    validateChatInput(input) {
-        if (typeof input !== 'string') {
-            throw new Error('Input must be a string');
-        }
-        if (input.length > 2000) {
-            throw new Error('Message too long (max 2000 characters)');
-        }
-        const maliciousPatterns = [
-            /<script/i,
-            /javascript:/i,
-            /on\w+=/i,
-            /eval\(/i,
-            /document\./i,
-            /window\./i,
-            /location\./i
-        ];
-        for (const pattern of maliciousPatterns) {
-            if (pattern.test(input)) {
-                throw new Error('Invalid input content');
-            }
-        }
-        return input.trim();
     }
     normalizeEntityFields(entities) {
         if (!entities) return {};
@@ -145,6 +107,54 @@ class Utils {
             normalized.booking_date = dateValue;
         }
         return normalized;
+    }
+
+    /**
+     * Merge và normalize nhiều entity objects
+     * Loại bỏ duplicate code trong các handler
+     * @param {object} entities - Entities hiện tại
+     * @param {object} lastEntities - Entities từ context
+     * @param {object} historyEntities - Entities từ history
+     * @returns {object} Merged và normalized entities
+     */
+    mergeAndNormalizeEntities(entities = {}, lastEntities = {}, historyEntities = {}) {
+        const normalizedEntities = this.normalizeEntityFields(entities);
+        const normalizedLastEntities = this.normalizeEntityFields(lastEntities);
+        const normalizedHistoryEntities = this.normalizeEntityFields(historyEntities);
+        
+        return {
+            ...normalizedHistoryEntities,
+            ...normalizedLastEntities,
+            ...normalizedEntities
+        };
+    }
+
+    /**
+     * Format price theo định dạng Việt Nam
+     * Loại bỏ duplicate code trong nhiều handlers
+     * @param {number|string} price - Price cần format
+     * @param {string} currency - Currency (default: 'VND')
+     * @returns {string} Formatted price string
+     */
+    formatPrice(price, currency = 'VND') {
+        if (price === null || price === undefined) return 'Liên hệ';
+        
+        try {
+            const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+            if (isNaN(numPrice)) return 'Liên hệ';
+            
+            if (currency === 'VND') {
+                return new Intl.NumberFormat('vi-VN').format(numPrice) + 'đ';
+            }
+            
+            return new Intl.NumberFormat('vi-VN', { 
+                style: 'currency', 
+                currency: currency 
+            }).format(numPrice);
+        } catch (error) {
+            console.error('[Utils] Error formatting price:', error);
+            return 'Liên hệ';
+        }
     }
 }
 module.exports = new Utils();

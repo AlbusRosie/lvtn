@@ -1,14 +1,14 @@
 const knex = require('../../database/knex');
-const BookingHandler = require('./BookingHandler');
-const BranchHandler = require('./BranchHandler');
-const MenuHandler = require('./MenuHandler');
+const BookingIntentHandler = require('./handlers/BookingIntentHandler');
+const MenuIntentHandler = require('./handlers/MenuIntentHandler');
+const BranchIntentHandler = require('./handlers/BranchIntentHandler');
+const BranchHandler = BranchIntentHandler.instance;
+const BookingHandler = BookingIntentHandler.instance;
+const MenuHandler = MenuIntentHandler.instance;
+const MenuFormatterService = require('./helpers/MenuFormatterService');
 const Utils = require('./Utils');
 const EntityExtractor = require('./EntityExtractor');
 const IntentDetector = require('./IntentDetector');
-const ResponseHandler = require('./ResponseHandler');
-const ConversationService = require('./ConversationService');
-const MessageService = require('./MessageService');
-const BranchFormatter = require('./helpers/BranchFormatter');
 const { GREETING_MESSAGE } = require('./constants/Messages');
 class LegacyFallbackService {
     async fallbackResponse(userMessage, context) {
@@ -23,7 +23,8 @@ class LegacyFallbackService {
                             if (ents && Object.keys(ents).length > 0) {
                                 historyEntities = { ...historyEntities, ...Utils.normalizeEntityFields(ents) };
                             }
-                        } catch {
+                        } catch (error) {
+                            console.error('[LegacyFallbackService] Error normalizing entities:', error);
                         }
                     }
                 }
@@ -31,14 +32,7 @@ class LegacyFallbackService {
             const intent = IntentDetector.detectIntent(userMessage);
             const entities = await EntityExtractor.extractEntities(userMessage);
             const lastEntities = context.conversationContext?.lastEntities || {};
-            const normalizedEntities = Utils.normalizeEntityFields(entities);
-            const normalizedLastEntities = Utils.normalizeEntityFields(lastEntities);
-            const normalizedHistoryEntities = Utils.normalizeEntityFields(historyEntities);
-            const mergedEntities = {
-                ...normalizedHistoryEntities,
-                ...normalizedLastEntities,
-                ...normalizedEntities
-            };
+            const mergedEntities = Utils.mergeAndNormalizeEntities(entities, lastEntities, historyEntities);
             const isTimeAmbiguous = mergedEntities.time_ambiguous || 
                                     (mergedEntities.time && mergedEntities.time_hour && mergedEntities.time_hour >= 1 && mergedEntities.time_hour <= 11);
             const hasDate = mergedEntities.date || mergedEntities.reservation_date || mergedEntities.booking_date;
@@ -139,25 +133,21 @@ class LegacyFallbackService {
                                     menuBranchName = menuBranchName || entities.branch_name || entities.branch;
                         break;
                     }
-                            } catch {
+                            } catch (error) {
+                                console.error('[LegacyFallbackService] Error extracting branch from message:', error);
                             }
                         }
                     }
                 }
                 if (menuBranchName && !menuBranchId) {
                     try {
-                        const foundBranch = await knex('branches')
-                            .where('status', 'active')
-                            .where(function() {
-                                this.where('name', 'like', `%${menuBranchName}%`)
-                                    .orWhereRaw('LOWER(name) LIKE ?', [`%${menuBranchName.toLowerCase()}%`]);
-                            })
-                            .first();
+                        const foundBranch = await BranchHandler.getAllActiveBranches(menuBranchName);
                         if (foundBranch) {
                             menuBranchId = foundBranch.id;
                             menuBranchName = foundBranch.name;
                         }
-                    } catch {
+                    } catch (error) {
+                        console.error('[LegacyFallbackService] Error:', error.message);
                     }
                 }
                 if (menuBranchId) {
@@ -167,21 +157,8 @@ class LegacyFallbackService {
                             .where('id', menuBranchId)
                             .first();
                         if (menuItems && menuItems.length > 0) {
-                            const menuByCategory = {};
-                            menuItems.forEach(item => {
-                                const category = item.category_name || 'Khác';
-                                if (!menuByCategory[category]) {
-                                    menuByCategory[category] = [];
-                                }
-                                menuByCategory[category].push(item);
-                            });
-                            const menuText = Object.keys(menuByCategory).map(category => {
-                                const items = menuByCategory[category];
-                                const itemsText = items.map(item => 
-                                    `• ${item.name} - ${item.price.toLocaleString()}đ\n  ${item.description || ''}`
-                                ).join('\n\n');
-                                return `${category}\n${itemsText}`;
-                            }).join('\n\n');
+                            const groupedMenu = MenuFormatterService.groupByCategory(menuItems);
+                            const menuText = MenuFormatterService.formatMenuAsText(groupedMenu, { includeDescription: true });
                             return {
                                 response: `Menu của ${branch?.name || menuBranchName || 'chi nhánh'}:\n\n${menuText}\n\nBạn muốn đặt món nào?`,
                                 intent: 'view_menu',
@@ -209,14 +186,15 @@ class LegacyFallbackService {
                     try {
                         const allBranches = await BranchHandler.getAllActiveBranches();
                         if (allBranches.length > 0) {
-                            const branchList = await BranchFormatter.formatBranchListWithDetails(allBranches);
+                            const branchList = await BranchIntentHandler.formatBranchListWithDetails(allBranches);
                             return {
                                 response: `Bạn muốn xem menu của chi nhánh nào?\n\n${branchList.join('\n\n')}\n\nVui lòng cho tôi biết tên chi nhánh hoặc số thứ tự.`,
                                 intent: 'view_menu',
                                 entities: mergedEntities
                             };
                         }
-                    } catch {
+                    } catch (error) {
+                        console.error('[LegacyFallbackService] Error:', error.message);
                     }
                 }
             }
@@ -271,10 +249,11 @@ class LegacyFallbackService {
                     try {
                         const allBranches = await BranchHandler.getAllActiveBranches();
                         if (allBranches.length > 0) {
-                            const branchList = await BranchFormatter.formatBranchListWithDetails(allBranches);
+                            const branchList = await BranchIntentHandler.formatBranchListWithDetails(allBranches);
                             response += `\n\nDanh sách chi nhánh:\n\n${branchList.join('\n\n')}`;
                         }
-                    } catch {
+                    } catch (error) {
+                        console.error('[LegacyFallbackService] Error:', error.message);
                     }
                 }
                 return { 
@@ -287,7 +266,7 @@ class LegacyFallbackService {
                 try {
                     const allBranches = await BranchHandler.getAllActiveBranches();
                     if (allBranches.length > 0) {
-                        const branchList = await BranchFormatter.formatBranchListWithDetails(allBranches);
+                        const branchList = await BranchIntentHandler.formatBranchListWithDetails(allBranches);
                         response = `Tôi hiểu bạn muốn đặt bàn cho ${people || '?'} người vào ${time || '?'} ngày ${date || '?'}. Bạn muốn đặt bàn tại chi nhánh nào?\n\n${branchList.join('\n\n')}\n\nVui lòng cho tôi biết tên chi nhánh bạn muốn đến.`;
                     } else {
                         response = `Tôi hiểu bạn muốn đặt bàn cho ${people || '?'} người vào ${time || '?'} ngày ${date || '?'}. Bạn muốn đặt bàn tại chi nhánh nào?`;
@@ -302,7 +281,7 @@ class LegacyFallbackService {
                 };
             }
             if (!date) {
-                response = `Tôi hiểu bạn đồng ý đặt bàn cho ${people} người vào ${time} tại ${branch}, nhưng tôi cần biết ngày đặt bàn.\n\nBạn muốn đặt bàn:\n📅 Hôm nay\n📅 Ngày mai\n\nHoặc bạn có thể cho biết ngày cụ thể?`;
+                response = `Tôi hiểu bạn đồng ý đặt bàn cho ${people} người vào ${time} tại ${branch}, nhưng tôi cần biết ngày đặt bàn.\n\nBạn muốn đặt bàn:\n- Hôm nay\n- Ngày mai\n\nHoặc bạn có thể cho biết ngày cụ thể?`;
                 return { 
                     response, 
                     intent: 'ask_info', 
@@ -324,7 +303,7 @@ class LegacyFallbackService {
                         errorMessage += `Giờ làm việc của chi nhánh này: ${BranchHandler.formatOperatingHours(branchToCheck)}\n\n`;
                         if (openBranches.length > 0) {
                             errorMessage += `Các chi nhánh còn hoạt động vào lúc ${time}:\n\n`;
-                            const branchList = await BranchFormatter.formatBranchListWithDetails(openBranches);
+                            const branchList = await BranchIntentHandler.formatBranchListWithDetails(openBranches);
                             errorMessage += branchList.join('\n\n');
                             errorMessage += `\n\nBạn có muốn đặt bàn tại một trong các chi nhánh này không?`;
                         } else {
@@ -503,7 +482,7 @@ class LegacyFallbackService {
                                 errorMessage += `Giờ làm việc của chi nhánh này: ${BranchHandler.formatOperatingHours(branchToCheck)}\n\n`;
                                 if (openBranches.length > 0) {
                                     errorMessage += `Các chi nhánh còn hoạt động vào lúc ${time}:\n\n`;
-                                    const branchList = await BranchFormatter.formatBranchListWithDetails(openBranches);
+                                    const branchList = await BranchIntentHandler.formatBranchListWithDetails(openBranches);
                                     errorMessage += branchList.join('\n\n');
                                     errorMessage += `\n\nBạn có muốn đặt bàn tại một trong các chi nhánh này không?`;
                                 } else {
@@ -568,7 +547,6 @@ class LegacyFallbackService {
                     if (!confirmedEntities.date) missingInfo.push('ngày');
                     if (!confirmedEntities.branch_name) missingInfo.push('chi nhánh');
                     if (missingInfo.length > 0) {
-                        const missingText = missingInfo.join(', ');
                         const BookingValidator = require('./validators/BookingValidator');
                         const missingFields = [];
                         if (!confirmedEntities.people) missingFields.push('people');
@@ -580,10 +558,11 @@ class LegacyFallbackService {
                             try {
                                 const allBranches = await BranchHandler.getAllActiveBranches();
                                 if (allBranches.length > 0) {
-                                    const branchList = await BranchFormatter.formatBranchListWithDetails(allBranches);
+                                    const branchList = await BranchIntentHandler.formatBranchListWithDetails(allBranches);
                                     response += `\n\nDanh sách chi nhánh:\n\n${branchList.join('\n\n')}`;
                                 }
-                            } catch {
+                            } catch (error) {
+                                console.error('[LegacyFallbackService] Error getting all active branches:', error);
                             }
                         }
                         return { 
@@ -596,7 +575,7 @@ class LegacyFallbackService {
                         try {
                             const allBranches = await BranchHandler.getAllActiveBranches();
                             if (allBranches.length > 0) {
-                                const branchList = await BranchFormatter.formatBranchListWithDetails(allBranches);
+                                const branchList = await BranchIntentHandler.formatBranchListWithDetails(allBranches);
                                 response = `Tôi hiểu bạn muốn đặt bàn cho ${people || '?'} người vào ${time || '?'} ngày ${date || '?'}. Bạn muốn đặt bàn tại chi nhánh nào?\n\n${branchList.join('\n\n')}\n\nVui lòng cho tôi biết tên chi nhánh bạn muốn đến.`;
                             } else {
                                 response = `Tôi hiểu bạn muốn đặt bàn cho ${people || '?'} người vào ${time || '?'} ngày ${date || '?'}. Bạn muốn đặt bàn tại chi nhánh nào?`;
@@ -611,7 +590,7 @@ class LegacyFallbackService {
                         };
                     }
                     if (!date) {
-                        response = `Tôi hiểu bạn đồng ý đặt bàn cho ${people} người vào ${time} tại ${branch}, nhưng tôi cần biết ngày đặt bàn.\n\nBạn muốn đặt bàn:\n📅 Hôm nay\n📅 Ngày mai\n\nHoặc bạn có thể cho biết ngày cụ thể?`;
+                        response = `Tôi hiểu bạn đồng ý đặt bàn cho ${people} người vào ${time} tại ${branch}, nhưng tôi cần biết ngày đặt bàn.\n\nBạn muốn đặt bàn:\n- Hôm nay\n- Ngày mai\n\nHoặc bạn có thể cho biết ngày cụ thể?`;
                         return { 
                             response, 
                             intent: 'ask_info', 
@@ -656,7 +635,7 @@ class LegacyFallbackService {
                     if (!hasDateInfo) missingInfo.push('Ngày');
                     if (!hasBranchInfo) missingInfo.push('Chi nhánh');
                     if (hasBookingInfo && hasTimeInfo && hasBranchInfo && !hasDateInfo) {
-                        response = `Tôi hiểu bạn đồng ý đặt bàn cho ${mergedEntities.people} người vào ${mergedEntities.time} tại ${mergedEntities.branch_name}, nhưng tôi cần biết ngày đặt bàn.\n\nBạn muốn đặt bàn:\n📅 Hôm nay\n📅 Ngày mai\n\nHoặc bạn có thể cho biết ngày cụ thể?`;
+                        response = `Tôi hiểu bạn đồng ý đặt bàn cho ${mergedEntities.people} người vào ${mergedEntities.time} tại ${mergedEntities.branch_name}, nhưng tôi cần biết ngày đặt bàn.\n\nBạn muốn đặt bàn:\n- Hôm nay\n- Ngày mai\n\nHoặc bạn có thể cho biết ngày cụ thể?`;
                     } else {
                         response = `Tôi hiểu bạn đồng ý, nhưng tôi không có đủ thông tin đặt bàn để xác nhận. Còn thiếu:\n\n${missingInfo.join('\n')}\n\nBạn có thể cung cấp thông tin còn thiếu không?`;
                     }
@@ -698,21 +677,8 @@ class LegacyFallbackService {
                         if (branch) {
                             const menuItems = await MenuHandler.getMenuForOrdering(branch.id);
                             if (menuItems && menuItems.length > 0) {
-                                const menuByCategory = {};
-                                menuItems.forEach(item => {
-                                    const category = item.category_name || 'Khác';
-                                    if (!menuByCategory[category]) {
-                                        menuByCategory[category] = [];
-                                    }
-                                    menuByCategory[category].push(item);
-                                });
-                                const menuText = Object.keys(menuByCategory).map(category => {
-                                    const items = menuByCategory[category];
-                                    const itemsText = items.map(item => 
-                                        `• ${item.name} - ${item.price.toLocaleString()}đ\n  ${item.description || ''}`
-                                    ).join('\n\n');
-                                    return `${category}\n${itemsText}`;
-                                }).join('\n\n');
+                                const groupedMenu = MenuFormatterService.groupByCategory(menuItems);
+                                const menuText = MenuFormatterService.formatMenuAsText(groupedMenu, { includeDescription: true });
                                 response = `Menu của ${branch.name}:\n\n${menuText}\n\nBạn muốn đặt món nào?`;
                             } else {
                                 response = `Hiện tại ${branch.name} chưa có món nào trong menu. Vui lòng liên hệ trực tiếp với nhà hàng.`;
@@ -732,21 +698,8 @@ class LegacyFallbackService {
                         if (lastBranch) {
                             const menuItems = await MenuHandler.getMenuForOrdering(lastBranch.id);
                             if (menuItems && menuItems.length > 0) {
-                                const menuByCategory = {};
-                                menuItems.forEach(item => {
-                                    const category = item.category_name || 'Khác';
-                                    if (!menuByCategory[category]) {
-                                        menuByCategory[category] = [];
-                                    }
-                                    menuByCategory[category].push(item);
-                                });
-                                const menuText = Object.keys(menuByCategory).map(category => {
-                                    const items = menuByCategory[category];
-                                    const itemsText = items.map(item => 
-                                        `• ${item.name} - ${item.price.toLocaleString()}đ\n  ${item.description || ''}`
-                                    ).join('\n\n');
-                                    return `${category}\n${itemsText}`;
-                                }).join('\n\n');
+                                const groupedMenu = MenuFormatterService.groupByCategory(menuItems);
+                                const menuText = MenuFormatterService.formatMenuAsText(groupedMenu, { includeDescription: true });
                                 response = `Menu của ${lastBranch.name}:\n\n${menuText}\n\nBạn muốn đặt món nào?`;
                             } else {
                                 response = `Hiện tại ${lastBranch.name} chưa có món nào trong menu. Vui lòng liên hệ trực tiếp với nhà hàng.`;
@@ -811,7 +764,7 @@ class LegacyFallbackService {
                     try {
                         const allBranches = await BranchHandler.getAllActiveBranches();
                         if (allBranches.length > 0) {
-                            const branchList = await BranchFormatter.formatBranchListWithDetails(allBranches);
+                            const branchList = await BranchIntentHandler.formatBranchListWithDetails(allBranches);
                             response = `Tôi hiểu bạn muốn đặt bàn cho ${people} người vào ${time} ngày ${date}. Bạn muốn đặt bàn tại chi nhánh nào?\n\n${branchList.join('\n\n')}\n\nVui lòng cho tôi biết tên chi nhánh bạn muốn đến.`;
                         } else {
                             response = `Tôi hiểu bạn muốn đặt bàn cho ${people} người vào ${time} ngày ${date}. Bạn muốn đặt bàn tại chi nhánh nào?`;
@@ -914,7 +867,7 @@ class LegacyFallbackService {
                                 .select('id', 'name', 'address_detail', 'phone', 'opening_hours', 'close_hours', 'district_id')
                                 .orderBy('id', 'asc');
                             if (allBranches.length > 0) {
-                                const branchList = await BranchFormatter.formatBranchListWithDetails(allBranches);
+                                const branchList = await BranchIntentHandler.formatBranchListWithDetails(allBranches);
                                 response = `Tôi chưa lấy được dữ liệu chi nhánh ở quận ${districtName || districtId} từ hệ thống. Dưới đây là danh sách tất cả các chi nhánh của chúng tôi:\n\n${branchList.join('\n\n')}\n\nBạn có muốn đặt bàn tại chi nhánh nào không?`;
                             } else {
                                 response = `Tôi chưa lấy được dữ liệu chi nhánh ở quận ${districtName || districtId} từ hệ thống. Vui lòng liên hệ trực tiếp với nhà hàng để biết thêm thông tin.`;
@@ -981,7 +934,8 @@ class LegacyFallbackService {
                             mergedEntities.branch_name = foundBranch.name;
                             mergedEntities.branch = foundBranch.name;
                         }
-                    } catch {
+                    } catch (error) {
+                        console.error('[LegacyFallbackService] Error:', error.message);
                     }
                 }
                 if (menuBranchName && !menuBranchId) {
@@ -999,7 +953,8 @@ class LegacyFallbackService {
                             mergedEntities.branch_id = foundBranch.id;
                             mergedEntities.branch_name = foundBranch.name;
                         }
-                    } catch {
+                    } catch (error) {
+                        console.error('[LegacyFallbackService] Error:', error.message);
                     }
                 }
                 if (menuBranchId) {
@@ -1009,21 +964,8 @@ class LegacyFallbackService {
                             .where('id', menuBranchId)
                             .first();
                         if (menuItems && menuItems.length > 0) {
-                            const menuByCategory = {};
-                            menuItems.forEach(item => {
-                                const category = item.category_name || 'Khác';
-                                if (!menuByCategory[category]) {
-                                    menuByCategory[category] = [];
-                                }
-                                menuByCategory[category].push(item);
-                            });
-                            const menuText = Object.keys(menuByCategory).map(category => {
-                                const items = menuByCategory[category];
-                                const itemsText = items.map(item => 
-                                    `• ${item.name} - ${item.price.toLocaleString()}đ\n  ${item.description || ''}`
-                                ).join('\n\n');
-                                return `${category}\n${itemsText}`;
-                            }).join('\n\n');
+                            const groupedMenu = MenuFormatterService.groupByCategory(menuItems);
+                            const menuText = MenuFormatterService.formatMenuAsText(groupedMenu, { includeDescription: true });
                             response = `Menu của ${branch?.name || menuBranchName || 'chi nhánh'}:\n\n${menuText}\n\nBạn muốn đặt món nào?`;
                         } else {
                             response = `Hiện tại ${branch?.name || menuBranchName || 'chi nhánh này'} chưa có món nào trong menu. Vui lòng liên hệ trực tiếp với nhà hàng.`;
@@ -1035,7 +977,7 @@ class LegacyFallbackService {
                     try {
                         const allBranches = await BranchHandler.getAllActiveBranches();
                         if (allBranches.length > 0) {
-                            const branchList = await BranchFormatter.formatBranchListWithDetails(allBranches);
+                            const branchList = await BranchIntentHandler.formatBranchListWithDetails(allBranches);
                             response = `Chúng tôi có menu đa dạng với nhiều món ăn ngon. Bạn muốn xem menu của chi nhánh nào?\n\n${branchList.join('\n\n')}\n\nVui lòng cho tôi biết tên chi nhánh hoặc quận bạn muốn xem menu.`;
                         } else {
                             response = 'Tôi chưa lấy được dữ liệu chi nhánh đang hoạt động từ hệ thống. Vui lòng liên hệ trực tiếp với nhà hàng.';
@@ -1064,7 +1006,8 @@ class LegacyFallbackService {
                                 lastBranchName = branch.name;
                             }
                         }
-                    } catch {
+                    } catch (error) {
+                        console.error('[LegacyFallbackService] Error:', error.message);
                     }
                 }
                 const quantityMatch = userMessage.match(/^\d+/);
@@ -1110,7 +1053,7 @@ class LegacyFallbackService {
             }
             case 'view_orders': {
                 if (context.recentOrders && context.recentOrders.length > 0) {
-                    response = `Bạn có ${context.recentOrders.length} đơn hàng gần đây.\n\nĐơn gần nhất:\nTổng: ${context.recentOrders[0].total}đ\n📊 Trạng thái: ${context.recentOrders[0].status}\n\nBạn muốn xem chi tiết đơn hàng nào?`;
+                    response = `Bạn có ${context.recentOrders.length} đơn hàng gần đây.\n\nĐơn gần nhất:\nTổng: ${context.recentOrders[0].total}đ\nTrạng thái: ${context.recentOrders[0].status}\n\nBạn muốn xem chi tiết đơn hàng nào?`;
                 } else {
                     response = 'Bạn chưa có đơn hàng nào.\n\nHãy đặt món ngay để trải nghiệm những món ăn tuyệt vời của chúng tôi! ';
                 }
@@ -1127,7 +1070,8 @@ class LegacyFallbackService {
                         if (searchTerm) {
                             mergedEntities.district_search_term = searchTerm;
                         }
-                    } catch {
+                    } catch (error) {
+                        console.error('[LegacyFallbackService] Error:', error.message);
                     }
                 }
                 if (finalProvinceId && !finalDistrictId) {
@@ -1139,7 +1083,7 @@ class LegacyFallbackService {
                             allBranchesInProvince = await BranchService.getAllBranches('active', searchTerm);
                         }
                         if (allBranchesInProvince.length > 0) {
-                            const branchList = await BranchFormatter.formatBranchListWithDetails(allBranchesInProvince);
+                            const branchList = await BranchIntentHandler.formatBranchListWithDetails(allBranchesInProvince);
                             const response = `Danh sách ${allBranchesInProvince.length} chi nhánh tại ${finalProvinceName}:\n\n${branchList.join('\n\n')}\n\nBạn muốn xem menu hoặc đặt bàn tại chi nhánh nào?`;
                             return {
                                 response,
@@ -1159,7 +1103,6 @@ class LegacyFallbackService {
                             }
                             if (foundBranchesBySearch.length === 0) {
                                 try {
-                                    const knex = require('../../database/knex');
                                     const allBranches = await knex('branches')
                                         .where('status', 'active')
                                         .where(function() {
@@ -1172,11 +1115,12 @@ class LegacyFallbackService {
                                     if (allBranches.length > 0) {
                                         foundBranchesBySearch = allBranches;
                                     }
-                                } catch {
+                                } catch (error) {
+                                    console.error('[LegacyFallbackService] Error getting all branches by search term:', error);
                                 }
                             }
                             if (foundBranchesBySearch.length > 0) {
-                                const branchList = await BranchFormatter.formatBranchListWithDetails(foundBranchesBySearch);
+                                const branchList = await BranchIntentHandler.formatBranchListWithDetails(foundBranchesBySearch);
                                 const response = `Tìm thấy ${foundBranchesBySearch.length} chi nhánh liên quan đến "${searchTerm}":\n\n${branchList.join('\n\n')}\n\nBạn muốn xem menu hoặc đặt bàn tại chi nhánh nào?`;
                                 return {
                                     response,
@@ -1204,14 +1148,14 @@ class LegacyFallbackService {
                                 suggestions: suggestions
                             };
                         }
-                    } catch {
+                    } catch (error) {
+                        console.error('[LegacyFallbackService] Error:', error.message);
                     }
                 }
                 if (finalDistrictId) {
                     try {
                         const branchesInDistrict = await BranchHandler.getBranchesByDistrict(finalDistrictId);
-                        const district = await BranchHandler.getDistrict(finalDistrictId);
-                        const districtName = district ? district.name : (mergedEntities.district_name || `Quận ${finalDistrictId}`);
+                        const districtName = mergedEntities.district_name || `Quận ${finalDistrictId}`;
                         if (branchesInDistrict.length > 0) {
                             if (branchesInDistrict.length === 1) {
                                 const branch = branchesInDistrict[0];
@@ -1242,7 +1186,7 @@ class LegacyFallbackService {
                                     suggestions: suggestions
                                 };
                             } else {
-                                const branchList = await BranchFormatter.formatBranchListWithDetails(branchesInDistrict);
+                                const branchList = await BranchIntentHandler.formatBranchListWithDetails(branchesInDistrict);
                                 const response = `Danh sách ${branchesInDistrict.length} chi nhánh tại ${districtName}:\n\n${branchList.join('\n\n')}\n\nBạn muốn xem menu hoặc đặt bàn tại chi nhánh nào?`;
                                 return {
                                     response,
@@ -1263,7 +1207,6 @@ class LegacyFallbackService {
                             }
                             if (foundBranchesBySearch.length === 0) {
                                 try {
-                                    const knex = require('../../database/knex');
                                     const allBranches = await knex('branches')
                                         .where('status', 'active')
                                         .where(function() {
@@ -1276,11 +1219,12 @@ class LegacyFallbackService {
                                     if (allBranches.length > 0) {
                                         foundBranchesBySearch = allBranches;
                                     }
-                                } catch {
+                                } catch (error) {
+                                    console.error('[LegacyFallbackService] Error getting all branches by search term:', error);
                                 }
                             }
                             if (foundBranchesBySearch.length > 0) {
-                                const branchList = await BranchFormatter.formatBranchListWithDetails(foundBranchesBySearch);
+                                const branchList = await BranchIntentHandler.formatBranchListWithDetails(foundBranchesBySearch);
                                 const response = `Tìm thấy ${foundBranchesBySearch.length} chi nhánh liên quan đến "${searchTerm}":\n\n${branchList.join('\n\n')}\n\nBạn muốn xem menu hoặc đặt bàn tại chi nhánh nào?`;
                                 return {
                                     response,
@@ -1308,17 +1252,14 @@ class LegacyFallbackService {
                                 suggestions: suggestions
                             };
                         }
-                    } catch {
+                    } catch (error) {
+                        console.error('[LegacyFallbackService] Error:', error.message);
                     }
                 }
                 const foundBranch = await EntityExtractor.extractBranchFromMessage(userMessage);
                 if (foundBranch) {
                     try {
-                        let districtName = '';
-                        if (foundBranch.district_id) {
-                            const district = await BranchHandler.getDistrict(foundBranch.district_id);
-                            districtName = district ? district.name : '';
-                        }
+                        const districtName = '';
                         const address = foundBranch.address_detail || 'Địa chỉ chưa cập nhật';
                         const phone = foundBranch.phone || '';
                         const hours = BranchHandler.formatOperatingHours(foundBranch) || 'Giờ làm việc chưa cập nhật';
@@ -1346,21 +1287,18 @@ class LegacyFallbackService {
                             },
                             suggestions: suggestions
                         };
-                    } catch {
+                    } catch (error) {
+                        console.error('[LegacyFallbackService] Error:', error.message);
                     }
                 }
                 try {
-                    const allBranches = await BranchHandler.getAllActiveBranches();
+                    const hasBookingInfo = mergedEntities.people || mergedEntities.time || mergedEntities.date ||
+                                        mergedEntities.number_of_people || mergedEntities.reservation_time || mergedEntities.reservation_date;
+                    const { branches: allBranches, suggestions: branchSuggestions } = await BranchHandler.getBranchesWithSuggestions(
+                        hasBookingInfo ? 'book_table' : 'view_branches',
+                        hasBookingInfo ? mergedEntities : {}
+                    );
                     if (allBranches.length > 0) {
-                        const hasBookingInfo = mergedEntities.people || mergedEntities.time || mergedEntities.date ||
-                                            mergedEntities.number_of_people || mergedEntities.reservation_time || mergedEntities.reservation_date;
-                        const branchSuggestions = await BranchHandler.createBranchSuggestions(
-                            allBranches, 
-                            hasBookingInfo ? { 
-                                intent: 'book_table',
-                                ...mergedEntities 
-                            } : null
-                        );
                         if (hasBookingInfo) {
                             const bookingInfo = [];
                             if (mergedEntities.people) bookingInfo.push(`${mergedEntities.people} người`);
@@ -1374,7 +1312,7 @@ class LegacyFallbackService {
                                 suggestions: branchSuggestions
                             };
                         } else {
-                            const branchList = await BranchFormatter.formatBranchListWithDetails(allBranches);
+                            const branchList = await BranchIntentHandler.formatBranchListWithDetails(allBranches);
                             response = `Danh sách ${allBranches.length} chi nhánh của Beast Bite:\n\n${branchList.join('\n\n')}\n\nBạn muốn xem menu hoặc đặt bàn tại chi nhánh nào?`;
                             return {
                                 response,
@@ -1547,7 +1485,7 @@ class LegacyFallbackService {
                     }
                 } else {
                     try {
-                        const ToolHandlers = require('./ToolHandlers');
+                        const ToolHandlers = require('../ToolHandlers');
                         const searchResult = await ToolHandlers.searchProducts({
                             keyword: null,
                             branch_id: searchBranchId || null,
@@ -1576,6 +1514,7 @@ class LegacyFallbackService {
                             response = 'Bạn muốn tìm món gì? Hãy cho tôi biết tên món hoặc từ khóa tìm kiếm.\n\nVí dụ: "có burger không", "tìm pizza", "có món gì ngon"';
                         }
                     } catch (error) {
+                        console.error('[LegacyFallbackService] Error searching products:', error);
                         response = 'Bạn muốn tìm món gì? Hãy cho tôi biết tên món hoặc từ khóa tìm kiếm.\n\nVí dụ: "có burger không", "tìm pizza", "có món gì ngon"';
                     }
                 }
@@ -1588,7 +1527,7 @@ class LegacyFallbackService {
                 const hasBranchInfoForTable = normalizedCurrentEntities.branch_name || normalizedCurrentEntities.branch || normalizedCurrentEntities.branch_id || normalizedCurrentEntities.district_id;
                 const peopleValue = mergedEntities.people || mergedEntities.number_of_people || mergedEntities.guest_count;
                 const isValidPeople = peopleValue && peopleValue >= 1 && peopleValue <= 20;
-                const normalizedCurrentEntitiesCheck = this.normalizeEntityFields(entities);
+                const normalizedCurrentEntitiesCheck = Utils.normalizeEntityFields(entities);
                 const hasBranchInCurrentMessage = normalizedCurrentEntitiesCheck.branch_name || normalizedCurrentEntitiesCheck.branch || normalizedCurrentEntitiesCheck.branch_id || normalizedCurrentEntitiesCheck.district_id;
                 if ((lastIntent === 'book_table' || lastIntent === 'book_table_partial' || lastIntent === 'reservation_failed' || lastIntent === 'ask_info' || lastIntent === 'find_nearest_branch' || lastIntent === 'find_first_branch') &&
                     isValidPeople && hasTimeInfoForTable && hasDateInfoForTable && hasBranchInfoForTable && hasBranchInCurrentMessage) {
@@ -1632,7 +1571,6 @@ class LegacyFallbackService {
                     if (!confirmedEntities.date) missingInfo.push('ngày');
                     if (!confirmedEntities.branch_name && !confirmedEntities.branch_id && !confirmedEntities.district_id) missingInfo.push('chi nhánh');
                     if (missingInfo.length > 0) {
-                        const missingText = missingInfo.join(', ');
                         const BookingValidator = require('./validators/BookingValidator');
                         const missingFields = [];
                         if (!confirmedEntities.people) missingFields.push('people');
@@ -1647,10 +1585,11 @@ class LegacyFallbackService {
                                     .select('id', 'name')
                                     .orderBy('id', 'asc');
                                 if (allBranches.length > 0) {
-                                    const branchList = await BranchFormatter.formatBranchListWithDetails(allBranches);
+                                    const branchList = await BranchIntentHandler.formatBranchListWithDetails(allBranches);
                                     response += `\n\nDanh sách chi nhánh:\n\n${branchList.join('\n\n')}`;
                                 }
-                            } catch {
+                            } catch (error) {
+                                console.error('[LegacyFallbackService] Error getting all active branches:', error);
                             }
                         }
                         return { 
@@ -1663,7 +1602,7 @@ class LegacyFallbackService {
                         try {
                             const allBranches = await BranchHandler.getAllActiveBranches();
                             if (allBranches.length > 0) {
-                                const branchList = await BranchFormatter.formatBranchListWithDetails(allBranches);
+                                const branchList = await BranchIntentHandler.formatBranchListWithDetails(allBranches);
                                 response = `Tôi hiểu bạn muốn đặt bàn cho ${people} người vào ${time} ngày ${date}. Bạn muốn đặt bàn tại chi nhánh nào?\n\n${branchList.join('\n\n')}\n\nVui lòng cho tôi biết tên chi nhánh bạn muốn đến.`;
                             } else {
                                 response = `Tôi hiểu bạn muốn đặt bàn cho ${people} người vào ${time} ngày ${date}. Bạn muốn đặt bàn tại chi nhánh nào?`;

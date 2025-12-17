@@ -321,9 +321,11 @@ class _BranchScreenState extends State<BranchScreen> {
                                   bp.clearFilters();
 
                                   if (ap.isAuth && ap.currentUser != null && address.isNotEmpty) {
-                                    ap.updateUserAddress(address).catchError((e) {
+                                    try {
+                                      await ap.updateUserAddress(address);
+                                    } catch (e) {
                                       print('Không thể lưu địa chỉ vào tài khoản: $e');
-                                    });
+                                    }
                                   }
 
                                   Navigator.of(context).pop();

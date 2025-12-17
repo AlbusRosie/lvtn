@@ -197,6 +197,32 @@ class ChatProvider with ChangeNotifier {
     }
   }
 
+  Future<void> resetConversation({bool deleteMessages = true}) async {
+    final token = _authService.token;
+    if (token == null || _conversationId == null) return;
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _chatService.resetConversation(
+        token: token,
+        conversationId: _conversationId!,
+        deleteMessages: deleteMessages,
+      );
+      _messages.clear();
+      _conversationId = null;
+      _suggestions.clear();
+      await _addWelcomeMessage();
+    } catch (e) {
+      // giữ nguyên trạng thái nếu reset thất bại
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> _loadSuggestions() async {
     final token = _authService.token;
     if (token == null) return;
@@ -334,20 +360,31 @@ class ChatProvider with ChangeNotifier {
       }
     } catch (e) {
       String errorMessage;
-      if (e.toString().contains('Network error') || 
-          e.toString().contains('connection') ||
-          e.toString().contains('timeout')) {
+      final errorString = e.toString();
+      if (errorString.contains('Network error') || 
+          errorString.contains('connection') ||
+          errorString.contains('timeout')) {
         errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng và thử lại.';
-      } else if (e.toString().contains('401') || 
-                 e.toString().contains('authentication') ||
-                 e.toString().contains('not authenticated')) {
+      } else if (errorString.contains('401') || 
+                 errorString.contains('authentication') ||
+                 errorString.contains('not authenticated')) {
         errorMessage = 'Bạn cần đăng nhập để sử dụng tính năng này.';
-      } else if (e.toString().contains('429') || 
-                 e.toString().contains('rate limit') ||
-                 e.toString().contains('Too many')) {
+      } else if (errorString.contains('429') || 
+                 errorString.contains('rate limit') ||
+                 errorString.contains('Too many')) {
         errorMessage = 'Bạn đã gửi quá nhiều tin nhắn. Vui lòng đợi một chút rồi thử lại.';
       } else {
-        errorMessage = 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.';
+        // Thử show message thật từ Exception nếu ngắn, để dễ debug
+        if (errorString.contains('Exception:')) {
+          final extracted = errorString.split('Exception:').last.trim();
+          if (extracted.isNotEmpty && extracted.length < 200) {
+            errorMessage = extracted;
+          } else {
+            errorMessage = 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.';
+          }
+        } else {
+          errorMessage = 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.';
+        }
       }
       
       final errorChatMessage = ChatMessage(

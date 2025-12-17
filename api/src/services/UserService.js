@@ -186,7 +186,11 @@ async function updateUser(id, payload) {
         update.avatar !== existingUser.avatar &&
         existingUser.avatar.startsWith('/public/uploads')
     ) {
-        unlink(`.${existingUser.avatar}`, (err) => {});
+        unlink(`.${existingUser.avatar}`, (error) => {
+            if (error) {
+                console.error('[UserService] Error deleting old avatar:', error);
+            }
+        });
     }
     // Lấy user đã được cập nhật từ DB để đảm bảo có đầy đủ dữ liệu
     const updatedUser = await userRepository()
@@ -234,7 +238,11 @@ async function deleteUser(id) {
         deletedUser.avatar &&
         deletedUser.avatar.startsWith('/public/uploads')
     ) {
-        unlink(`.${deletedUser.avatar}`, (err) => {});
+        unlink(`.${deletedUser.avatar}`, (error) => {
+            if (error) {
+                console.error('[UserService] Error deleting old avatar:', error);
+            }
+        });
     }
     
     // ✅ EMIT REAL-TIME NOTIFICATION
@@ -291,7 +299,6 @@ module.exports = {
     getUserById,
     updateUser,
     deleteUser,
-    // deleteAllUsers - REMOVED: not used (no route exists)
     login,
     setSocketIO
 };

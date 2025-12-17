@@ -108,9 +108,9 @@ class ToolOrchestrator {
             throw new ApiError(500, 'Tool handler không tìm thấy');
         }
         if (!this.toolHandlers) {
-            this.toolHandlers = require('./ToolHandlers');
+            this.toolHandlers = require('../ToolHandlers');
         }
-        const [moduleName, methodName] = toolDef.handler.split('.');
+        const [methodName] = toolDef.handler.split('.');
         const handlerMethod = this.toolHandlers[methodName];
         if (!handlerMethod) {
             throw new ApiError(500, `Method ${methodName} không tồn tại trong ToolHandlers`);
@@ -152,6 +152,7 @@ class ToolOrchestrator {
                 created_at: new Date()
             });
         } catch (error) {
+            console.error('[ToolOrchestrator] Error logging tool usage:', error);
         }
     }
     getAvailableToolsForLLM(userRole = USER_ROLES.GUEST) {

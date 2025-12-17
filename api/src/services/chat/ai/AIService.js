@@ -1,6 +1,6 @@
-const IntentDetector = require('./IntentDetector');
-const EntityExtractor = require('./EntityExtractor');
-const Utils = require('./Utils');
+const IntentDetector = require('../fallback/IntentDetector');
+const EntityExtractor = require('../fallback/EntityExtractor');
+const Utils = require('../Utils');
 const ToolOrchestrator = require('./ToolOrchestrator');
 const { USER_ROLES } = require('./ToolRegistry');
 class AIService {
@@ -12,7 +12,8 @@ class AIService {
             try {
                 const { GoogleGenerativeAI } = require('@google/generative-ai');
                 this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-            } catch (err) {
+            } catch (error) {
+                console.error('[AIService] Error initializing Gemini:', error);
                 this.geminiEnabled = false;
             }
         }
@@ -37,6 +38,7 @@ class AIService {
                 source: 'gemini_direct'
             };
         } catch (error) {
+            console.error('[AIService] Error calling AI:', error);
             return await fallback(message, context);
         }
     }
@@ -53,12 +55,11 @@ class AIService {
                     if (result.success && result.data) {
                         const products = result.data.products || [];
                         let response = '';
-                        const isDrinksSearch = /(nước|nuoc|uống|uong|drink|nước|cafe|coffee|tea|trà|tra)/i.test(keyword);
                         if (products.length > 0) {
                             response = `Tôi tìm thấy ${products.length} món có "${keyword}":\n\n`;
                             products.forEach((p, idx) => {
                                 response += `${idx + 1}. ${p.name}\n`;
-                                response += `   ${this._formatPrice(p.price)}\n`;
+                                response += `   ${Utils.formatPrice(p.price)}\n`;
                                 if (p.description) {
                                     response += `   ${p.description}\n`;
                                 }
@@ -173,7 +174,7 @@ class AIService {
                     branchName && branchName.toLowerCase().includes(keyword)
                 );
                 if (branchName && branchName.length > 2 && !isGenericRequest) {
-                    const EntityExtractor = require('./EntityExtractor');
+                    const EntityExtractor = require('../fallback/EntityExtractor');
                     const entities = await EntityExtractor.extractEntities(message);
                     const branchesParams = {};
                     if (entities.district_id) {
@@ -193,35 +194,8 @@ class AIService {
                         if (allBranches.length === 1 && (entities.district_id || entities.province_id)) {
                             foundBranch = allBranches[0];
                         } else {
-                            const normalizedBranchName = branchName.toLowerCase().trim();
-                            foundBranch = allBranches.find(b => {
-                                const normalizedBranch = b.name.toLowerCase().replace(/^beast\s+bite\s*-\s*/i, '').trim();
-                                return normalizedBranch.includes(normalizedBranchName) || 
-                                       normalizedBranchName.includes(normalizedBranch) ||
-                                       b.name.toLowerCase().includes(normalizedBranchName);
-                            });
-                            if (!foundBranch) {
-                                foundBranch = allBranches.find(b => {
-                                    const address = (b.address_detail || '').toLowerCase();
-                                    return address.includes(normalizedBranchName) ||
-                                           normalizedBranchName.includes(address) ||
-                                           normalizedBranchName.split(/\s+/).some(word => 
-                                               word.length > 2 && address.includes(word)
-                                           );
-                                });
-                            }
-                            if (!foundBranch && normalizedBranchName.split(/\s+/).length > 1) {
-                                const words = normalizedBranchName.split(/\s+/).filter(w => w.length > 2);
-                                for (const word of words) {
-                                    foundBranch = allBranches.find(b => {
-                                        const normalizedBranch = b.name.toLowerCase().replace(/^beast\s+bite\s*-\s*/i, '').trim();
-                                        const address = (b.address_detail || '').toLowerCase();
-                                        return normalizedBranch.includes(word) || 
-                                               address.includes(word);
-                                    });
-                                    if (foundBranch) break;
-                                }
-                            }
+                            const BranchSearchService = require('./helpers/BranchSearchService');
+                            foundBranch = BranchSearchService.findBranchByNameOrAddress(branchName, allBranches);
                             if (!foundBranch && allBranches.length > 0 && (entities.district_id || entities.province_id)) {
                                 foundBranch = allBranches[0];
                             }
@@ -264,9 +238,11 @@ class AIService {
                                 };
                             }
                         } else {
+                            console.error('[AIService] No branch found:', branchName);
                         }
                     }
                 } else if (isGenericRequest) {
+                    console.error('[AIService] Generic request:', branchName);
                 }
             }
             if (/(có những loại|co nhung loai|loại món|loai mon|danh mục|danh muc|category)/i.test(message)) {
@@ -296,6 +272,7 @@ class AIService {
             }
             return await fallback(message, context);
         } catch (error) {
+            console.error('[AIService] Error calling AI:', error);
             return await fallback(message, context);
         }
     }
@@ -335,11 +312,6 @@ class AIService {
         }
         return null;
     }
-    _formatPrice(price) {
-        if (!price) return 'Liên hệ';
-        const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numPrice);
-    }
     _getUserRole(context) {
         if (context.user && context.user.role) {
             return context.user.role;
@@ -359,10 +331,6 @@ class AIService {
         const lastReservationId = context.conversationContext?.lastReservationId;
         const isBookingFlow = lastIntent === 'book_table' && lastBranchId;
         const hasRecentBooking = (lastIntent === 'book_table_confirmed' || lastIntent === 'reservation_confirmed') && lastBranchId;
-        if (isBookingFlow) {
-            } else if (hasRecentBooking) {
-            } else {
-            }
         return `Bạn là trợ lý ảo thông minh của nhà hàng Beast Bite tại Việt Nam.
 NHIỆM VỤ:
 - Giúp khách hàng đặt bàn, xem menu, tìm món ăn/đồ uống, tra cứu đơn hàng
@@ -628,40 +596,36 @@ HÃY BẮT ĐẦU! Trả lời ngắn gọn, tự nhiên, hữu ích.`;
             parameters: tool.function.parameters
         }));
         const systemInstruction = this._buildSystemPrompt(context, tools);
-        try {
-            const model = this.genAI.getGenerativeModel({
-                model: this.geminiModel,
-                tools: [{ functionDeclarations: functions }],
-                systemInstruction: systemInstruction,
+        const model = this.genAI.getGenerativeModel({
+            model: this.geminiModel,
+            tools: [{ functionDeclarations: functions }],
+            systemInstruction: systemInstruction,
+        });
+        const chat = model.startChat({
+            history: geminiHistory,
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 800,
+            },
+        });
+        const result = await chat.sendMessage(message);
+        const response = result.response;
+        const functionCalls = [];
+        const candidates = response.candidates;
+        if (candidates && candidates[0] && candidates[0].content && candidates[0].content.parts) {
+            candidates[0].content.parts.forEach(part => {
+                if (part.functionCall) {
+                    functionCalls.push({
+                        name: part.functionCall.name,
+                        args: part.functionCall.args
+                    });
+                }
             });
-            const chat = model.startChat({
-                history: geminiHistory,
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 800,
-                },
-            });
-            const result = await chat.sendMessage(message);
-            const response = result.response;
-            const functionCalls = [];
-            const candidates = response.candidates;
-            if (candidates && candidates[0] && candidates[0].content && candidates[0].content.parts) {
-                candidates[0].content.parts.forEach(part => {
-                    if (part.functionCall) {
-                        functionCalls.push({
-                            name: part.functionCall.name,
-                            args: part.functionCall.args
-                        });
-                    }
-                });
-            }
-            return {
-                text: response.text(),
-                functionCalls: functionCalls
-            };
-        } catch (error) {
-            throw error;
         }
+        return {
+            text: response.text(),
+            functionCalls: functionCalls
+        };
     }
     async _handleGeminiFunctionCalls(functionCalls, originalMessage, context) {
         const toolResults = [];
@@ -686,52 +650,6 @@ HÃY BẮT ĐẦU! Trả lời ngắn gọn, tự nhiên, hữu ích.`;
                 });
                 } catch (error) {
                 toolResults.push({
-                    tool: toolName,
-                    error: error.message,
-                    success: false
-                });
-            }
-        }
-        return await this._generateResponseFromToolResults(
-            toolResults,
-            originalMessage
-        );
-    }
-    async _handleToolCalls(toolCalls, originalMessage, context) {
-        const toolResults = [];
-        for (const toolCall of toolCalls) {
-            const toolName = toolCall.function.name;
-            let args = {};
-            try {
-                args = JSON.parse(toolCall.function.arguments);
-            } catch {
-                toolResults.push({
-                    tool_call_id: toolCall.id,
-                    tool: toolName,
-                    error: 'Invalid arguments format'
-                });
-                continue;
-            }
-            try {
-                const result = await ToolOrchestrator.executeToolCall(
-                    toolName,
-                    args,
-                    {
-                        userId: context.user?.id,
-                        role: this._getUserRole(context),
-                        ip: context.ip,
-                        userAgent: context.userAgent
-                    }
-                );
-                toolResults.push({
-                    tool_call_id: toolCall.id,
-                    tool: toolName,
-                    result: result.data,
-                    success: true
-                });
-                } catch (error) {
-                toolResults.push({
-                    tool_call_id: toolCall.id,
                     tool: toolName,
                     error: error.message,
                     success: false
@@ -771,7 +689,8 @@ Dựa vào kết quả trên, hãy trả lời khách hàng một cách TỰ NHI
                 };
             }
             return this._buildFallbackResponseFromTools(toolResults, originalMessage);
-        } catch (err) {
+        } catch (error) {
+            console.error('[AIService] Error generating response from tool results:', error);
             return this._buildFallbackResponseFromTools(toolResults, originalMessage);
         }
     }
@@ -868,7 +787,6 @@ Dựa vào kết quả trên, hãy trả lời khách hàng một cách TỰ NHI
         if (result.success) {
             const d = result.details;
             let message = `Đặt bàn thành công!\n\n${d.branch}\nBàn ${d.table} (Tầng ${d.floor})\n${d.date}\n${d.time}\n${d.guests} người\n\nMã đặt bàn: #${d.id}\n\n`;
-            // Ask if user wants to pre-order food
             message += `Bạn có muốn đặt món trước cho bữa ăn này không? (Có thể đặt sau nếu bạn chưa chắc chắn)\n\n`;
             return message;
         } else {

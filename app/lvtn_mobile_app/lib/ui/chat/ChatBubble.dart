@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../models/chat_message.dart';
 import '../../providers/ChatProvider.dart';
+import '../../utils/chat_utils.dart';
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
@@ -61,7 +62,7 @@ class ChatBubble extends StatelessWidget {
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
-                    _formatTime(message.timestamp),
+                    ChatUtils.formatTime(message.timestamp),
                     style: TextStyle(
                       color: Colors.grey[500],
                       fontSize: 11,
@@ -202,7 +203,7 @@ class ChatBubble extends StatelessWidget {
             SizedBox(width: 10),
             Flexible(
               child: Text(
-                _removeEmoji(message.content),
+                ChatUtils.removeEmoji(message.content),
                 style: TextStyle(
                   color: Colors.red[800],
                   fontSize: 14,
@@ -226,7 +227,7 @@ class ChatBubble extends StatelessWidget {
     }
 
     return Text(
-      _removeEmoji(message.content),
+      ChatUtils.removeEmoji(message.content),
       style: TextStyle(
         color: message.isUser ? Colors.grey[900] : Colors.grey[800],
         fontSize: 15,
@@ -247,7 +248,7 @@ class ChatBubble extends StatelessWidget {
         }
         
         final isBold = line.contains('**');
-        final cleanLine = _removeEmoji(line.replaceAll('**', ''));
+        final cleanLine = ChatUtils.removeEmoji(line.replaceAll('**', ''));
         
         return Padding(
           padding: EdgeInsets.only(bottom: 4),
@@ -300,46 +301,6 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
-  IconData? _getSuggestionIcon(String? action) {
-    if (action == null) return null;
-    
-    switch (action) {
-      case 'view_menu':
-      case 'navigate_menu':
-      case 'order_food':
-        return Icons.restaurant_menu_rounded;
-      case 'book_table':
-      case 'confirm_booking':
-        return Icons.table_restaurant_rounded;
-      case 'view_branches':
-      case 'find_branch':
-      case 'select_branch':
-        return Icons.location_on_rounded;
-      case 'view_orders':
-      case 'navigate_orders':
-      case 'check_order_status':
-        return Icons.shopping_bag_outlined;
-      case 'order_takeaway':
-      case 'select_branch_for_takeaway':
-        return Icons.shopping_bag_rounded;
-      case 'select_branch_for_delivery':
-        return Icons.delivery_dining_rounded;
-      case 'search_food':
-        return Icons.search_rounded;
-      default:
-        return null;
-    }
-  }
-
-  String _removeEmoji(String text) {
-    // Remove common emojis
-    return text
-        .replaceAll(RegExp(r'[\u{1F300}-\u{1F9FF}]', unicode: true), '')
-        .replaceAll(RegExp(r'[\u{2600}-\u{26FF}]', unicode: true), '')
-        .replaceAll(RegExp(r'[\u{2700}-\u{27BF}]', unicode: true), '')
-        .trim();
-  }
-
   Widget _buildSuggestions() {
     return Padding(
       padding: EdgeInsets.only(top: 12, left: 4, right: 4),
@@ -356,8 +317,8 @@ class ChatBubble extends StatelessWidget {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: singleLineSuggestions.map((suggestion) {
-                      final cleanText = _removeEmoji(suggestion.text);
-                      final icon = _getSuggestionIcon(suggestion.action);
+                      final cleanText = ChatUtils.removeEmoji(suggestion.text);
+                      final icon = ChatUtils.getSuggestionIcon(suggestion.action);
                       return Padding(
                         padding: EdgeInsets.only(right: 10, bottom: 10),
                         child: Material(
@@ -440,7 +401,7 @@ class ChatBubble extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: suggestion.text.split('\n').map((line) {
                             if (line.trim().isEmpty) return SizedBox(height: 4);
-                            final cleanLine = _removeEmoji(line);
+                            final cleanLine = ChatUtils.removeEmoji(line);
                             final isHeader = line.contains('**') || cleanLine.length < 50;
                             return Padding(
                               padding: EdgeInsets.only(bottom: 6),
@@ -469,19 +430,5 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
-  String _formatTime(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
-
-    if (difference.inMinutes < 1) {
-      return 'Vừa xong';
-    } else if (difference.inHours < 1) {
-      return '${difference.inMinutes} phút trước';
-    } else if (difference.inDays < 1) {
-      return DateFormat('HH:mm').format(timestamp);
-    } else {
-      return DateFormat('dd/MM HH:mm').format(timestamp);
-    }
-  }
 }
 

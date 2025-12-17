@@ -7,6 +7,7 @@ import '../../providers/ChatProvider.dart';
 import '../../providers/BranchProvider.dart';
 import '../../models/chat_message.dart';
 import '../../models/branch.dart';
+import '../../utils/chat_utils.dart';
 import 'ChatBubble.dart';
 import '../reservation/ReservationMenuScreen.dart';
 import '../branches/BranchMenuScreen.dart';
@@ -242,45 +243,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
-  IconData? _getSuggestionIcon(String? action) {
-    if (action == null) return null;
-    
-    switch (action) {
-      case 'view_menu':
-      case 'navigate_menu':
-      case 'order_food':
-        return Icons.restaurant_menu_rounded;
-      case 'book_table':
-      case 'confirm_booking':
-        return Icons.table_restaurant_rounded;
-      case 'view_branches':
-      case 'find_branch':
-      case 'select_branch':
-        return Icons.location_on_rounded;
-      case 'view_orders':
-      case 'navigate_orders':
-      case 'check_order_status':
-        return Icons.shopping_bag_outlined;
-      case 'order_takeaway':
-      case 'select_branch_for_takeaway':
-        return Icons.shopping_bag_rounded;
-      case 'select_branch_for_delivery':
-        return Icons.delivery_dining_rounded;
-      case 'search_food':
-        return Icons.search_rounded;
-      default:
-        return null;
-    }
-  }
-
-  String _removeEmojiFromText(String text) {
-    // Remove common emojis
-    return text
-        .replaceAll(RegExp(r'[\u{1F300}-\u{1F9FF}]', unicode: true), '')
-        .replaceAll(RegExp(r'[\u{2600}-\u{26FF}]', unicode: true), '')
-        .replaceAll(RegExp(r'[\u{2700}-\u{27BF}]', unicode: true), '')
-        .trim();
-  }
 
   void _showChatHistory() {
     final chatProvider = Provider.of<ChatProvider>(context, listen: false);
@@ -570,6 +532,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         ],
                       ),
                     ),
+                    Row(
+                      children: [
                     Material(
                       color: Colors.transparent,
                       child: InkWell(
@@ -583,9 +547,41 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                           decoration: BoxDecoration(
                             color: Colors.grey[50],
                             borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.history,
+                                color: Colors.grey[700],
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () async {
+                              final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+                              await chatProvider.resetConversation(deleteMessages: true);
+                              _scrollToBottom();
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.refresh,
+                                color: Colors.grey[700],
+                                size: 20,
+                              ),
                           ),
                         ),
                       ),
+                      ],
                     ),
                   ],
                 ),
@@ -704,8 +700,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: chatProvider.suggestions.map((suggestion) {
-                        final cleanText = _removeEmojiFromText(suggestion.text);
-                        final icon = _getSuggestionIcon(suggestion.action);
+                        final cleanText = ChatUtils.removeEmoji(suggestion.text);
+                        final icon = ChatUtils.getSuggestionIcon(suggestion.action);
                         return Padding(
                           padding: EdgeInsets.only(right: 10),
                           child: Material(

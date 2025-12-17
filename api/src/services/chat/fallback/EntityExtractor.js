@@ -7,48 +7,48 @@ class EntityExtractor {
                            lower.match(/(\d+)(nguoi|người|people|person|pax)/i) ||
                            lower.match(/(nguoi|người|people|person|pax)\s*(\d+)/i);
         const people = peopleMatch ? parseInt(peopleMatch[1] || peopleMatch[2]) : null;
-        const isBranchButtonText = message.includes('📍') && 
-                                   (message.includes('🕐') || message.includes('📞')) &&
-                                   message.split('\n').length >= 2;
         let time = null;
         let hour = null;
         let minute = 0;
         let period = null;
-        let shouldSkipTimeParsing = false;
-        if (isBranchButtonText) {
-            const hasBookingKeyword = /(đặt bàn|dat ban|book|reservation|đặt|dat|giờ|gio|time)/i.test(message);
-            const timeInHoursLine = /🕐.*\d+[hH]/.test(message);
-            if (timeInHoursLine && !hasBookingKeyword) {
-                shouldSkipTimeParsing = true;
-            }
-        }
-        if (!shouldSkipTimeParsing) {
-            const standaloneAmPm = lower.match(/(\d{1,2})\s*(pm|am)\b/i);
-            if (standaloneAmPm) {
-                hour = parseInt(standaloneAmPm[1]);
-                period = standaloneAmPm[2].toLowerCase();
+        const standaloneAmPm = lower.match(/(\d{1,2})\s*(pm|am)\b/i);
+        if (standaloneAmPm) {
+            hour = parseInt(standaloneAmPm[1]);
+            period = standaloneAmPm[2].toLowerCase();
+        } else {
+            const standaloneVietnamese = lower.match(/(\d{1,2})\s*(sáng|chiều|tối|trưa|toi|trua|chieu|sang)\b/i);
+            if (standaloneVietnamese) {
+                hour = parseInt(standaloneVietnamese[1]);
+                const periodWord = standaloneVietnamese[2].toLowerCase();
+                if (periodWord === 'sáng' || periodWord === 'sang') {
+                    period = 'am';
+                } else if (periodWord === 'chiều' || periodWord === 'chieu' || periodWord === 'tối' || periodWord === 'toi') {
+                    period = 'pm';
+                } else if (periodWord === 'trưa' || periodWord === 'trua') {
+                    period = 'pm';
+                }
             } else {
-                const standaloneVietnamese = lower.match(/(\d{1,2})\s*(sáng|chiều|tối|trưa|toi|trua|chieu|sang)\b/i);
-                if (standaloneVietnamese) {
-                    hour = parseInt(standaloneVietnamese[1]);
-                    const periodWord = standaloneVietnamese[2].toLowerCase();
-                    if (periodWord === 'sáng' || periodWord === 'sang') {
-                        period = 'am';
-                    } else if (periodWord === 'chiều' || periodWord === 'chieu' || periodWord === 'tối' || periodWord === 'toi') {
-                        period = 'pm';
-                    } else if (periodWord === 'trưa' || periodWord === 'trua') {
-                        if (hour === 12) {
+                const timeWithH = lower.match(/(\d{1,2})[hH:]\s*(\d{0,2})?\s*(am|pm|sáng|chiều|tối|trưa|sang|chieu|toi|trua)?/i);
+                if (timeWithH) {
+                    hour = parseInt(timeWithH[1]);
+                    minute = timeWithH[2] && !isNaN(parseInt(timeWithH[2])) ? parseInt(timeWithH[2]) : 0;
+                    const periodWord = timeWithH[3] ? timeWithH[3].toLowerCase() : null;
+                    if (periodWord) {
+                        if (periodWord === 'pm' || periodWord === 'am') {
+                            period = periodWord;
+                        } else if (periodWord === 'sáng' || periodWord === 'sang') {
+                            period = 'am';
+                        } else if (periodWord === 'chiều' || periodWord === 'chieu' || periodWord === 'tối' || periodWord === 'toi') {
                             period = 'pm';
-                        } else {
-                            period = 'pm'; 
+                        } else if (periodWord === 'trưa' || periodWord === 'trua') {
+                            period = 'pm';
                         }
                     }
                 } else {
-                    const timeWithH = lower.match(/(\d{1,2})[hH:]\s*(\d{0,2})?\s*(am|pm|sáng|chiều|tối|trưa|sang|chieu|toi|trua)?/i);
-                    if (timeWithH) {
-                        hour = parseInt(timeWithH[1]);
-                        minute = timeWithH[2] && !isNaN(parseInt(timeWithH[2])) ? parseInt(timeWithH[2]) : 0;
-                        const periodWord = timeWithH[3] ? timeWithH[3].toLowerCase() : null;
+                    const timeWithGio = lower.match(/(\d{1,2})\s*(giờ|gio|hour)\s*(am|pm|sáng|chiều|tối|trưa|sang|chieu|toi|trua)?/i);
+                    if (timeWithGio) {
+                        hour = parseInt(timeWithGio[1]);
+                        const periodWord = timeWithGio[3] ? timeWithGio[3].toLowerCase() : null;
                         if (periodWord) {
                             if (periodWord === 'pm' || periodWord === 'am') {
                                 period = periodWord;
@@ -61,27 +61,10 @@ class EntityExtractor {
                             }
                         }
                     } else {
-                        const timeWithGio = lower.match(/(\d{1,2})\s*(giờ|gio|hour)\s*(am|pm|sáng|chiều|tối|trưa|sang|chieu|toi|trua)?/i);
-                        if (timeWithGio) {
-                            hour = parseInt(timeWithGio[1]);
-                            const periodWord = timeWithGio[3] ? timeWithGio[3].toLowerCase() : null;
-                            if (periodWord) {
-                                if (periodWord === 'pm' || periodWord === 'am') {
-                                    period = periodWord;
-                                } else if (periodWord === 'sáng' || periodWord === 'sang') {
-                                    period = 'am';
-                                } else if (periodWord === 'chiều' || periodWord === 'chieu' || periodWord === 'tối' || periodWord === 'toi') {
-                                    period = 'pm';
-                                } else if (periodWord === 'trưa' || periodWord === 'trua') {
-                                    period = 'pm';
-                                }
-                            }
-                        } else {
-                            const timeCompact = lower.match(/(\d{1,2})[hH](\d{0,2})/i);
-                            if (timeCompact) {
-                                hour = parseInt(timeCompact[1]);
-                                minute = timeCompact[2] && !isNaN(parseInt(timeCompact[2])) ? parseInt(timeCompact[2]) : 0;
-                            }
+                        const timeCompact = lower.match(/(\d{1,2})[hH](\d{0,2})/i);
+                        if (timeCompact) {
+                            hour = parseInt(timeCompact[1]);
+                            minute = timeCompact[2] && !isNaN(parseInt(timeCompact[2])) ? parseInt(timeCompact[2]) : 0;
                         }
                     }
                 }
@@ -263,6 +246,8 @@ class EntityExtractor {
                 }
             }
         } catch (error) {
+            console.error('[EntityExtractor] Error extracting branch from message:', error);
+            return null;
         }
         return null;
     }
@@ -318,6 +303,7 @@ class EntityExtractor {
                 const searchTerm = parsedData.district_search_term.trim();
                 entities.district_search_term = searchTerm;
             } catch (error) {
+                console.error('[EntityExtractor] Error extracting district search term:', error);
                 entities.district_search_term = parsedData.district_search_term;
             }
         }
@@ -328,8 +314,6 @@ class EntityExtractor {
                 entities.branch_name = foundBranch.name;
                 entities.branch = foundBranch.name;
             }
-        }
-        if (entities.district_id && !entities.branch_id) {
         }
         if (!entities.people && !entities.quantity) {
             const numbers = message.match(/\d+/g);

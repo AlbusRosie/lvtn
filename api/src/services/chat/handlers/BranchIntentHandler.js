@@ -1,16 +1,35 @@
 const BaseIntentHandler = require('./BaseIntentHandler');
-const BranchHandler = require('../BranchHandler');
-const BranchFormatter = require('../helpers/BranchFormatter');
 const BranchService = require('../../BranchService');
 const Utils = require('../Utils');
+const GeocodingService = require('../helpers/GeocodingService');
+
 class BranchIntentHandler extends BaseIntentHandler {
+    static async formatBranchListWithDetails(branches) {
+        if (!branches || branches.length === 0) {
+            return [];
+        }
+        return await Promise.all(branches.map(async (branch) => {
+            const address = branch.address_detail || '';
+            const phone = branch.phone || '';
+            const openingHours = branch.opening_hours ? `${branch.opening_hours}h` : '';
+            const closeHours = branch.close_hours ? `${branch.close_hours}h` : '';
+            const hours = openingHours && closeHours ? `${openingHours} - ${closeHours}` : (openingHours || closeHours || '');
+            let branchInfo = `${branch.name}`;
+            if (address) branchInfo += `\n${address}`;
+            if (phone) branchInfo += `\n${phone}`;
+            if (hours) branchInfo += `\n${hours}`;
+            return branchInfo;
+        }));
+    }
     constructor() {
         super();
         this.intentSet = new Set(['view_branches', 'ask_branch', 'find_nearest_branch', 'find_first_branch', 'search_branches_by_location']);
     }
+
     canHandle(intent) {
         return this.intentSet.has(intent);
     }
+
     async handle({ intent, entities, context, userId, aiResponse, message }) {
         if (aiResponse && aiResponse.tool_results && aiResponse.tool_results.length > 0) {
             const normalized = Utils.normalizeEntityFields(entities || {});
@@ -21,6 +40,7 @@ class BranchIntentHandler extends BaseIntentHandler {
                 suggestions: aiResponse.suggestions || [],
             });
         }
+        
         if (intent === 'find_nearest_branch') {
             let userLat = null;
             let userLng = null;
@@ -34,28 +54,14 @@ class BranchIntentHandler extends BaseIntentHandler {
                 userAddress = deliveryAddress;
                 } else if (deliveryAddress || context.user?.address) {
                 userAddress = deliveryAddress || context.user.address;
-                try {
-                    const axios = require('axios');
-                    const mapboxKey = process.env.MAPBOX_KEY_PUBLIC || process.env.MAPBOX_KEY;
-                    if (mapboxKey && userAddress) {
-                        const encodedQuery = encodeURIComponent(userAddress.trim());
-                        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${mapboxKey}&country=VN&limit=1`;
-                        const geocodeResponse = await axios.get(url, { timeout: 5000 });
-                        if (geocodeResponse.data && geocodeResponse.data.features && geocodeResponse.data.features.length > 0) {
-                            const coordinates = geocodeResponse.data.features[0].geometry.coordinates; 
-                            userLng = coordinates[0];
-                            userLat = coordinates[1];
-                            const ConversationService = require('../ConversationService');
-                            const conversationId = context.conversationId;
-                            if (conversationId) {
-                                await ConversationService.updateConversationContext(conversationId, {
-                                    userLatitude: userLat,
-                                    userLongitude: userLng
-                                }, userId);
-                            }
-                        }
-                    }
-                } catch (geocodeError) {
+                const coordinates = await GeocodingService.geocodeAndUpdateContext(
+                    userAddress,
+                    context.conversationId,
+                    userId
+                );
+                if (coordinates) {
+                    userLat = coordinates.lat;
+                    userLng = coordinates.lng;
                 }
             }
             if (userLat && userLng) {
@@ -72,14 +78,14 @@ class BranchIntentHandler extends BaseIntentHandler {
                     const nearestBranch = nearbyBranches[0]; 
                     const distance = nearestBranch.distance_km;
                     const distanceText = distance ? ` (cách bạn ${distance.toFixed(1)} km)` : '';
-                    const suggestions = await BranchHandler.createBranchSuggestions([nearestBranch], {
+                    const suggestions = await this.createBranchSuggestions([nearestBranch], {
                         intent: context.conversationContext?.lastIntent === 'order_delivery' ? 'order_delivery' : 
                                 context.conversationContext?.lastIntent === 'order_takeaway' ? 'order_takeaway' : 
                                 'view_menu'
                     });
                     if (nearbyBranches.length > 1) {
                         const otherBranches = nearbyBranches.slice(1, 4); 
-                        const otherSuggestions = await BranchHandler.createBranchSuggestions(otherBranches, {
+                        const otherSuggestions = await this.createBranchSuggestions(otherBranches, {
                             intent: context.conversationContext?.lastIntent === 'order_delivery' ? 'order_delivery' : 
                                     context.conversationContext?.lastIntent === 'order_takeaway' ? 'order_takeaway' : 
                                     'view_menu'
@@ -104,9 +110,10 @@ class BranchIntentHandler extends BaseIntentHandler {
                         suggestions: suggestions,
                     });
                 } catch (error) {
+                    console.error('[BranchIntentHandler] Error finding nearest branches:', error.message);
                 }
             } else {
-                const branches = await BranchHandler.getAllActiveBranches();
+                const branches = await this.getAllActiveBranches();
                 if (!branches.length) {
                     return this.buildResponse({
                         intent: 'find_nearest_branch',
@@ -115,7 +122,7 @@ class BranchIntentHandler extends BaseIntentHandler {
                         suggestions: [],
                     });
                 }
-                const branchList = await BranchFormatter.formatBranchListWithDetails(branches);
+                const branchList = await BranchIntentHandler.formatBranchListWithDetails(branches);
                 const responseText = userAddress 
                     ? `Để tìm chi nhánh gần bạn nhất, tôi cần tọa độ chính xác của bạn.\n\n` +
                       `Địa chỉ của bạn: **${userAddress}**\n\n` +
@@ -158,29 +165,14 @@ class BranchIntentHandler extends BaseIntentHandler {
             
             // Geocode delivery address if we don't have coordinates yet
             if (!userLat && !userLng && deliveryAddress) {
-                try {
-                    const axios = require('axios');
-                    const mapboxKey = process.env.MAPBOX_KEY_PUBLIC || process.env.MAPBOX_KEY;
-                    if (mapboxKey && deliveryAddress) {
-                        const encodedQuery = encodeURIComponent(deliveryAddress.trim());
-                        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${mapboxKey}&country=VN&limit=1`;
-                        const geocodeResponse = await axios.get(url, { timeout: 5000 });
-                        if (geocodeResponse.data && geocodeResponse.data.features && geocodeResponse.data.features.length > 0) {
-                            const coordinates = geocodeResponse.data.features[0].geometry.coordinates; 
-                            userLng = coordinates[0];
-                            userLat = coordinates[1];
-                            const ConversationService = require('../ConversationService');
-                            const conversationId = context.conversationId;
-                            if (conversationId) {
-                                await ConversationService.updateConversationContext(conversationId, {
-                                    userLatitude: userLat,
-                                    userLongitude: userLng
-                                }, userId);
-                            }
-                        }
-                    }
-                } catch (geocodeError) {
-                    console.error('[BranchIntentHandler] Geocode error:', geocodeError);
+                const coordinates = await GeocodingService.geocodeAndUpdateContext(
+                    deliveryAddress,
+                    context.conversationId,
+                    userId
+                );
+                if (coordinates) {
+                    userLat = coordinates.lat;
+                    userLng = coordinates.lng;
                 }
             }
             
@@ -192,14 +184,14 @@ class BranchIntentHandler extends BaseIntentHandler {
                         const nearestBranch = nearbyBranches[0]; 
                         const distance = nearestBranch.distance_km;
                         const distanceText = distance ? ` (cách bạn ${distance.toFixed(1)} km)` : '';
-                        const suggestions = await BranchHandler.createBranchSuggestions([nearestBranch], {
+                        const suggestions = await this.createBranchSuggestions([nearestBranch], {
                             intent: context.conversationContext?.lastIntent === 'order_delivery' ? 'order_delivery' : 
                                     context.conversationContext?.lastIntent === 'order_takeaway' ? 'order_takeaway' : 
                                     'view_menu'
                         });
                         if (nearbyBranches.length > 1) {
                             const otherBranches = nearbyBranches.slice(1, 4); 
-                            const otherSuggestions = await BranchHandler.createBranchSuggestions(otherBranches, {
+                            const otherSuggestions = await this.createBranchSuggestions(otherBranches, {
                                 intent: context.conversationContext?.lastIntent === 'order_delivery' ? 'order_delivery' : 
                                         context.conversationContext?.lastIntent === 'order_takeaway' ? 'order_takeaway' : 
                                         'view_menu'
@@ -230,7 +222,7 @@ class BranchIntentHandler extends BaseIntentHandler {
             }
         }
         
-        const branches = await BranchHandler.getAllActiveBranches();
+        const branches = await this.getAllActiveBranches();
         if (!branches.length) {
             return this.buildResponse({
                 intent,
@@ -238,7 +230,7 @@ class BranchIntentHandler extends BaseIntentHandler {
                 entities: Utils.normalizeEntityFields(entities || {}),
             });
         }
-        const branchList = await BranchFormatter.formatBranchListWithDetails(branches);
+        const branchList = await BranchIntentHandler.formatBranchListWithDetails(branches);
         const responseText = `Danh sách ${branches.length} chi nhánh của Beast Bite:\n\n${branchList.join('\n\n')}\n\nBạn muốn xem menu hoặc đặt bàn tại chi nhánh nào?`;
         return this.buildResponse({
             intent: intent || 'view_branches',
@@ -247,5 +239,274 @@ class BranchIntentHandler extends BaseIntentHandler {
             suggestions: [], 
         });
     }
+
+    // Methods từ BranchHandler (gộp vào đây)
+    searchBranchesInCache(branchesCache, searchTerm) {
+        if (!branchesCache || branchesCache.length === 0 || !searchTerm) {
+            return [];
+        }
+        const normalizedSearchTerm = Utils.normalizeVietnamese(searchTerm.toLowerCase().trim());
+        const matches = branchesCache.filter(branch => {
+            if (branch.name_normalized && branch.name_normalized.includes(normalizedSearchTerm)) {
+                return true;
+            }
+            if (branch.address_normalized && branch.address_normalized.includes(normalizedSearchTerm)) {
+                return true;
+            }
+            if (branch.name && branch.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+                return true;
+            }
+            if (branch.address_detail && branch.address_detail.toLowerCase().includes(searchTerm.toLowerCase())) {
+                return true;
+            }
+            return false;
+        });
+        return matches;
+    }
+
+    async getAllActiveBranches() {
+        try {
+            const branches = await BranchService.getActiveBranches();
+            return branches.map(b => ({
+                id: b.id,
+                name: b.name,
+                address_detail: b.address_detail,
+                phone: b.phone,
+                opening_hours: b.opening_hours,
+                close_hours: b.close_hours,
+            }));
+        } catch {
+            return [];
+        }
+    }
+
+    async getBranchById(branchId) {
+        try {
+            const branch = await BranchService.getBranchById(branchId);
+            return branch && branch.status === 'active' ? branch : null;
+        } catch (error) {
+            console.error('[BranchIntentHandler] Error getting branch:', error.message);
+            return null;
+        }
+    }
+
+    async getBranchByName(branchName) {
+        try {
+            const branches = await BranchService.getAllBranches('active', branchName);
+            return branches.length > 0 ? branches[0] : null;
+        } catch (error) {
+            console.error('[BranchIntentHandler] Error getting branch:', error.message);
+            return null;
+        }
+    }
+
+    async createBranchSuggestions(branches, bookingContext = null) {
+        if (!branches || branches.length === 0) {
+            return [];
+        }
+        const suggestions = await Promise.all(branches.map(async (branch) => {
+            const address = branch.address_detail ? branch.address_detail.trim() : 'Địa chỉ chưa cập nhật';
+            const phone = branch.phone ? branch.phone.trim() : '';
+            const hours = this.formatOperatingHours(branch) || 'Giờ làm việc chưa cập nhật';
+            let buttonText = `${branch.name}`;
+            buttonText += `\n${address}`;
+            buttonText += `\n${hours}`;
+            if (phone) {
+                buttonText += `\n${phone}`;
+            }
+            if (bookingContext) {
+                const intent = bookingContext.intent;
+                if (intent === 'view_menu') {
+                    return {
+                        text: buttonText,
+                        action: 'view_menu',
+                        data: {
+                            ...bookingContext,
+                            branch_id: branch.id,  
+                            branch_name: branch.name  
+                        }
+                    };
+                } else if (intent === 'ask_branch' || intent === 'view_branches') {
+                    return {
+                        text: buttonText,
+                        action: 'view_branch_info',
+                        data: {
+                            ...bookingContext,
+                            branch_id: branch.id,  
+                            branch_name: branch.name  
+                        }
+                    };
+                } else if (intent === 'book_table' || intent === 'book_table_partial') {
+                    return {
+                        text: buttonText,
+                        action: 'select_branch_for_booking',
+                        data: {
+                            ...bookingContext,
+                            branch_id: branch.id,  
+                            branch_name: branch.name  
+                        }
+                    };
+                } else if (intent === 'order_takeaway') {
+                    return {
+                        text: buttonText,
+                        action: 'select_branch_for_takeaway',
+                        data: {
+                            ...bookingContext,
+                            branch_id: branch.id,  
+                            branch_name: branch.name  
+                        }
+                    };
+                } else if (intent === 'order_delivery') {
+                    return {
+                        text: buttonText,
+                        action: 'select_branch_for_delivery',
+                        data: {
+                            ...bookingContext,
+                            branch_id: branch.id,  
+                            branch_name: branch.name,  
+                            delivery_address: bookingContext?.delivery_address || null
+                        }
+                    };
+                }
+            }
+            return {
+                text: buttonText,
+                action: 'view_branch_info',
+                data: {
+                    branch_id: branch.id,
+                    branch_name: branch.name
+                }
+            };
+        }));
+        return suggestions;
+    }
+
+    async getBranchesByDistrict(districtId) {
+        try {
+            const branches = await BranchService.getAllBranches('active', null, null, districtId);
+            return branches;
+        } catch {
+            return [];
+        }
+    }
+
+    isTimeWithinOperatingHours(time, branch) {
+        if (!time || !branch || !branch.opening_hours || !branch.close_hours) {
+            return false;
+        }
+        try {
+            const [hour, minute] = time.split(':').map(Number);
+            const timeInMinutes = hour * 60 + minute;
+            const openingInMinutes = branch.opening_hours * 60;
+            const closingInMinutes = branch.close_hours * 60;
+            if (closingInMinutes < openingInMinutes) {
+                return timeInMinutes >= openingInMinutes || timeInMinutes <= closingInMinutes;
+            } else {
+                return timeInMinutes >= openingInMinutes && timeInMinutes <= closingInMinutes;
+            }
+        } catch (error) {
+            console.error('[BranchIntentHandler] Error checking operating hours:', error.message);
+            return false;
+        }
+    }
+
+    async getBranchesOpenAtTime(time) {
+        try {
+            const allBranches = await this.getAllActiveBranches();
+            return allBranches.filter(branch => this.isTimeWithinOperatingHours(time, branch));
+        } catch {
+            return [];
+        }
+    }
+
+    formatOperatingHours(branch) {
+        if (!branch) {
+            return '';
+        }
+        const openingHours = branch.opening_hours ? `${branch.opening_hours}h` : '';
+        const closeHours = branch.close_hours ? `${branch.close_hours}h` : '';
+        if (openingHours && closeHours) {
+            return `${openingHours} - ${closeHours}`;
+        }
+        return openingHours || closeHours || '';
+    }
+
+    /**
+     * Helper method để lấy branches với suggestions - loại bỏ duplicate code
+     * Thay thế pattern: getAllActiveBranches() + createBranchSuggestions()
+     * @param {string} intent - Intent (view_menu, book_table, order_delivery, etc.)
+     * @param {object} context - Context object với các thông tin bổ sung
+     * @returns {Promise<{branches: Array, suggestions: Array}>}
+     */
+    async getBranchesWithSuggestions(intent, context = {}) {
+        try {
+            const allBranches = await this.getAllActiveBranches();
+            if (allBranches.length === 0) {
+                return { branches: [], suggestions: [] };
+            }
+            const branchSuggestions = await this.createBranchSuggestions(allBranches, {
+                intent: intent,
+                ...context
+            });
+            return {
+                branches: allBranches,
+                suggestions: branchSuggestions
+            };
+        } catch (error) {
+            console.error('[BranchIntentHandler] Error getting branches with suggestions:', error.message);
+            return { branches: [], suggestions: [] };
+        }
+    }
+
+    calculateRemainingMinutes(time, branch) {
+        if (!time || !branch || !branch.close_hours) {
+            return null;
+        }
+        try {
+            const [hour, minute] = time.split(':').map(Number);
+            const timeInMinutes = hour * 60 + minute;
+            const closingInMinutes = branch.close_hours * 60;
+            if (closingInMinutes < branch.opening_hours * 60) {
+                if (timeInMinutes >= branch.opening_hours * 60) {
+                    const minutesUntilMidnight = (24 * 60) - timeInMinutes;
+                    return minutesUntilMidnight + closingInMinutes;
+                } else {
+                    return closingInMinutes - timeInMinutes;
+                }
+            } else {
+                if (timeInMinutes <= closingInMinutes) {
+                    return closingInMinutes - timeInMinutes;
+                } else {
+                    return null;
+                }
+            }
+        } catch (error) {
+            console.error('[BranchIntentHandler] Error getting branch:', error.message);
+            return null;
+        }
+    }
+
+    checkIfCloseToClosing(time, branch, thresholdMinutes = 60) {
+        if (!time || !branch || !branch.close_hours) {
+            return null;
+        }
+        const remainingMinutes = this.calculateRemainingMinutes(time, branch);
+        if (remainingMinutes === null) {
+            return null;
+        }
+        if (remainingMinutes <= thresholdMinutes && remainingMinutes > 0) {
+            return {
+                isClose: true,
+                remainingMinutes: remainingMinutes
+            };
+        }
+        return {
+            isClose: false,
+            remainingMinutes: remainingMinutes
+        };
+    }
 }
+
+// Export instance để các file khác có thể dùng (backward compatibility)
 module.exports = BranchIntentHandler;
+module.exports.instance = new BranchIntentHandler();

@@ -1,9 +1,5 @@
 const knex = require('../../database/knex');
-const BookingHandler = require('./BookingHandler');
-const BranchHandler = require('./BranchHandler');
-const MenuHandler = require('./MenuHandler');
 const ProductService = require('../ProductService');
-const ApiError = require('../../api-error');
 class ToolHandlers {
     static async getBranchMenu(params) {
         const { branch_id, category_id } = params;
@@ -246,7 +242,8 @@ class ToolHandlers {
             throw new Error(`Không thể kiểm tra bàn trống: ${error.message}`);
         }
     }
-    static async createReservation(params, userContext) {
+    // eslint-disable-next-line no-unused-vars
+    static async createReservation(params, _userContext) {
         const {
             branch_id,
             reservation_date,
@@ -464,8 +461,10 @@ class ToolHandlers {
             throw new Error(`Không thể lấy danh sách đơn hàng: ${error.message}`);
         }
     }
-    static async getAllBranches(params) {
-        const { district_id, province_id } = params;
+    // eslint-disable-next-line no-unused-vars
+    static async getAllBranches(_params) {
+        // district_id and province_id are reserved for future filtering
+        // Currently not used but kept for API compatibility
         try {
             let query = knex('branches as b')
                 .select(

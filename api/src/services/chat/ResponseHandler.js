@@ -1,6 +1,8 @@
-const Utils = require('./Utils');
 const knex = require('../../database/knex');
-const BranchHandler = require('./BranchHandler');
+const BranchIntentHandler = require('./handlers/BranchIntentHandler');
+const BranchHandler = BranchIntentHandler.instance;
+const ConversationService = require('./ConversationService');
+const Utils = require('./Utils');
 class ResponseHandler {
     async getSuggestions(intent, branchId) {
         const suggestions = [];
@@ -71,11 +73,8 @@ class ResponseHandler {
             case 'view_menu':
                 if (!branchId) {
                     try {
-                        const allBranches = await BranchHandler.getAllActiveBranches();
-                        if (allBranches.length > 0) {
-                            const branchSuggestions = await BranchHandler.createBranchSuggestions(allBranches, {
-                                intent: 'view_menu'
-                            });
+                        const { suggestions: branchSuggestions } = await BranchHandler.getBranchesWithSuggestions('view_menu');
+                        if (branchSuggestions.length > 0) {
                             suggestions.push(...branchSuggestions);
                         } else {
                             suggestions.push(
@@ -83,6 +82,7 @@ class ResponseHandler {
                             );
                         }
                     } catch (error) {
+                        console.error('[ResponseHandler] Error getting branch suggestions:', error.message);
                         suggestions.push(
                             { text: 'Xem menu', action: 'view_menu', data: {} }
                         );
@@ -102,6 +102,7 @@ class ResponseHandler {
                             });
                         });
                     } catch (error) {
+                        console.error('[ResponseHandler] Error getting categories:', error.message);
                         suggestions.push(
                             { text: 'Xem menu', action: 'view_menu', data: { branch_id: branchId } }
                         );
@@ -216,11 +217,70 @@ class ResponseHandler {
             { text: 'Đơn hàng của tôi', action: 'view_orders', data: {} },
         ];
     }
-    getCategoryEmoji(categoryName) {
-        return ''; 
-    }
-    async fallbackResponse(userMessage, context) {
-        throw new Error('fallbackResponse should be called from ChatService with dependencies');
+
+    /**
+     * Build and save response - merged from ResponseComposer
+     * @param {object} conversation - Conversation object
+     * @param {object} context - Context object
+     * @param {object} result - Result object with response, intent, entities, suggestions
+     * @param {number} userId - User ID
+     * @param {number} branchId - Branch ID
+     * @returns {Promise<object>} Response object
+     */
+    async buildAndSave(conversation, context, result, userId, branchId) {
+        const message = result.response || result.message || 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.';
+        if (!message || message.trim() === '') {
+            console.error('[ResponseHandler] Empty message in result:', result);
+        }
+        const intent = result.intent || 'general';
+        const entities = result.entities || {};
+        const resultSuggestions = result.suggestions;
+        const suggestions = Object.prototype.hasOwnProperty.call(result, 'suggestions')
+            ? resultSuggestions
+            : await this.getSuggestions(intent, branchId);
+        const action = this.determineAction(intent, entities);
+        const cleanedMessage = Utils.cleanMessage(message);
+        const response = {
+            message: cleanedMessage,
+            intent,
+            entities,
+            suggestions,
+            action: action?.name,
+            action_data: action?.data,
+            type: this.getMessageType(intent),
+            conversation_id: conversation.session_id,
+        };
+        await ConversationService.saveMessage(
+            conversation.id,
+            'bot',
+            response.message,
+            response.intent,
+            response.entities,
+            response.action,
+            response.suggestions
+        );
+        const normalizedEntities = Utils.normalizeEntityFields(response.entities);
+        const mergedEntities = {
+            ...context.conversationContext?.lastEntities || {},
+            ...normalizedEntities
+        };
+        const currentLastIntent = context.conversationContext?.lastIntent;
+        const currentLastBranchId = context.conversationContext?.lastBranchId;
+        const isBookingFlow = currentLastIntent === 'book_table' && currentLastBranchId;
+        let finalIntent = response.intent;
+        if (isBookingFlow && response.intent === 'ask_info') {
+            finalIntent = 'book_table';
+        }
+        await ConversationService.updateConversationContext(conversation.id, {
+            lastIntent: finalIntent,
+            lastBranch: normalizedEntities?.branch_name || context.conversationContext?.lastBranch,
+            lastBranchId: normalizedEntities?.branch_id || context.conversationContext?.lastBranchId,
+            lastReservationId: normalizedEntities?.reservation_id || context.conversationContext?.lastReservationId,
+            lastAction: response.action,
+            lastEntities: mergedEntities,
+            time_hour: normalizedEntities?.time_hour || context.conversationContext?.time_hour || null
+        }, userId);
+        return response;
     }
 }
 module.exports = new ResponseHandler();

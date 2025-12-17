@@ -8,7 +8,7 @@ const USER_ROLES = {
 const TOOL_DEFINITIONS = [
     {
         name: 'get_branch_menu',
-        description: 'Lấy menu món ăn của một chi nhánh cụ thể với giá và tình trạng còn hàng. ⚠️ QUAN TRỌNG CỰC KỲ: Dùng tool này khi khách hỏi "xem menu của chi nhánh X", "menu chi nhánh Y", "thực đơn chi nhánh Z", "toi muon xem menu cua CHI NHANH [tên chi nhánh]", "menu cua quan an", "menu cua nha hang". Nếu chưa có branch_id, BẮT BUỘC phải: (1) Gọi get_all_branches() để lấy danh sách chi nhánh, (2) Tìm branch_id từ tên chi nhánh (fuzzy match), (3) Gọi get_branch_menu với branch_id đó. TUYỆT ĐỐI KHÔNG chỉ gọi get_all_branches() và trả về danh sách chi nhánh khi user hỏi về menu! Nếu user hỏi "xem menu" (không có tên chi nhánh), mới được gọi get_all_branches() để hiển thị danh sách chi nhánh.',
+        description: 'Lấy menu món ăn của một chi nhánh cụ thể với giá và tình trạng còn hàng. QUAN TRỌNG CỰC KỲ: Dùng tool này khi khách hỏi "xem menu của chi nhánh X", "menu chi nhánh Y", "thực đơn chi nhánh Z", "toi muon xem menu cua CHI NHANH [tên chi nhánh]", "menu cua quan an", "menu cua nha hang". Nếu chưa có branch_id, BẮT BUỘC phải: (1) Gọi get_all_branches() để lấy danh sách chi nhánh, (2) Tìm branch_id từ tên chi nhánh (fuzzy match), (3) Gọi get_branch_menu với branch_id đó. TUYỆT ĐỐI KHÔNG chỉ gọi get_all_branches() và trả về danh sách chi nhánh khi user hỏi về menu! Nếu user hỏi "xem menu" (không có tên chi nhánh), mới được gọi get_all_branches() để hiển thị danh sách chi nhánh.',
         allowed_roles: [USER_ROLES.CUSTOMER, USER_ROLES.GUEST, USER_ROLES.STAFF, USER_ROLES.MANAGER],
         parameters: {
             type: 'object',

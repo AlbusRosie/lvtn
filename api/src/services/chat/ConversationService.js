@@ -72,7 +72,7 @@ class ConversationService {
                         created_at: conv.created_at,
                         last_message: lastMessage ? {
                             content: lastMessage.message_type === 'bot' 
-                                ? this.cleanMessage(lastMessage.message_content) 
+                                ? Utils.cleanMessage(lastMessage.message_content) 
                                 : lastMessage.message_content,
                             is_user: lastMessage.message_type === 'user',
                             created_at: lastMessage.created_at
@@ -101,7 +101,8 @@ class ConversationService {
                 .orderBy('chat_messages.created_at', 'asc')
                 .limit(limit);
             return messages;
-        } catch {
+        } catch (error) {
+            console.error('[ConversationService] Error getting conversation history:', error.message);
             return [];
         }
     }
@@ -150,7 +151,8 @@ class ConversationService {
                     } else {
                         currentContext = {};
                     }
-                } catch {
+                } catch (error) {
+                    console.error('[ConversationService] Error parsing context:', error.message);
                     currentContext = {}; 
                 }
             }
@@ -161,7 +163,8 @@ class ConversationService {
                 .update({ 
                     context_data: contextString
                 });
-        } catch {
+        } catch (error) {
+            console.error('[ConversationService] Error updating context:', error.message);
         }
     }
     deepMerge(target, source) {
@@ -175,15 +178,34 @@ class ConversationService {
         }
         return result;
     }
-    cleanMessage(message) {
-        if (!message) return message;
-        let cleaned = message.replace(/\[INTENT:\s*[^\]]+\]/gi, '');
-        cleaned = cleaned.replace(/\[ENTITIES:\s*[^\]]+\]/gi, '');
-        cleaned = cleaned.split('\n')
-            .filter(line => line.trim() !== '')
-            .join('\n')
-            .trim();
-        return cleaned;
+
+    /**
+     * Save message to database - merged from MessageService
+     * @param {number} conversationId - Conversation ID
+     * @param {string} messageType - 'user' or 'bot'
+     * @param {string} content - Message content
+     * @param {string} intent - Intent (optional)
+     * @param {object} entities - Entities (optional)
+     * @param {string} action - Action (optional)
+     * @param {array} suggestions - Suggestions (optional)
+     */
+    async saveMessage(conversationId, messageType, content, intent = null, entities = null, action = null, suggestions = null) {
+        try {
+            if (!content || content.trim() === '') {
+                return; 
+            }
+            await knex('chat_messages').insert({
+                conversation_id: conversationId,
+                message_type: messageType,
+                message_content: content,
+                intent: intent,
+                entities: entities ? JSON.stringify(entities) : null,
+                action: action,
+                suggestions: suggestions ? JSON.stringify(suggestions) : null
+            });
+        } catch (error) {
+            console.error('[ConversationService] Error saving message:', error.message);
+        }
     }
 }
 module.exports = new ConversationService();

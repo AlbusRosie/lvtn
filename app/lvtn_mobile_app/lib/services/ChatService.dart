@@ -292,5 +292,67 @@ class ChatService {
       throw Exception('Unexpected error: $e');
     }
   }
+
+  Future<void> resetConversation({
+    required String token,
+    required String conversationId,
+    bool deleteMessages = true,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/chat/reset',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        ),
+        data: {
+          'conversation_id': conversationId,
+          'delete_messages': deleteMessages,
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = response.data;
+        if (data is Map<String, dynamic> && data['status'] == 'success') {
+          return;
+        } else {
+          throw Exception(data['message'] ?? 'Failed to reset conversation');
+        }
+      } else {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        throw Exception('Kết nối quá lâu. Vui lòng kiểm tra kết nối mạng và thử lại.');
+      }
+
+      if (e.type == DioExceptionType.connectionError) {
+        throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
+      }
+
+      if (e.response != null) {
+        final errorData = e.response?.data;
+        if (errorData is Map<String, dynamic>) {
+          final errorMessage = errorData['message'] ??
+              errorData['error'] ??
+              'Failed to reset conversation';
+          throw Exception(errorMessage);
+        } else {
+          throw Exception('Server error: ${e.response?.statusCode}');
+        }
+      } else {
+        throw Exception('Network error: ${e.message ?? 'Unknown network error'}');
+      }
+    } catch (e) {
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Unexpected error: $e');
+    }
+  }
 }
 

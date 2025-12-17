@@ -1,6 +1,9 @@
 const BaseIntentHandler = require('./BaseIntentHandler');
-const BranchHandler = require('../BranchHandler');
+const BranchIntentHandler = require('./BranchIntentHandler');
+const BranchHandler = BranchIntentHandler.instance;
 const Utils = require('../Utils');
+const ConversationService = require('../ConversationService');
+
 class TakeawayIntentHandler extends BaseIntentHandler {
     constructor() {
         super();
@@ -34,67 +37,12 @@ class TakeawayIntentHandler extends BaseIntentHandler {
         const isDelivery = intent === 'order_delivery' || 
                           intent === 'delivery' ||
                           (message && /giao hàng|giao hang|delivery/i.test(message));
-        const isTakeaway = intent === 'order_takeaway' || 
-                          intent === 'takeaway' ||
-                          (message && /mang về|mang ve|takeaway/i.test(message));
+        
+        // Xử lý delivery address - extract thành method để tránh duplicate
         if (isDelivery) {
-            const lastIntent = context.conversationContext?.lastIntent;
-            const isEnteringAddress = lastIntent === 'order_delivery' && 
-                                     (context.conversationContext?.waitingForAddress || false);
-            if (isEnteringAddress && message && message.trim().length > 10) {
-                const ConversationService = require('../ConversationService');
-                const conversationId = context.conversationId;
-                if (conversationId) {
-                    await ConversationService.updateConversationContext(conversationId, {
-                        lastDeliveryAddress: message.trim(),
-                        deliveryAddress: message.trim(),
-                        waitingForAddress: false,
-                        lastIntent: 'order_delivery'
-                    }, userId);
-                }
-                return this.buildResponse({
-                    intent: 'order_delivery',
-                    response: `Địa chỉ giao hàng bạn vừa nhập:\n\n**${message.trim()}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
-                    entities: { ...entities, order_type: 'delivery', delivery_address: message.trim() },
-                    suggestions: [
-                        { text: 'Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: message.trim() } },
-                        { text: 'Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
-                    ],
-                });
-            }
-            const userAddress = context.user?.address;
-            const savedAddress = context.conversationContext?.deliveryAddress || context.conversationContext?.lastDeliveryAddress;
-            const deliveryAddress = savedAddress || userAddress;
-            if (!deliveryAddress) {
-                const ConversationService = require('../ConversationService');
-                const conversationId = context.conversationId;
-                if (conversationId) {
-                    await ConversationService.updateConversationContext(conversationId, {
-                        waitingForAddress: true,
-                        lastIntent: 'order_delivery'
-                    }, userId);
-                }
-                return this.buildResponse({
-                    intent: 'order_delivery',
-                    response: 'Để đặt món giao hàng, tôi cần biết địa chỉ giao hàng của bạn.\n\nVui lòng cho tôi biết địa chỉ bạn muốn nhận hàng (số nhà, tên đường, phường/xã, quận/huyện, thành phố).',
-                    entities: { ...entities, order_type: 'delivery' },
-                    suggestions: [
-                        { text: 'Sử dụng địa chỉ đã lưu', action: 'use_saved_address', data: {} },
-                        { text: 'Nhập địa chỉ mới', action: 'enter_delivery_address', data: {} }
-                    ],
-                });
-            }
-            const lastDeliveryAddress = context.conversationContext?.lastDeliveryAddress;
-            if (!lastDeliveryAddress || lastDeliveryAddress !== deliveryAddress) {
-                return this.buildResponse({
-                    intent: 'order_delivery',
-                    response: `Địa chỉ giao hàng của bạn:\n\n**${deliveryAddress}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
-                    entities: { ...entities, order_type: 'delivery', delivery_address: deliveryAddress },
-                    suggestions: [
-                        { text: 'Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: deliveryAddress } },
-                        { text: 'Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
-                    ],
-                });
+            const deliveryResponse = await this._handleDeliveryAddress(message, context, entities, userId);
+            if (deliveryResponse) {
+                return deliveryResponse;
             }
         }
         if (aiResponse && aiResponse.tool_results && aiResponse.tool_results.length > 0) {
@@ -103,16 +51,18 @@ class TakeawayIntentHandler extends BaseIntentHandler {
             const hasGetAllBranches = aiResponse.tool_results.some(r => r.tool === 'get_all_branches' && r.success);
             if (hasGetAllBranches) {
                 try {
-                    const allBranches = await BranchHandler.getAllActiveBranches();
-                    if (allBranches.length > 0) {
-                        const branchSuggestions = await BranchHandler.createBranchSuggestions(allBranches, {
-                            intent: isDelivery ? 'order_delivery' : 'order_takeaway',
+                    const { suggestions: branchSuggestions } = await BranchHandler.getBranchesWithSuggestions(
+                        isDelivery ? 'order_delivery' : 'order_takeaway',
+                        {
                             delivery_address: isDelivery ? (context.conversationContext?.lastDeliveryAddress || context.user?.address) : null
-                        });
-                        suggestions = branchSuggestions;
                         }
-                } catch (error) {
+                    );
+                    if (branchSuggestions.length > 0) {
+                        suggestions = branchSuggestions;
                     }
+                } catch (error) {
+                    console.error('[TakeawayIntentHandler] Error getting branches:', error.message);
+                }
             }
             const responseMessage = isDelivery 
                 ? 'Bạn muốn đặt món giao hàng từ chi nhánh nào?\n\nVui lòng chọn chi nhánh từ danh sách bên dưới:'
@@ -124,67 +74,12 @@ class TakeawayIntentHandler extends BaseIntentHandler {
                 suggestions: suggestions,
             });
         }
-        if (isDelivery) {
-            const lastIntent = context.conversationContext?.lastIntent;
-            const isEnteringAddress = lastIntent === 'order_delivery' && 
-                                     (context.conversationContext?.waitingForAddress || false);
-            if (isEnteringAddress && message && message.trim().length > 10) {
-                const ConversationService = require('../ConversationService');
-                const conversationId = context.conversationId;
-                if (conversationId) {
-                    await ConversationService.updateConversationContext(conversationId, {
-                        lastDeliveryAddress: message.trim(),
-                        deliveryAddress: message.trim(),
-                        waitingForAddress: false,
-                        lastIntent: 'order_delivery'
-                    }, userId);
-                }
-                return this.buildResponse({
-                    intent: 'order_delivery',
-                    response: `Địa chỉ giao hàng bạn vừa nhập:\n\n**${message.trim()}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
-                    entities: { ...entities, order_type: 'delivery', delivery_address: message.trim() },
-                    suggestions: [
-                        { text: 'Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: message.trim() } },
-                        { text: 'Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
-                    ],
-                });
+        const { branches: allBranches, suggestions: branchSuggestions } = await BranchHandler.getBranchesWithSuggestions(
+            isDelivery ? 'order_delivery' : 'order_takeaway',
+            {
+                delivery_address: isDelivery ? (context.conversationContext?.lastDeliveryAddress || context.user?.address) : null
             }
-            const userAddress = context.user?.address;
-            const savedAddress = context.conversationContext?.deliveryAddress || context.conversationContext?.lastDeliveryAddress;
-            const deliveryAddress = savedAddress || userAddress;
-            if (!deliveryAddress) {
-                const ConversationService = require('../ConversationService');
-                const conversationId = context.conversationId;
-                if (conversationId) {
-                    await ConversationService.updateConversationContext(conversationId, {
-                        waitingForAddress: true,
-                        lastIntent: 'order_delivery'
-                    }, userId);
-                }
-                return this.buildResponse({
-                    intent: 'order_delivery',
-                    response: 'Để đặt món giao hàng, tôi cần biết địa chỉ giao hàng của bạn.\n\nVui lòng cho tôi biết địa chỉ bạn muốn nhận hàng (số nhà, tên đường, phường/xã, quận/huyện, thành phố).',
-                    entities: { ...entities, order_type: 'delivery' },
-                    suggestions: [
-                        { text: 'Sử dụng địa chỉ đã lưu', action: 'use_saved_address', data: {} },
-                        { text: 'Nhập địa chỉ mới', action: 'enter_delivery_address', data: {} }
-                    ],
-                });
-            }
-            const lastDeliveryAddress = context.conversationContext?.lastDeliveryAddress;
-            if (!lastDeliveryAddress || lastDeliveryAddress !== deliveryAddress) {
-                return this.buildResponse({
-                    intent: 'order_delivery',
-                    response: `Địa chỉ giao hàng của bạn:\n\n**${deliveryAddress}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
-                    entities: { ...entities, order_type: 'delivery', delivery_address: deliveryAddress },
-                    suggestions: [
-                        { text: 'Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: deliveryAddress } },
-                        { text: 'Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
-                    ],
-                });
-            }
-        }
-        const allBranches = await BranchHandler.getAllActiveBranches();
+        );
         if (allBranches.length === 0) {
             return this.buildResponse({
                 intent: isDelivery ? 'order_delivery' : 'order_takeaway',
@@ -193,10 +88,6 @@ class TakeawayIntentHandler extends BaseIntentHandler {
                 suggestions: [],
             });
         }
-        const branchSuggestions = await BranchHandler.createBranchSuggestions(allBranches, {
-            intent: isDelivery ? 'order_delivery' : 'order_takeaway',
-            delivery_address: isDelivery ? (context.conversationContext?.lastDeliveryAddress || context.user?.address) : null
-        });
         const responseMessage = isDelivery 
             ? 'Bạn muốn đặt món giao hàng từ chi nhánh nào?\n\nVui lòng chọn chi nhánh từ danh sách bên dưới:'
             : 'Bạn muốn đặt món mang về từ chi nhánh nào?\n\nVui lòng chọn chi nhánh từ danh sách bên dưới:';
@@ -206,6 +97,80 @@ class TakeawayIntentHandler extends BaseIntentHandler {
             entities: entities || {},
             suggestions: branchSuggestions.length > 0 ? branchSuggestions : [],
         });
+    }
+
+    /**
+     * Xử lý delivery address - extract method để tránh duplicate code
+     * @private
+     */
+    async _handleDeliveryAddress(message, context, entities, userId) {
+        const lastIntent = context.conversationContext?.lastIntent;
+        const isEnteringAddress = lastIntent === 'order_delivery' && 
+                                 (context.conversationContext?.waitingForAddress || false);
+        
+        // Nếu user đang nhập địa chỉ
+        if (isEnteringAddress && message && message.trim().length > 10) {
+            const conversationId = context.conversationId;
+            if (conversationId) {
+                await ConversationService.updateConversationContext(conversationId, {
+                    lastDeliveryAddress: message.trim(),
+                    deliveryAddress: message.trim(),
+                    waitingForAddress: false,
+                    lastIntent: 'order_delivery'
+                }, userId);
+            }
+            return this.buildResponse({
+                intent: 'order_delivery',
+                response: `Địa chỉ giao hàng bạn vừa nhập:\n\n**${message.trim()}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
+                entities: { ...entities, order_type: 'delivery', delivery_address: message.trim() },
+                suggestions: [
+                    { text: 'Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: message.trim() } },
+                    { text: 'Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
+                ],
+            });
+        }
+        
+        // Kiểm tra địa chỉ đã có
+        const userAddress = context.user?.address;
+        const savedAddress = context.conversationContext?.deliveryAddress || context.conversationContext?.lastDeliveryAddress;
+        const deliveryAddress = savedAddress || userAddress;
+        
+        // Nếu chưa có địa chỉ, yêu cầu nhập
+        if (!deliveryAddress) {
+            const conversationId = context.conversationId;
+            if (conversationId) {
+                await ConversationService.updateConversationContext(conversationId, {
+                    waitingForAddress: true,
+                    lastIntent: 'order_delivery'
+                }, userId);
+            }
+            return this.buildResponse({
+                intent: 'order_delivery',
+                response: 'Để đặt món giao hàng, tôi cần biết địa chỉ giao hàng của bạn.\n\nVui lòng cho tôi biết địa chỉ bạn muốn nhận hàng (số nhà, tên đường, phường/xã, quận/huyện, thành phố).',
+                entities: { ...entities, order_type: 'delivery' },
+                suggestions: [
+                    { text: 'Sử dụng địa chỉ đã lưu', action: 'use_saved_address', data: {} },
+                    { text: 'Nhập địa chỉ mới', action: 'enter_delivery_address', data: {} }
+                ],
+            });
+        }
+        
+        // Nếu có địa chỉ nhưng chưa xác nhận
+        const lastDeliveryAddress = context.conversationContext?.lastDeliveryAddress;
+        if (!lastDeliveryAddress || lastDeliveryAddress !== deliveryAddress) {
+            return this.buildResponse({
+                intent: 'order_delivery',
+                response: `Địa chỉ giao hàng của bạn:\n\n**${deliveryAddress}**\n\nBạn có muốn sử dụng địa chỉ này không?`,
+                entities: { ...entities, order_type: 'delivery', delivery_address: deliveryAddress },
+                suggestions: [
+                    { text: 'Xác nhận địa chỉ này', action: 'confirm_delivery_address', data: { delivery_address: deliveryAddress } },
+                    { text: 'Đổi địa chỉ khác', action: 'change_delivery_address', data: {} }
+                ],
+            });
+        }
+        
+        // Đã có địa chỉ và đã xác nhận, return null để tiếp tục flow
+        return null;
     }
 }
 module.exports = TakeawayIntentHandler;

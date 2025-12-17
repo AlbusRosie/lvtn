@@ -1,10 +1,11 @@
-const ChatService = require('../services/ChatService');
+const MessageProcessor = require('../services/chat/MessageProcessor');
 const ApiError = require('../api-error');
 const { success } = require('../jsend');
 const { v4: uuidv4 } = require('uuid');
 const knex = require('../database/knex');
-const Utils = require('../services/chat/Utils');
-const AnalyticsService = require('../services/chat/AnalyticsService');
+const ChatUtils = require('../services/chat/Utils');
+const ConversationService = require('../services/chat/ConversationService');
+const AnalyticsService = MessageProcessor.AnalyticsService;
 async function sendMessage(req, res, next) {
     try {
         const { message, branch_id, conversation_id } = req.body;
@@ -12,18 +13,29 @@ async function sendMessage(req, res, next) {
         if (!message || typeof message !== 'string') {
             throw new ApiError(400, 'Message is required and must be a string');
         }
-        const sanitizedMessage = Utils.validateChatInput(message);
+        const sanitizedMessage = ChatUtils.validateChatInput(message);
         if (conversation_id && (typeof conversation_id !== 'string' || conversation_id.length > 100)) {
             throw new ApiError(400, 'Invalid conversation_id format');
         }
         if (branch_id && (!Number.isInteger(Number(branch_id)) || Number(branch_id) <= 0)) {
             throw new ApiError(400, 'Invalid branch_id format');
         }
-        const result = await ChatService.processMessage({
+        console.log('[ChatController] Processing message:', {
+            message: sanitizedMessage.substring(0, 50),
+            userId: user_id,
+            branchId: branch_id,
+            conversationId: conversation_id
+        });
+        const result = await MessageProcessor.processMessage({
             message: sanitizedMessage,
             userId: user_id,
             branchId: branch_id,
             conversationId: conversation_id,
+        });
+        console.log('[ChatController] Message processed successfully:', {
+            hasMessage: !!result.message,
+            intent: result.intent,
+            hasSuggestions: !!result.suggestions
         });
         const response = {
             id: uuidv4(),
@@ -50,7 +62,8 @@ async function sendMessage(req, res, next) {
                 }
             );
         } catch (analyticsError) {
-            }
+            console.error('[ChatController] Analytics error:', analyticsError.message);
+        }
         const errorMessage = error.message || 'Failed to process message';
         next(new ApiError(error.statusCode || 500, errorMessage));
     }
@@ -65,7 +78,7 @@ async function getChatHistory(req, res, next) {
         if (!user_id) {
             throw new ApiError(401, 'User authentication required');
         }
-        const history = await ChatService.getConversationHistory(conversation_id, 50, user_id);
+        const history = await MessageProcessor.getConversationHistory(conversation_id, 50, user_id);
         res.json(success(history, 'Chat history retrieved successfully'));
     } catch {
         next(new ApiError(500, 'Failed to get chat history'));
@@ -77,7 +90,7 @@ async function getAllConversations(req, res, next) {
         if (!user_id) {
             return res.json(success([], 'No conversations found - user not authenticated'));
         }
-        const conversations = await ChatService.getAllUserConversations(user_id);
+        const conversations = await MessageProcessor.getAllUserConversations(user_id);
         res.json(success(conversations, 'All conversations retrieved successfully'));
     } catch {
         next(new ApiError(500, 'Failed to get conversations'));
@@ -86,7 +99,7 @@ async function getAllConversations(req, res, next) {
 async function getSuggestions(req, res, next) {
     try {
         const { branch_id } = req.query;
-        const suggestions = ChatService.getDefaultSuggestions(branch_id);
+        const suggestions = MessageProcessor.getDefaultSuggestions(branch_id);
         res.json(success(suggestions, 'Suggestions retrieved successfully'));
     } catch {
         next(new ApiError(500, 'Failed to get suggestions'));
@@ -103,7 +116,7 @@ async function getWelcomeMessage(req, res, next) {
         if (conversation_id && (typeof conversation_id !== 'string' || conversation_id.length > 100)) {
             throw new ApiError(400, 'Invalid conversation_id format');
         }
-        const welcomeMessage = await ChatService.getWelcomeMessage(user_id, branchId, conversation_id);
+        const welcomeMessage = await MessageProcessor.getWelcomeMessage(user_id, branchId, conversation_id);
         const response = {
             id: require('uuid').v4(),
             message: welcomeMessage.message,
@@ -164,13 +177,9 @@ async function executeAction(req, res, next) {
                     try {
                         existingCart = await CartService.getUserCart(user_id, reservation.branch_id, null);
                     } catch (cartError) {
-                        }
-                    const formattedDate = reservation.reservation_date ? 
-                        new Date(reservation.reservation_date).toLocaleDateString('vi-VN', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric'
-                        }) : reservation.reservation_date;
+                        console.error('[ChatController] Cart error:', cartError.message);
+                    }
+                    const formattedDate = ChatUtils.formatDate(reservation.reservation_date);
                     if (existingCart && existingCart.items && existingCart.items.length > 0) {
                         const itemsCount = existingCart.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
                         result.message = `**Đặt bàn thành công!**\n\nMã đặt bàn của bạn: **#${reservation.id}**\n\n**Ngày:** ${formattedDate}\n**Giờ:** ${reservation.reservation_time}\n**Số người:** ${reservation.guest_count}\n**Chi nhánh:** ${reservation.branch_name}\n\n**Bạn đang có ${itemsCount} món trong giỏ hàng của chi nhánh này.**\n\nBạn có muốn đặt kèm các món này với đặt bàn không?`;
@@ -254,7 +263,8 @@ async function executeAction(req, res, next) {
                             }
                         );
                     } catch (analyticsError) {
-                        }
+                        console.error('[ChatController] Analytics error:', analyticsError.message);
+                    }
                 } catch (error) {
                     console.error('[ChatController] confirm_booking - Error:', error);
                     console.error('[ChatController] confirm_booking - Error stack:', error.stack);
@@ -273,7 +283,8 @@ async function executeAction(req, res, next) {
                             }
                         );
                     } catch (analyticsError) {
-                        }
+                        console.error('[ChatController] Analytics error:', analyticsError.message);
+                    }
                 }
                 break;
             case 'modify_booking':
@@ -336,7 +347,6 @@ async function executeAction(req, res, next) {
             case 'select_branch_for_takeaway':
                 if (data && data.branch_id) {
                     try {
-                        const ConversationService = require('../services/chat/ConversationService');
                         const conversationId = req.body.conversation_id || req.query.conversation_id;
                         if (conversationId) {
                             await ConversationService.updateConversationContext(conversationId, {
@@ -353,6 +363,7 @@ async function executeAction(req, res, next) {
                             action: 'navigate_to_takeaway_menu'
                         };
                     } catch (error) {
+                        console.error('[ChatController] select_branch_for_takeaway error:', error);
                         result.message = '';
                         result.data = {
                             branch_id: data.branch_id,
@@ -369,7 +380,6 @@ async function executeAction(req, res, next) {
             case 'select_branch_for_booking':
                 if (data && data.branch_id) {
                     try {
-                        const ConversationService = require('../services/chat/ConversationService');
                         const conversationId = req.body.conversation_id || req.query.conversation_id;
                         if (conversationId) {
                             await ConversationService.updateConversationContext(conversationId, {
@@ -407,7 +417,6 @@ async function executeAction(req, res, next) {
             case 'select_branch_for_delivery':
                 if (data && data.branch_id) {
                     try {
-                        const ConversationService = require('../services/chat/ConversationService');
                         const conversationId = req.body.conversation_id || req.query.conversation_id;
                         const deliveryAddress = data.delivery_address || null;
                         if (conversationId) {
@@ -464,27 +473,17 @@ async function executeAction(req, res, next) {
             case 'confirm_delivery_address':
                 if (data && data.delivery_address) {
                     try {
-                        const ConversationService = require('../services/chat/ConversationService');
                         const conversationId = req.body.conversation_id || req.query.conversation_id;
-                        let userLat = data.latitude || null;
-                        let userLng = data.longitude || null;
-                        if (!userLat || !userLng) {
-                            try {
-                                const axios = require('axios');
-                                const mapboxKey = process.env.MAPBOX_KEY_PUBLIC || process.env.MAPBOX_KEY;
-                                if (mapboxKey) {
-                                    const encodedQuery = encodeURIComponent(data.delivery_address.trim());
-                                    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${mapboxKey}`;
-                                    const geocodeResponse = await axios.get(url);
-                                    if (geocodeResponse.data && geocodeResponse.data.features && geocodeResponse.data.features.length > 0) {
-                                        const coordinates = geocodeResponse.data.features[0].geometry.coordinates; 
-                                        userLng = coordinates[0];
-                                        userLat = coordinates[1];
-                                        }
-                                }
-                            } catch (geocodeError) {
-                            }
+                    let userLat = data.latitude || null;
+                    let userLng = data.longitude || null;
+                    if (!userLat || !userLng && data.delivery_address) {
+                        const GeocodingService = require('../services/chat/helpers/GeocodingService');
+                        const coordinates = await GeocodingService.geocodeAddress(data.delivery_address);
+                        if (coordinates) {
+                            userLat = coordinates.lat;
+                            userLng = coordinates.lng;
                         }
+                    }
                         if (conversationId) {
                             await ConversationService.updateConversationContext(conversationId, {
                                 lastDeliveryAddress: data.delivery_address,
@@ -531,7 +530,6 @@ async function executeAction(req, res, next) {
             case 'change_delivery_address':
             case 'enter_delivery_address':
                 try {
-                    const ConversationService = require('../services/chat/ConversationService');
                     const conversationId = req.body.conversation_id || req.query.conversation_id;
                     if (conversationId) {
                         await ConversationService.updateConversationContext(conversationId, {
@@ -542,6 +540,7 @@ async function executeAction(req, res, next) {
                     result.message = 'Vui lòng cho tôi biết địa chỉ giao hàng mới của bạn.\n\nBạn có thể nhập địa chỉ chi tiết (số nhà, tên đường, phường/xã, quận/huyện, thành phố).';
                     result.data = { action: 'enter_address' };
                 } catch (error) {
+                    console.error('[ChatController] change_delivery_address/enter_delivery_address error:', error);
                     result.message = 'Vui lòng cho tôi biết địa chỉ giao hàng mới của bạn.\n\nBạn có thể nhập địa chỉ chi tiết (số nhà, tên đường, phường/xã, quận/huyện, thành phố).';
                     result.data = { action: 'enter_address' };
                 }
@@ -551,7 +550,6 @@ async function executeAction(req, res, next) {
                     const UserService = require('../services/UserService');
                     const user = await UserService.getUserById(user_id);
                     if (user && user.address) {
-                        const ConversationService = require('../services/chat/ConversationService');
                         const conversationId = req.body.conversation_id || req.query.conversation_id;
                         if (conversationId) {
                             await ConversationService.updateConversationContext(conversationId, {
@@ -708,7 +706,7 @@ async function executeAction(req, res, next) {
                         const checkoutResult = await CartService.checkout(cart.id, data.reservation_id);
                         const itemsList = cart.items.map(item => {
                             const itemTotal = (item.price || 0) * (item.quantity || 0);
-                            return `• ${item.quantity || 0}x ${item.product_name || 'Món'} - ${new Intl.NumberFormat('vi-VN').format(itemTotal)}đ`;
+                            return `• ${item.quantity || 0}x ${item.product_name || 'Món'} - ${ChatUtils.formatPrice(itemTotal)}`;
                         }).join('\n');
                         const ReservationService = require('../services/ReservationService');
                         const reservation = await ReservationService.getReservationById(data.reservation_id);
@@ -718,7 +716,7 @@ async function executeAction(req, res, next) {
                                 month: '2-digit',
                                 year: 'numeric'
                             }) : reservation.reservation_date;
-                        result.message = `**Đã đặt kèm giỏ hàng thành công!**\n\n**Mã đơn hàng:** #${checkoutResult.order_id}\n**Ngày đặt bàn:** ${formattedDate}\n**Giờ:** ${reservation.reservation_time}\n**Chi nhánh:** ${cart.branch_name || reservation.branch_name || 'Chi nhánh'}\n\n**Danh sách món:**\n${itemsList}\n\n**Tổng tiền:** ${new Intl.NumberFormat('vi-VN').format(checkoutResult.total)}đ\n\nĐơn hàng sẽ được chuẩn bị và phục vụ khi bạn đến nhà hàng.`;
+                        result.message = `**Đã đặt kèm giỏ hàng thành công!**\n\n**Mã đơn hàng:** #${checkoutResult.order_id}\n**Ngày đặt bàn:** ${formattedDate}\n**Giờ:** ${reservation.reservation_time}\n**Chi nhánh:** ${cart.branch_name || reservation.branch_name || 'Chi nhánh'}\n\n**Danh sách món:**\n${itemsList}\n\n**Tổng tiền:** ${ChatUtils.formatPrice(checkoutResult.total)}\n\nĐơn hàng sẽ được chuẩn bị và phục vụ khi bạn đến nhà hàng.`;
                         result.success = true;
                         result.data = {
                             order_id: checkoutResult.order_id,
@@ -750,7 +748,7 @@ async function executeAction(req, res, next) {
                                 month: '2-digit',
                                 year: 'numeric'
                             }) : reservation.reservation_date;
-                        result.message = `**Đơn hàng của bạn đã được tạo!**\n\n**Mã đơn hàng:** #${order.id}\n**Ngày đặt bàn:** ${formattedDate}\n**Giờ:** ${reservation.reservation_time}\n**Chi nhánh:** ${reservation.branch_name}\n\n**Danh sách món:**\n${itemsList}\n\n**Tổng tiền:** ${new Intl.NumberFormat('vi-VN').format(order.total || 0)}đ\n\nĐơn hàng sẽ được chuẩn bị và phục vụ khi bạn đến nhà hàng.`;
+                        result.message = `**Đơn hàng của bạn đã được tạo!**\n\n**Mã đơn hàng:** #${order.id}\n**Ngày đặt bàn:** ${formattedDate}\n**Giờ:** ${reservation.reservation_time}\n**Chi nhánh:** ${reservation.branch_name}\n\n**Danh sách món:**\n${itemsList}\n\n**Tổng tiền:** ${ChatUtils.formatPrice(order.total || 0)}\n\nĐơn hàng sẽ được chuẩn bị và phục vụ khi bạn đến nhà hàng.`;
                         result.data = {
                             order_id: order.id,
                             reservation_id: reservation.id,
@@ -788,7 +786,6 @@ async function executeAction(req, res, next) {
                 }
                 try {
                     const CartService = require('../services/CartService');
-                    const ConversationService = require('../services/chat/ConversationService');
                     const conversationId = req.body.conversation_id || req.query.conversation_id;
                     
                     // Get delivery address from context or data
@@ -883,7 +880,7 @@ async function executeAction(req, res, next) {
                     const branch = await BranchService.getBranchById(cart.branch_id);
                     const branchName = branch?.name || 'Chi nhánh';
                     
-                    let successMessage = `**Đặt hàng thành công!**\n\n**Mã đơn hàng:** #${checkoutResult.order_id}\n**Chi nhánh:** ${branchName}\n\n**Danh sách món:**\n${itemsList}\n\n**Tổng tiền:** ${new Intl.NumberFormat('vi-VN').format(checkoutResult.total)}đ\n\n`;
+                    let successMessage = `**Đặt hàng thành công!**\n\n**Mã đơn hàng:** #${checkoutResult.order_id}\n**Chi nhánh:** ${branchName}\n\n**Danh sách món:**\n${itemsList}\n\n**Tổng tiền:** ${ChatUtils.formatPrice(checkoutResult.total)}\n\n`;
                     
                     if (cart.order_type === 'delivery') {
                         successMessage += `**Địa chỉ giao hàng:** ${deliveryAddress}\n\nĐơn hàng sẽ được giao đến địa chỉ của bạn trong thời gian sớm nhất.`;
@@ -940,7 +937,7 @@ async function resetChat(req, res, next) {
         if (delete_messages !== undefined && typeof delete_messages !== 'boolean') {
             throw new ApiError(400, 'delete_messages must be a boolean');
         }
-        const result = await ChatService.resetConversation(conversation_id, user_id, deleteMessages);
+        const result = await MessageProcessor.resetConversation(conversation_id, user_id, deleteMessages);
         res.json(success(result, 'Chat reset successfully'));
     } catch (error) {
         next(new ApiError(500, error.message || 'Failed to reset chat'));
